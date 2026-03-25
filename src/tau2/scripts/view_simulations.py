@@ -69,6 +69,13 @@ def display_simulation_list(
         ConsoleDisplay.console.print(f"Total number of failed trials: {num_all_failed}")
 
 
+def is_solo_mode(results: Results) -> bool:
+    """Checks if the run used solo mode."""
+    agent_implementation = results.info.agent_info.implementation
+    user_implementation = results.info.user_info.implementation
+    return agent_implementation == "llm_agent_solo" and user_implementation == "dummy_user"
+
+
 def display_available_files(files):
     """Display a numbered list of available simulation files."""
     ConsoleDisplay.console.print("\n[bold blue]Available Simulation Files:[/]")
@@ -77,7 +84,13 @@ def display_available_files(files):
 
 
 def display_simulation_with_task(
-    simulation, task, results_file: str, sim_index: int, show_details: bool = True
+    simulation,
+    task,
+    results_file: str,
+    sim_index: int,
+    show_details: bool = True,
+    domain: Optional[str] = None,
+    solo_mode: bool = False,
 ):
     """Display a simulation along with its associated task."""
     ConsoleDisplay.console.print("\n" + "=" * 80)  # Separator
@@ -86,7 +99,13 @@ def display_simulation_with_task(
 
     ConsoleDisplay.console.print("\n" + "=" * 80)  # Separator
     ConsoleDisplay.console.print("[bold blue]Simulation Details:[/]")
-    ConsoleDisplay.display_simulation(simulation, show_details=show_details)
+    ConsoleDisplay.display_simulation(
+        simulation,
+        show_details=show_details,
+        task=task,
+        domain=domain,
+        solo_mode=solo_mode,
+    )
 
     # Prompt for notes
     ConsoleDisplay.console.print("\n" + "=" * 80)  # Separator
@@ -257,7 +276,13 @@ def main(
                 task = find_task_by_id(results.tasks, sim.task_id)
                 if task:
                     display_simulation_with_task(
-                        sim, task, current_file, sim_index, show_details=True
+                        sim,
+                        task,
+                        current_file,
+                        sim_index,
+                        show_details=True,
+                        domain=results.info.environment_info.domain_name,
+                        solo_mode=is_solo_mode(results),
                     )
                 else:
                     ConsoleDisplay.console.print(

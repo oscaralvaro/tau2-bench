@@ -3,7 +3,7 @@ import re
 
 import pandas as pd
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from tau2.data_model.simulation import Results
 
@@ -19,6 +19,7 @@ class AgentMetrics(BaseModel):
     avg_reward: float
     pass_hat_ks: dict[int, float]
     avg_agent_cost: float
+    avg_reward_breakdown: dict[str, float] = Field(default_factory=dict)
 
     def as_dict(self) -> dict:
         data = {
@@ -27,6 +28,8 @@ class AgentMetrics(BaseModel):
         }
         for k, v in self.pass_hat_ks.items():
             data[f"pass_hat_{k}"] = v
+        for k, v in self.avg_reward_breakdown.items():
+            data[f"avg_reward_{k.lower()}"] = v
         return data
 
 
@@ -116,10 +119,24 @@ def compute_metrics(results: Results) -> AgentMetrics:
             k = int(match.group(1))
             pass_hat_ks[k] = df_pass_hat_k[column].mean()
     avg_agent_cost = df.agent_cost.mean()
+    breakdown_sums: dict[str, float] = {}
+    breakdown_counts: dict[str, int] = {}
+    for simulation in results.simulations:
+        reward_info = simulation.reward_info
+        if reward_info is None or reward_info.reward_breakdown is None:
+            continue
+        for reward_type, value in reward_info.reward_breakdown.items():
+            key = reward_type.value
+            breakdown_sums[key] = breakdown_sums.get(key, 0.0) + value
+            breakdown_counts[key] = breakdown_counts.get(key, 0) + 1
+    avg_reward_breakdown = {
+        k: breakdown_sums[k] / breakdown_counts[k] for k in breakdown_sums
+    }
     return AgentMetrics(
         avg_reward=avg_reward,
         pass_hat_ks=pass_hat_ks,
         avg_agent_cost=avg_agent_cost,
+        avg_reward_breakdown=avg_reward_breakdown,
     )
 
 

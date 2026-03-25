@@ -1,5 +1,5 @@
 import json
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from rich.console import Console
 from rich.layout import Layout
@@ -11,12 +11,141 @@ from tau2.data_model.message import (
     AssistantMessage,
     Message,
     SystemMessage,
+    ToolCall,
     ToolMessage,
     UserMessage,
 )
 from tau2.data_model.simulation import RunConfig, SimulationRun
 from tau2.data_model.tasks import Action, Task
+from tau2.evaluator.evaluator_communicate import CommunicateEvaluator
+from tau2.registry import registry
 from tau2.metrics.agent_metrics import AgentMetrics, is_successful
+
+
+def _extract_tool_calls(messages: list[Message]) -> list[dict[str, Any]]:
+    tool_calls = []
+    for message in messages:
+        if isinstance(message, AssistantMessage) or isinstance(message, UserMessage):
+            if message.tool_calls:
+                for tool_call in message.tool_calls:
+                    tool_calls.append(
+                        {
+                            "requestor": message.role,
+                            "name": tool_call.name,
+                            "arguments": tool_call.arguments,
+                        }
+                    )
+    return tool_calls
+
+
+def _format_tool_call(call: dict[str, Any]) -> str:
+    return f"{call['requestor']}::{call['name']}({json.dumps(call['arguments'], indent=2)})"
+
+
+def _diff_values(
+    expected: Any, actual: Any, path: str, diffs: list[str], max_items: int
+) -> None:
+    if len(diffs) >= max_items:
+        return
+    if isinstance(expected, dict) and isinstance(actual, dict):
+        expected_keys = set(expected.keys())
+        actual_keys = set(actual.keys())
+        for key in sorted(expected_keys | actual_keys):
+            new_path = f"{path}.{key}" if path else str(key)
+            if key not in expected:
+                diffs.append(f"{new_path}: expected=<missing>, actual={actual[key]}")
+            elif key not in actual:
+                diffs.append(f"{new_path}: expected={expected[key]}, actual=<missing>")
+            else:
+                _diff_values(expected[key], actual[key], new_path, diffs, max_items)
+        return
+    if isinstance(expected, list) and isinstance(actual, list):
+        min_len = min(len(expected), len(actual))
+        for i in range(min_len):
+            new_path = f"{path}[{i}]"
+            _diff_values(expected[i], actual[i], new_path, diffs, max_items)
+            if len(diffs) >= max_items:
+                return
+        if len(expected) != len(actual):
+            diffs.append(
+                f"{path}: expected_length={len(expected)}, actual_length={len(actual)}"
+            )
+        return
+    if expected != actual:
+        diffs.append(f"{path}: expected={expected}, actual={actual}")
+
+
+def _get_db_dump(env, requestor: str) -> Optional[dict]:
+    tools = env.tools if requestor == "assistant" else env.user_tools
+    if tools is None or getattr(tools, "db", None) is None:
+        return None
+    return tools.db.model_dump()
+
+
+def _compute_db_diff(
+    domain: str,
+    task: Task,
+    simulation: SimulationRun,
+    solo_mode: bool = False,
+    max_items: int = 50,
+) -> dict[str, list[str]]:
+    env_constructor = registry.get_env_constructor(domain)
+    try:
+        predicted_env = (
+            env_constructor(solo_mode=solo_mode) if solo_mode else env_constructor()
+        )
+        gold_env = env_constructor()
+    except Exception:
+        return {}
+
+    initial_state = task.initial_state
+    initialization_data = (
+        initial_state.initialization_data if initial_state is not None else None
+    )
+    initialization_actions = (
+        initial_state.initialization_actions if initial_state is not None else None
+    )
+    message_history = (
+        initial_state.message_history
+        if initial_state is not None and initial_state.message_history is not None
+        else []
+    )
+
+    try:
+        predicted_env.set_state(
+            initialization_data=initialization_data,
+            initialization_actions=initialization_actions,
+            message_history=simulation.messages,
+        )
+        gold_env.set_state(
+            initialization_data=initialization_data,
+            initialization_actions=initialization_actions,
+            message_history=message_history,
+        )
+        golden_actions = task.evaluation_criteria.actions or []
+        for action in golden_actions:
+            try:
+                gold_env.make_tool_call(
+                    tool_name=action.name,
+                    requestor=action.requestor,
+                    **action.arguments,
+                )
+            except Exception:
+                continue
+    except Exception:
+        return {}
+
+    diffs: dict[str, list[str]] = {}
+    for requestor in ["assistant", "user"]:
+        expected = _get_db_dump(gold_env, requestor=requestor)
+        actual = _get_db_dump(predicted_env, requestor=requestor)
+        if expected is None or actual is None:
+            continue
+        diff_items: list[str] = []
+        _diff_values(expected, actual, path="", diffs=diff_items, max_items=max_items)
+        if diff_items:
+            diffs[requestor] = diff_items
+    return diffs
 
 
 class ConsoleDisplay:
@@ -153,6 +282,10 @@ class ConsoleDisplay:
                 eval_parts.append(
                     f"[white]Information to Communicate:[/]\n{json.dumps(task.evaluation_criteria.communicate_info, indent=2)}"
                 )
+            if task.evaluation_criteria.nl_assertions:
+                eval_parts.append(
+                    f"[white]NL Assertions:[/]\n{json.dumps(task.evaluation_criteria.nl_assertions, indent=2)}"
+                )
             if eval_parts:
                 content_parts.append(
                     "[bold cyan]Evaluation Criteria:[/]\n" + "\n".join(eval_parts)
@@ -167,7 +300,14 @@ class ConsoleDisplay:
         cls.console.print(task_panel)
 
     @classmethod
-    def display_simulation(cls, simulation: SimulationRun, show_details: bool = True):
+    def display_simulation(
+        cls,
+        simulation: SimulationRun,
+        show_details: bool = True,
+        task: Optional[Task] = None,
+        domain: Optional[str] = None,
+        solo_mode: bool = False,
+    ):
         """
         Display the simulation content in a formatted way using Rich library.
 
@@ -261,6 +401,80 @@ class ConsoleDisplay:
                 for key, value in simulation.reward_info.info.items():
                     sim_info.append(f"{key}: {value}\n")
 
+        if task is not None and task.evaluation_criteria is not None:
+            tool_calls = _extract_tool_calls(simulation.messages)
+            sim_info.append("\nExpected vs Observed:\n", style="bold magenta")
+
+            # Expected actions vs observed tool calls
+            expected_actions = task.evaluation_criteria.actions or []
+            if expected_actions:
+                sim_info.append("Actions (expected):\n", style="bold magenta")
+                for i, action in enumerate(expected_actions):
+                    matched_call = None
+                    for call in tool_calls:
+                        if call["requestor"] != action.requestor:
+                            continue
+                        if action.compare_with_tool_call(
+                            ToolCall(
+                                id="",
+                                name=call["name"],
+                                arguments=call["arguments"],
+                                requestor=action.requestor,
+                            )
+                        ):
+                            matched_call = call
+                            break
+                    status = "✅" if matched_call else "❌"
+                    expected_str = action.get_func_format()
+                    sim_info.append(
+                        f"- {i}: {action.requestor}::{expected_str} {status}\n"
+                    )
+                    sim_info.append("  expected args:\n")
+                    sim_info.append(f"  {json.dumps(action.arguments, indent=2)}\n")
+                    if matched_call is None:
+                        sim_info.append("  matched args:\n")
+                        sim_info.append("  <missing>\n")
+                    else:
+                        sim_info.append("  matched args:\n")
+                        sim_info.append(
+                            f"  {json.dumps(matched_call['arguments'], indent=2)}\n"
+                        )
+                sim_info.append("Observed tool calls:\n", style="bold magenta")
+                for i, call in enumerate(tool_calls):
+                    sim_info.append(f"- {i}: {_format_tool_call(call)}\n")
+
+            # Expected communication vs observed messages
+            expected_comm = task.evaluation_criteria.communicate_info or []
+            if expected_comm:
+                sim_info.append("\nCommunication (expected):\n", style="bold magenta")
+                comm_checks = CommunicateEvaluator.evaluate_communicate_info(
+                    simulation.messages, expected_comm
+                )
+                for i, check in enumerate(comm_checks):
+                    status = "✅" if check.met else "❌"
+                    sim_info.append(f"- {i}: {check.info} {status}\n")
+                    sim_info.append(f"  {check.justification}\n")
+
+            # DB diff if mismatch
+            if (
+                simulation.reward_info
+                and simulation.reward_info.db_check
+                and not simulation.reward_info.db_check.db_match
+                and domain is not None
+            ):
+                db_diffs = _compute_db_diff(
+                    domain=domain,
+                    task=task,
+                    simulation=simulation,
+                    solo_mode=solo_mode,
+                )
+                if db_diffs:
+                    sim_info.append("\nDB Diff (expected vs actual):\n", style="bold red")
+                    for requestor, diffs in db_diffs.items():
+                        sim_info.append(f"{requestor} DB differences:\n")
+                        for diff in diffs:
+                            sim_info.append(f"- {diff}\n")
+
         cls.console.print(
             Panel(sim_info, title="Simulation Overview", border_style="blue")
         )
@@ -339,6 +553,14 @@ class ConsoleDisplay:
         # Add average reward section
         content.append("🏆 Average Reward: ", style="bold cyan")
         content.append(f"{metrics.avg_reward:.4f}\n\n")
+
+        # Add average reward breakdown section
+        if metrics.avg_reward_breakdown:
+            content.append("🧩 Average Reward Breakdown:\n", style="bold cyan")
+            for key in sorted(metrics.avg_reward_breakdown.keys()):
+                content.append(f"- {key}: ", style="bold white")
+                content.append(f"{metrics.avg_reward_breakdown[key]:.3f}\n")
+            content.append("\n")
 
         # Add Pass^k metrics section
         content.append("📈 Pass^k Metrics:", style="bold cyan")
