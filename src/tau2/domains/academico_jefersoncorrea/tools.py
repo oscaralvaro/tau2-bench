@@ -119,7 +119,7 @@ class AcademicTools(ToolKitBase):
             if enr.student_id == student_id and enr.course_id == course_id and enr.status == "active":
                 raise ValueError(f"Matrícula rechazada: El estudiante ya está en '{course_id}'.")
 
-        enrollment_id = f"ENROLL-{str(uuid.uuid4())[:8].upper()}"
+        enrollment_id = f"ENROLL-{student_id}-{course_id}"
         new_enrollment = Enrollment(
             enrollment_id=enrollment_id,
             student_id=student_id,
