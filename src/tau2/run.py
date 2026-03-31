@@ -496,9 +496,9 @@ def run_task(
 
     UserConstructor = registry.get_user_constructor(user)
     if issubclass(UserConstructor, DummyUser):
-        assert isinstance(
-            agent, LLMSoloAgent
-        ), "Dummy user can only be used with solo agent"
+        assert isinstance(agent, LLMSoloAgent), (
+            "Dummy user can only be used with solo agent"
+        )
 
     user = UserConstructor(
         tools=user_tools,
