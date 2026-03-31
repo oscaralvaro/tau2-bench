@@ -1,4 +1,4 @@
-import datetime
+﻿import datetime
 from typing import Dict, List, Literal, Union
 
 from pydantic import BaseModel, Field, model_validator
@@ -25,7 +25,7 @@ class Item(BaseModel):
 
     id_item: str = Field(description="Unique item identifier")
     nombre_producto: str = Field(description="Product name")
-    tipo_combustible: str = Field(description="Product fuel or product type")
+    tipo_producto: str = Field(description="Product type")
     unidad_medida: ItemUnit = Field(
         description="Unit of measure in which the product is sold"
     )
@@ -42,6 +42,10 @@ class Item(BaseModel):
             raise ValueError("Item price must be greater than zero")
         if self.cantidad_disponible < 0:
             raise ValueError("Available quantity cannot be negative")
+        if self.tipo_producto == "lubricante" and self.unidad_medida != "unidad":
+            raise ValueError("Lubricants must use 'unidad' as their unit of measure")
+        if self.tipo_producto == "combustible" and self.unidad_medida != "galones":
+            raise ValueError("Fuel products must use 'galones' as their unit of measure")
         return self
 
 
@@ -183,8 +187,8 @@ class Order(BaseModel):
     nombre_producto_snapshot: str = Field(
         description="Product name at the time the order is created"
     )
-    tipo_combustible_snapshot: str = Field(
-        description="Product or fuel type at the time the order is created"
+    tipo_producto_snapshot: str = Field(
+        description="Product type at the time the order is created"
     )
     unidad_medida: ItemUnit = Field(description="Order unit of measure")
     precio_unitario_snapshot: float = Field(
@@ -251,8 +255,12 @@ class Order(BaseModel):
 
     @model_validator(mode="after")
     def validate_order(self) -> "Order":
+        if self.tipo_producto_snapshot == "lubricante" and self.unidad_medida != "unidad":
+            raise ValueError("Lubricant orders must use 'unidad' as their unit of measure")
+        if self.tipo_producto_snapshot == "combustible" and self.unidad_medida != "galones":
+            raise ValueError("Fuel orders must use 'galones' as their unit of measure")
         if (
-            self.tipo_combustible_snapshot == "combustible"
+            self.tipo_producto_snapshot == "combustible"
             and self.unidad_medida == "galones"
             and self.cantidad_solicitada < self.minimo_galones
         ):
@@ -261,7 +269,7 @@ class Order(BaseModel):
             )
         if (
             self.unidad_medida == "galones"
-            and self.tipo_combustible_snapshot != "combustible"
+            and self.tipo_producto_snapshot != "combustible"
             and self.id_order_combustible_asociado is None
         ):
             raise ValueError(
@@ -279,7 +287,10 @@ class Order(BaseModel):
             raise ValueError("Fulfilled quantity cannot be greater than requested quantity")
         if self.fecha_hora_programada < self.fecha_hora_solicitada:
             raise ValueError("Scheduled date and time cannot be earlier than the requested one")
-        if self.cantidad_atendida < self.cantidad_solicitada:
+        if (
+            self.estado_pedido != "cancelled"
+            and self.cantidad_atendida < self.cantidad_solicitada
+        ):
             raise ValueError("Partial deliveries are not allowed")
         if self.estado_pedido == "cancelled" and self.cantidad_atendida > 0:
             raise ValueError("A cancelled order must not keep a fulfilled quantity")
@@ -327,3 +338,4 @@ Cliente = Customer
 Pago = Payment
 Reclamacion = Claim
 GrifoDB = FuelStationDB
+
