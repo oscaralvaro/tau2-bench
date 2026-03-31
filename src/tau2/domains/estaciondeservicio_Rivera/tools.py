@@ -1,4 +1,4 @@
-"""Toolkit for the estaciondeservicio_Rivera domain."""
+﻿"""Toolkit for the estaciondeservicio_Rivera domain."""
 
 import datetime
 from typing import List, Optional
@@ -26,7 +26,7 @@ class StockInfo(BaseModel):
 
     id_item: str = Field(description="Item identifier")
     nombre_producto: str = Field(description="Product name")
-    tipo_combustible: str = Field(description="Product or fuel type")
+    tipo_producto: str = Field(description="Product type")
     cantidad_disponible: int = Field(description="Available stock quantity")
     disponible: bool = Field(description="Whether the item is currently in stock")
 
@@ -150,7 +150,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
             raise ValueError(
                 "The associated fuel order must belong to the same customer"
             )
-        if order.tipo_combustible_snapshot != "combustible":
+        if order.tipo_producto_snapshot != "combustible":
             raise ValueError("The associated order must be a fuel order")
         if order.unidad_medida != "galones":
             raise ValueError("The associated fuel order must be expressed in gallons")
@@ -211,7 +211,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
             item
             for item in self.db.items.values()
             if query_normalized in item.nombre_producto.lower()
-            or query_normalized in item.tipo_combustible.lower()
+            or query_normalized in item.tipo_producto.lower()
         ]
         if not results:
             raise ValueError("No items were found for the requested search")
@@ -224,7 +224,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         return StockInfo(
             id_item=item.id_item,
             nombre_producto=item.nombre_producto,
-            tipo_combustible=item.tipo_combustible,
+            tipo_producto=item.tipo_producto,
             cantidad_disponible=item.cantidad_disponible,
             disponible=item.disponible,
         )
@@ -405,7 +405,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         if item.cantidad_disponible <= 0:
             raise ValueError("There is no stock available for that product")
 
-        if item.tipo_combustible == "lubricante":
+        if item.tipo_producto == "lubricante":
             if id_order_combustible_asociado is None:
                 raise ValueError(
                     "Oils and lubricants may only be requested together with an associated fuel order of at least 250 gallons"
@@ -427,7 +427,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
             id_order_combustible_asociado=id_order_combustible_asociado,
             id_item=id_item,
             nombre_producto_snapshot=item.nombre_producto,
-            tipo_combustible_snapshot=item.tipo_combustible,
+            tipo_producto_snapshot=item.tipo_producto,
             unidad_medida=item.unidad_medida,
             precio_unitario_snapshot=item.precio,
             cantidad_solicitada=cantidad_solicitada,
@@ -470,7 +470,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
 
         cliente = self._get_cliente(order.id_cliente)
         item = self._get_item(order.id_item)
-        if item.tipo_combustible == "lubricante":
+        if item.tipo_producto == "lubricante":
             if order.id_order_combustible_asociado is None:
                 raise ValueError(
                     "A lubricant order must keep an associated fuel order"
@@ -733,3 +733,4 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
     def transfer_to_human_agents(self, summary: str) -> str:
         """Transfers the case to a human agent when requested or when tools are insufficient."""
         return "Transfer successful"
+
