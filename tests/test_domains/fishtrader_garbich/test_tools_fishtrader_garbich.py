@@ -325,7 +325,7 @@ def fishtrader_db() -> FishTraderDB:
                 "paid_amount": 300.0,
                 "status": "partially_paid",
                 "issued_at": "2026-03-20T12:00:00",
-                "paid_at": null,
+                "paid_at": None,
                 "payment_records": [
                     {
                         "payment_id": "PAY-001",
@@ -374,7 +374,7 @@ def fishtrader_db() -> FishTraderDB:
                 "paid_amount": 0.0,
                 "status": "issued",
                 "issued_at": "2026-03-27T12:00:00",
-                "paid_at": null,
+                "paid_at": None,
                 "payment_records": [],
             },
         },
@@ -392,7 +392,7 @@ def fishtrader_db() -> FishTraderDB:
                 "estimated_departure_date": "2026-03-25",
                 "estimated_arrival_date": "2026-04-08",
                 "actual_departure_date": "2026-03-25",
-                "actual_arrival_date": null,
+                "actual_arrival_date": None,
                 "incoterm": "FOB",
                 "status": "in_transit",
                 "notes": "Shipment in transit.",
