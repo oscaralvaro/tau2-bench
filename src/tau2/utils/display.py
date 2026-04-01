@@ -547,29 +547,24 @@ class ConsoleDisplay:
 
     @classmethod
     def display_agent_metrics(cls, metrics: AgentMetrics):
-        # Create content for metrics panel
         content = Text()
 
-        # Add average reward section
-        content.append("🏆 Average Reward: ", style="bold cyan")
+        content.append("Average Reward: ", style="bold cyan")
         content.append(f"{metrics.avg_reward:.4f}\n\n")
 
-        # Add average reward breakdown section
         if metrics.avg_reward_breakdown:
-            content.append("🧩 Average Reward Breakdown:\n", style="bold cyan")
+            content.append("Average Reward Breakdown:\n", style="bold cyan")
             for key in sorted(metrics.avg_reward_breakdown.keys()):
                 content.append(f"- {key}: ", style="bold white")
                 content.append(f"{metrics.avg_reward_breakdown[key]:.3f}\n")
             content.append("\n")
 
-        # Add Pass^k metrics section
-        content.append("📈 Pass^k Metrics:", style="bold cyan")
+        content.append("Pass^k Metrics:", style="bold cyan")
         for k, pass_hat_k in metrics.pass_hat_ks.items():
             content.append(f"\nk={k}: ", style="bold white")
             content.append(f"{pass_hat_k:.3f}")
 
-        # Add average agent cost section
-        content.append("\n\n💰 Average Cost per Conversation: ", style="bold cyan")
+        content.append("\n\nAverage Cost per Conversation: ", style="bold cyan")
         content.append(f"${metrics.avg_agent_cost:.4f}\n\n")
 
         # Create and display panel

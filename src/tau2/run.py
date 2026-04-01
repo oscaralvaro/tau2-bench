@@ -17,7 +17,7 @@ from tau2.data_model.simulation import (
     SimulationRun,
     UserInfo,
 )
-from tau2.data_model.tasks import Task
+from tau2.data_model.tasks import RewardType, Task
 from tau2.environment.environment import Environment, EnvironmentInfo
 from tau2.evaluator.evaluator import EvaluationType, evaluate_simulation
 from tau2.gym.gym_agent import GymAgent
@@ -109,6 +109,23 @@ def make_run_name(config: RunConfig) -> str:
     return f"{get_now()}_{config.domain}_{agent_name}_{user_name}"
 
 
+def get_default_evaluation_type(tasks: list[Task]) -> EvaluationType:
+    """
+    Pick the evaluation mode required by the loaded task definitions.
+
+    Tasks that rely on NL assertions must be evaluated with
+    ALL_WITH_NL_ASSERTIONS so their reward basis is honored.
+    """
+    for task in tasks:
+        criteria = task.evaluation_criteria
+        if criteria is None:
+            continue
+        reward_basis = set(criteria.reward_basis or [])
+        if RewardType.NL_ASSERTION in reward_basis:
+            return EvaluationType.ALL_WITH_NL_ASSERTIONS
+    return EvaluationType.ALL
+
+
 def run_domain(config: RunConfig) -> Results:
     """
     Run simulations for a domain
@@ -149,6 +166,7 @@ def run_domain(config: RunConfig) -> Results:
     if save_to is None:
         save_to = make_run_name(config)
     save_to = DATA_DIR / "simulations" / f"{save_to}.json"
+    evaluation_type = get_default_evaluation_type(tasks)
     simulation_results = run_tasks(
         domain=config.domain,
         tasks=tasks,
@@ -163,7 +181,7 @@ def run_domain(config: RunConfig) -> Results:
         max_errors=config.max_errors,
         save_to=save_to,
         console_display=True,
-        evaluation_type=EvaluationType.ALL,
+        evaluation_type=evaluation_type,
         max_concurrency=config.max_concurrency,
         seed=config.seed,
         log_level=config.log_level,
