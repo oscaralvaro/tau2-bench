@@ -1,4 +1,7 @@
 import json
+import re
+
+from loguru import logger
 
 from tau2.config import DEFAULT_LLM_NL_ASSERTIONS, DEFAULT_LLM_NL_ASSERTIONS_ARGS
 from tau2.data_model.message import Message, SystemMessage, UserMessage
@@ -11,6 +14,42 @@ class NLAssertionsEvaluator:
     """
     Judge that evaluates whether a trajectory adheres to all the natural-language assertions.
     """
+
+    @staticmethod
+    def _fallback_failed_checks(
+        nl_assertions: list[str], reason: str
+    ) -> list[NLAssertionCheck]:
+        return [
+            NLAssertionCheck(
+                nl_assertion=assertion,
+                met=False,
+                justification=reason,
+            )
+            for assertion in nl_assertions
+        ]
+
+    @staticmethod
+    def _extract_json_payload(content: str) -> dict | None:
+        if not content:
+            return None
+
+        text = content.strip()
+        candidates = [text]
+
+        fenced = re.findall(r"```(?:json)?\s*(.*?)```", text, flags=re.DOTALL)
+        candidates.extend(candidate.strip() for candidate in fenced if candidate.strip())
+
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            candidates.append(text[start : end + 1].strip())
+
+        for candidate in candidates:
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+        return None
 
     @classmethod
     def calculate_reward(
@@ -117,7 +156,13 @@ class NLAssertionsEvaluator:
             messages=messages,
             **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
         )
-        result_data = json.loads(assistant_message.content)
+        result_data = cls._extract_json_payload(assistant_message.content or "")
+        if result_data is None:
+            logger.warning("NL assertion judge returned non-JSON content.")
+            return cls._fallback_failed_checks(
+                nl_assertions,
+                "The NL assertion judge returned invalid or empty JSON output.",
+            )
         return [
             NLAssertionCheck(
                 nl_assertion=result["expectedOutcome"],

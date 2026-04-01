@@ -16,10 +16,10 @@ def main():
     print(f"Data directory: {DATA_DIR}")
 
     if DATA_DIR.exists():
-        print("✅ Data directory exists")
+        print("[OK] Data directory exists")
         print("You can now run tau2 commands.")
     else:
-        print("❌ Data directory does not exist!")
+        print("[ERROR] Data directory does not exist!")
         print("\nTo fix this, you can:")
         print("1. Set the TAU2_DATA_DIR environment variable:")
         print("   export TAU2_DATA_DIR=/path/to/your/tau2-bench/data")
