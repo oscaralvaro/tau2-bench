@@ -58,7 +58,11 @@ from tau2.domains.burger.environment import (
 
 
 # START DOMAIN IMPORT: Dany Joel Farfan Moscol
-from tau2.domains.retail_farfan.environment import RetailFarfanOrderManagementEnv
+from tau2.domains.retail_farfan.environment import (
+    get_environment as retail_farfan_get_environment,
+    get_tasks as retail_farfan_get_tasks,
+    get_tasks_split as retail_farfan_get_tasks_split,
+)
 
 # END DOMAIN IMPORT: Dany Joel Farfan Moscol
 
@@ -351,7 +355,13 @@ try:
     # END DOMAIN REGISTRATION: Jorge Luis Calle Cardoza
 
     # START DOMAIN REGISTRATION: Dany Joel Farfan Moscol
-    registry.register_domain(lambda: RetailFarfanOrderManagementEnv(), "retail_farfan")
+    # Al final del archivo:
+    registry.register_domain(retail_farfan_get_environment, "retail_farfan")
+    registry.register_tasks(
+        retail_farfan_get_tasks,
+        "retail_farfan",
+        get_task_splits=retail_farfan_get_tasks_split,
+    )
 
     # END DOMAIN REGISTRATION: Dany Joel Farfan Moscol
 
