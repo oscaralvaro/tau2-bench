@@ -14,6 +14,15 @@ from tau2.domains.airline.environment import get_tasks as airline_domain_get_tas
 from tau2.domains.airline.environment import (
     get_tasks_split as airline_domain_get_tasks_split,
 )
+from tau2.domains.ecommerce_zulemalopez.environment import (
+    get_environment as ecommerce_zulemalopez_domain_get_environment,
+)
+from tau2.domains.ecommerce_zulemalopez.environment import (
+    get_tasks as ecommerce_zulemalopez_domain_get_tasks,
+)
+from tau2.domains.ecommerce_zulemalopez.environment import (
+    get_tasks_split as ecommerce_zulemalopez_domain_get_tasks_split,
+)
 from tau2.domains.mock.environment import get_environment as mock_domain_get_environment
 from tau2.domains.mock.environment import get_tasks as mock_domain_get_tasks
 from tau2.domains.retail.environment import (
@@ -225,6 +234,15 @@ try:
         retail_domain_get_tasks,
         "retail",
         get_task_splits=retail_domain_get_tasks_split,
+    )
+
+    registry.register_domain(
+        ecommerce_zulemalopez_domain_get_environment, "ecommerce_zulemalopez"
+    )
+    registry.register_tasks(
+        ecommerce_zulemalopez_domain_get_tasks,
+        "ecommerce_zulemalopez",
+        get_task_splits=ecommerce_zulemalopez_domain_get_tasks_split,
     )
 
     registry.register_domain(telecom_domain_get_environment_manual_policy, "telecom")
