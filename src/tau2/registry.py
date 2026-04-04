@@ -82,6 +82,11 @@ from tau2.domains.burger.environment import (
 
 
 # START DOMAIN IMPORT: Diego Eduardo Rivera Rodriguez
+from tau2.domains.estaciondeservicio_Rivera.environment import (
+    get_environment as estaciondeservicio_Rivera_get_environment,
+    get_tasks as estaciondeservicio_Rivera_get_tasks,
+    get_tasks_split as estaciondeservicio_Rivera_get_tasks_split,
+)
 
 # END DOMAIN IMPORT: Diego Eduardo Rivera Rodriguez
 
@@ -398,6 +403,15 @@ try:
 
 
     # START DOMAIN REGISTRATION: Diego Eduardo Rivera Rodriguez
+    registry.register_domain(
+        estaciondeservicio_Rivera_get_environment,
+        "estaciondeservicio_Rivera",
+    )
+    registry.register_tasks(
+        estaciondeservicio_Rivera_get_tasks,
+        "estaciondeservicio_Rivera",
+        get_task_splits=estaciondeservicio_Rivera_get_tasks_split,
+    )
 
     # END DOMAIN REGISTRATION: Diego Eduardo Rivera Rodriguez
 
