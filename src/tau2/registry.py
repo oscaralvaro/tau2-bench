@@ -99,6 +99,15 @@ from tau2.domains.burger.environment import (
 
 
 # START DOMAIN IMPORT: Joaquin Cachay Cornejo
+from tau2.domains.restaurante_joaquin_cachay.environment import (
+    get_environment as restaurante_joaquin_cachay_domain_get_environment,
+)
+from tau2.domains.restaurante_joaquin_cachay.environment import (
+    get_tasks as restaurante_joaquin_cachay_domain_get_tasks,
+)
+from tau2.domains.restaurante_joaquin_cachay.environment import (
+    get_tasks_split as restaurante_joaquin_cachay_domain_get_tasks_split,
+)
 
 # END DOMAIN IMPORT: Joaquin Cachay Cornejo
 
@@ -415,6 +424,15 @@ try:
 
 
     # START DOMAIN REGISTRATION: Joaquin Cachay Cornejo
+    registry.register_domain(
+        restaurante_joaquin_cachay_domain_get_environment,
+        "restaurante_joaquin_cachay",
+    )
+    registry.register_tasks(
+        restaurante_joaquin_cachay_domain_get_tasks,
+        "restaurante_joaquin_cachay",
+        get_task_splits=restaurante_joaquin_cachay_domain_get_tasks_split,
+    )
 
     # END DOMAIN REGISTRATION: Joaquin Cachay Cornejo
 
@@ -486,3 +504,4 @@ try:
     )
 except Exception as e:
     logger.error(f"Error initializing registry: {str(e)}")
+
