@@ -69,9 +69,9 @@ from tau2.domains.burger.environment import (
 
 
 
-# START DOMAIN IMPORT: Jeferson Lennin Correa Sunción
-
-# END DOMAIN IMPORT: Jeferson Lennin Correa Sunción
+from tau2.domains.academico_jefersoncorrea.environment import (get_environment as academico_jefersoncorrea_get_environment,)
+from tau2.domains.academico_jefersoncorrea.environment import (get_tasks as academico_jefersoncorrea_get_tasks,)
+from tau2.domains.academico_jefersoncorrea.environment import (get_tasks_split as academico_jefersoncorrea_get_tasks_split,)
 
 
 
@@ -385,9 +385,9 @@ try:
 
 
 
-    # START DOMAIN REGISTRATION: Jeferson Lennin Correa Sunción
+    registry.register_domain(academico_jefersoncorrea_get_environment, "academico_jefersoncorrea")
+    registry.register_tasks(academico_jefersoncorrea_get_tasks,"academico_jefersoncorrea",get_task_splits=academico_jefersoncorrea_get_tasks_split,)
 
-    # END DOMAIN REGISTRATION: Jeferson Lennin Correa Sunción
 
 
 
@@ -480,7 +480,7 @@ try:
         "telecom-workflow",
         get_task_splits=telecom_domain_get_tasks_split,
     )
-
+    
     logger.debug(
         f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
     )
