@@ -75,8 +75,7 @@ def make_offline_generate_stub(responses):
 
 @pytest.fixture
 def model() -> str:
-    return "gpt-4o-mini"
-
+    return "gemini/gemma-3-27b-it"
 
 @pytest.fixture
 def messages() -> list[Message]:
