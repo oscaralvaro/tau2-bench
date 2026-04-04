@@ -68,7 +68,7 @@ from tau2.domains.hotel_calle.environment import (
 
 
 # START DOMAIN IMPORT: Jorge Luis Calle Cardoza
-
+from tau2.domains.hotel_calle.domain import HotelCalleDomain
 # END DOMAIN IMPORT: Jorge Luis Calle Cardoza
 
 
@@ -391,7 +391,7 @@ try:
 
 
     # START DOMAIN REGISTRATION: Jorge Luis Calle Cardoza
-
+    registry.register_domain("hotel_calle", HotelCalleDomain)
     # END DOMAIN REGISTRATION: Jorge Luis Calle Cardoza
 
 
