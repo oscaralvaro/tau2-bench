@@ -134,6 +134,8 @@ class VirtualInvoice(BaseModel):
             self.email_envio = None
         elif self.email_envio is None:
             raise ValueError("email_envio is required when a virtual invoice is requested")
+        elif self.estado_factura == "sent" and self.invoice_id is None:
+            raise ValueError("invoice_id is required when the virtual invoice is sent")
         return self
 
 
@@ -294,8 +296,14 @@ class Order(BaseModel):
             raise ValueError("Partial deliveries are not allowed")
         if self.estado_pedido == "cancelled" and self.cantidad_atendida > 0:
             raise ValueError("A cancelled order must not keep a fulfilled quantity")
+        if self.estado_pedido == "cancelled" and self.fecha_hora_cancelacion is None:
+            raise ValueError("fecha_hora_cancelacion is required when the order is cancelled")
+        if self.estado_pedido == "cancelled" and not self.motivo_cancelacion:
+            raise ValueError("motivo_cancelacion is required when the order is cancelled")
         if self.estado_pedido == "delivered" and self.fecha_hora_entrega_real is None:
             raise ValueError("fecha_hora_entrega_real is required when the order is delivered")
+        if self.estado_pedido == "delivered" and not self.comprobante_entrega:
+            raise ValueError("comprobante_entrega is required when the order is delivered")
         if (
             self.fecha_hora_entrega_real is not None
             and self.fecha_hora_entrega_real < self.fecha_hora_programada
