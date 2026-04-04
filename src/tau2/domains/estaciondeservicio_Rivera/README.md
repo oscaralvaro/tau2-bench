@@ -96,7 +96,8 @@ The task set currently contains 20 tasks covering successful flows, policy rejec
 Representative examples:
 
 - `0`: Customer requests the catalog and stock information.
-- `1`: Register a new customer, register a payment method, and create a valid fuel order.
+- `1`: Register a new corporate customer.
+- `20`: Register a payment method and create a valid fuel order for an existing customer.
 - `4`: Register a lubricant order linked to a valid fuel order.
 - `5`: Cancel a pending order within the allowed time window.
 - `6`: Change the payment method before payment and then complete the full payment.
