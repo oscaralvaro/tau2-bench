@@ -128,8 +128,12 @@ from tau2.domains.burger.environment import (
 
 
 
-# START DOMAIN IMPORT: Maria Jose Calderon Samaniego
-
+# START DOMAIN IMPORT: Maria Jose Calderon Samaniegon
+from tau2.domains.cable_calderon.environment import (
+    get_environment as cable_calderon_get_environment,
+    get_tasks as cable_calderon_get_tasks,
+    get_tasks_split as cable_calderon_get_tasks_split,
+)
 # END DOMAIN IMPORT: Maria Jose Calderon Samaniego
 
 
@@ -445,44 +449,49 @@ try:
 
 
     # START DOMAIN REGISTRATION: Maria Jose Calderon Samaniego
-
+    registry.register_domain(cable_calderon_get_environment, "cable_calderon")
+    registry.register_tasks(
+        cable_calderon_get_tasks,
+        "cable_calderon",
+        get_task_splits=cable_calderon_get_tasks_split,
+    )
     # END DOMAIN REGISTRATION: Maria Jose Calderon Samaniego
 
 
 
     registry.register_domain(airline_domain_get_environment, "airline")
     registry.register_tasks(
-        airline_domain_get_tasks,
-        "airline",
-        get_task_splits=airline_domain_get_tasks_split,
-    )
+            airline_domain_get_tasks,
+            "airline",
+            get_task_splits=airline_domain_get_tasks_split,
+        )
 
     registry.register_domain(retail_domain_get_environment, "retail")
     registry.register_tasks(
-        retail_domain_get_tasks,
-        "retail",
-        get_task_splits=retail_domain_get_tasks_split,
-    )
+            retail_domain_get_tasks,
+            "retail",
+            get_task_splits=retail_domain_get_tasks_split,
+        )
 
     registry.register_domain(telecom_domain_get_environment_manual_policy, "telecom")
     registry.register_domain(
-        telecom_domain_get_environment_workflow_policy, "telecom-workflow"
-    )
+            telecom_domain_get_environment_workflow_policy, "telecom-workflow"
+        )
     registry.register_tasks(telecom_domain_get_tasks_full, "telecom_full")
     registry.register_tasks(telecom_domain_get_tasks_small, "telecom_small")
     registry.register_tasks(
-        telecom_domain_get_tasks,
-        "telecom",
-        get_task_splits=telecom_domain_get_tasks_split,
-    )
+            telecom_domain_get_tasks,
+            "telecom",
+            get_task_splits=telecom_domain_get_tasks_split,
+        )
     registry.register_tasks(
-        telecom_domain_get_tasks,
-        "telecom-workflow",
-        get_task_splits=telecom_domain_get_tasks_split,
-    )
+            telecom_domain_get_tasks,
+            "telecom-workflow",
+            get_task_splits=telecom_domain_get_tasks_split,
+        )
 
     logger.debug(
-        f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
-    )
+            f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
+        )
 except Exception as e:
     logger.error(f"Error initializing registry: {str(e)}")
