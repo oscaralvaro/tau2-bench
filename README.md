@@ -497,3 +497,59 @@ sequenceDiagram
       url={https://arxiv.org/abs/2506.07982}, 
 }
 ```
+---
+
+# Hotel Calle Domain
+
+## Autor
+Jorge Calle
+
+## Domain Summary
+The `hotel_calle` domain simulates a hotel assistant that helps users find rooms, check availability, compare options, and make reservations while following a defined policy.
+
+## Entities
+- User
+- RoomType
+- HotelRoom
+- Reservation
+- HotelInfo
+
+## Tools
+
+### Read tools
+- get_hotel_info
+- get_room_catalog
+- check_room_availability
+- get_reservation
+
+### Write tools
+- create_reservation
+
+## Policy Summary
+The assistant:
+- must not invent data
+- must use tools when needed
+- must ask for missing information before booking
+- must respect hotel rules
+
+## Tasks
+Includes:
+- availability queries
+- pricing queries
+- reservations
+- validation cases
+
+## Simulation Result
+Simulation executed using throttling:
+
+- agent: gemini/gemma-3-27b-it  
+- user: gemini/gemma-3-12b-it  
+
+Results:
+- Average Reward: 0.6667  
+- Action Score: 1.000  
+- Communicate Score: 0.667  
+- Pass@k: 0.667  
+
+Simulation file included in:
+data/simulations/
