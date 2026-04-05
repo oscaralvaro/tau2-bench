@@ -1,5 +1,6 @@
 import pytest
 
+from tau2.data_model.message import ToolCall
 from tau2.domains.fishtrader_garbich.data_model import FishTraderDB
 from tau2.domains.fishtrader_garbich.environment import get_environment
 from tau2.environment.environment import Environment
@@ -401,6 +402,28 @@ def fishtrader_db() -> FishTraderDB:
     )
 
 
+def test_make_payment_is_deterministic_for_evaluation_replay(
+    fishtrader_db: FishTraderDB,
+) -> None:
+    env_one = get_environment(db=fishtrader_db.model_copy(deep=True))
+    env_two = get_environment(db=fishtrader_db.model_copy(deep=True))
+    tool_call = ToolCall(
+        id="call_payment",
+        name="make_payment",
+        arguments={
+            "invoice_id": "INV-002",
+            "amount": 1937.56,
+            "payment_method": "bank_transfer",
+            "reference": "ORD-002 Cancellation Request",
+        },
+    )
+
+    response_one = env_one.get_response(tool_call)
+    response_two = env_two.get_response(tool_call)
+
+    assert response_one.content == response_two.content
+
+
 @pytest.fixture
 def environment(fishtrader_db: FishTraderDB) -> Environment:
     return get_environment(fishtrader_db)
@@ -521,6 +544,28 @@ def test_register_order(environment: Environment):
         )
 
 
+def test_register_order_accepts_simplified_items(environment: Environment):
+    order = environment.tools.register_order(
+        customer_id="CUST-001",
+        items=[
+            {
+                "product_id": "PROD-001",
+                "quantity": 50.0,
+                "unit_price": 8.2,
+            }
+        ],
+        delivery_date="2026-04-05",
+    )
+    item = order.items[0]
+
+    assert item.line_id == "LINE-004"
+    assert item.product_name == "Frozen Mahi Mahi Fillet"
+    assert item.unit_of_measure == "kg"
+    assert item.unit_price == 8.2
+    assert item.subtotal == 410.0
+    assert item.supplier_id == "SUP-001"
+
+
 def test_modify_order(environment: Environment):
     order = environment.tools.modify_order(
         order_id="ORD-001",
@@ -546,6 +591,28 @@ def test_modify_order(environment: Environment):
             order_id="ORD-002",
             delivery_date="2026-04-12",
         )
+
+
+def test_modify_order_accepts_sparse_item_updates(environment: Environment):
+    order = environment.tools.modify_order(
+        order_id="ORD-001",
+        items=[
+            {
+                "line_id": "LINE-001",
+                "product_id": "PROD-001",
+                "quantity": 80.0,
+            }
+        ],
+        delivery_date="2026-04-03",
+    )
+
+    assert order.delivery_date.isoformat() == "2026-04-03"
+    assert order.items[0].product_name == "Frozen Mahi Mahi Fillet"
+    assert order.items[0].unit_of_measure == "kg"
+    assert order.items[0].unit_price == 8.2
+    assert order.items[0].subtotal == 656.0
+    assert order.items[0].supplier_id == "SUP-001"
+    assert order.total_amount == 656.0
 
 
 def test_cancel_order(environment: Environment):
