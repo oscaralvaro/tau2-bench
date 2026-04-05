@@ -372,12 +372,12 @@ try:
 
 
     # START DOMAIN REGISTRATION: Maricielo Nicolle Irigoin Cabrera
-registry.register_domain(sanita_irigoin_get_environment, "sanita_irigoin")
-registry.register_tasks(
+    registry.register_domain(sanita_irigoin_get_environment, "sanita_irigoin")
+    registry.register_tasks(
     sanita_irigoin_get_tasks,
     "sanita_irigoin",
     get_task_splits=sanita_irigoin_get_tasks_split,
-)
+    )
 # END DOMAIN REGISTRATION: Sanita Irigoin
    # END DOMAIN REGISTRATION: Maricielo Nicolle Irigoin Cabrera
 
