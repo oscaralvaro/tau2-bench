@@ -25,18 +25,6 @@ from tau2.domains.burger.environment import (
 )
 # END Domain: Burger environment
 
-from tau2.domains.hotel_calle.environment import (
-    get_environment as hotel_calle_domain_get_environment,
-)
-from tau2.domains.hotel_calle.environment import (
-    get_tasks as hotel_calle_domain_get_tasks,
-)
-from tau2.domains.hotel_calle.environment import (
-    get_tasks_split as hotel_calle_domain_get_tasks_split,
-)
-
-
-
 # START DOMAIN IMPORT: Martin Alonso Masias Cerro
 
 # END DOMAIN IMPORT: Martin Alonso Masias Cerro
@@ -68,6 +56,15 @@ from tau2.domains.hotel_calle.environment import (
 
 
 # START DOMAIN IMPORT: Jorge Luis Calle Cardoza
+from tau2.domains.hotel_calle.environment import (
+    get_environment as hotel_calle_domain_get_environment,
+)
+from tau2.domains.hotel_calle.environment import (
+    get_tasks as hotel_calle_domain_get_tasks,
+)
+from tau2.domains.hotel_calle.environment import (
+    get_tasks_split as hotel_calle_domain_get_tasks_split,
+)
 
 # END DOMAIN IMPORT: Jorge Luis Calle Cardoza
 
@@ -352,14 +349,6 @@ try:
     )
     # END DOMAIN REGISTRATION: burger
 
-    registry.register_domain(hotel_calle_domain_get_environment, "hotel_calle")
-    registry.register_tasks(
-        hotel_calle_domain_get_tasks,
-        "hotel_calle",
-        get_task_splits=hotel_calle_domain_get_tasks_split,
-    )
-
-
     # START DOMAIN REGISTRATION: Martin Alonso Masias Cerro
 
     # END DOMAIN REGISTRATION: Martin Alonso Masias Cerro
@@ -391,7 +380,13 @@ try:
 
 
     # START DOMAIN REGISTRATION: Jorge Luis Calle Cardoza
-    
+    registry.register_domain(hotel_calle_domain_get_environment, "hotel_calle")
+    registry.register_tasks(
+        hotel_calle_domain_get_tasks,
+        "hotel_calle",
+        get_task_splits=hotel_calle_domain_get_tasks_split,
+    )
+
     # END DOMAIN REGISTRATION: Jorge Luis Calle Cardoza
 
 
