@@ -1,10 +1,15 @@
-from tau2.environment.toolkit import ToolKitBase
 from tau2.domains.sanita_irigoin.data_model import ArrozDB
+from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
 
 
 class ArrozToolKit(ToolKitBase):
+    """Herramientas para el dominio de insumos agrícolas para arroz."""
     db: ArrozDB
 
+    def __init__(self, db: ArrozDB) -> None:
+        super().__init__(db)
+
+    @is_tool(ToolType.READ)
     def get_user_details(self, user_id: str) -> dict:
         """
         Obtiene la información de un cliente dado su user_id.
@@ -16,6 +21,7 @@ class ArrozToolKit(ToolKitBase):
             return {"error": f"Usuario '{user_id}' no encontrado."}
         return user.model_dump()
 
+    @is_tool(ToolType.READ)
     def get_producto_details(self, producto_id: str) -> dict:
         """
         Devuelve información completa de un producto dado su producto_id:
@@ -27,6 +33,7 @@ class ArrozToolKit(ToolKitBase):
             return {"error": f"Producto '{producto_id}' no encontrado."}
         return producto.model_dump()
 
+    @is_tool(ToolType.READ)
     def check_stock(self, producto_id: str) -> dict:
         """
         Verifica si un producto tiene stock disponible.
@@ -43,6 +50,7 @@ class ArrozToolKit(ToolKitBase):
             "disponible": disponible,
         }
 
+    @is_tool(ToolType.READ)
     def get_soil_details(self, suelo_id: str) -> dict:
         """
         Obtiene las características de un suelo dado su suelo_id:
@@ -54,6 +62,7 @@ class ArrozToolKit(ToolKitBase):
             return {"error": f"Suelo '{suelo_id}' no encontrado."}
         return suelo.model_dump()
 
+    @is_tool(ToolType.READ)
     def get_crop_details(self, cultivo_id: str) -> dict:
         """
         Obtiene la información de un cultivo dado su cultivo_id:
@@ -65,6 +74,7 @@ class ArrozToolKit(ToolKitBase):
             return {"error": f"Cultivo '{cultivo_id}' no encontrado."}
         return cultivo.model_dump()
 
+    @is_tool(ToolType.READ)
     def recommend_fertilizer(self, diagnostico_id: str, presupuesto: float) -> dict:
         """
         Recomienda un fertilizante adecuado basado en el diagnóstico del suelo
@@ -97,6 +107,7 @@ class ArrozToolKit(ToolKitBase):
             ),
         }
 
+    @is_tool(ToolType.READ)
     def suggest_alternative(self, producto_id: str) -> dict:
         """
         Sugiere un producto alternativo del mismo tipo cuando el producto
@@ -117,6 +128,7 @@ class ArrozToolKit(ToolKitBase):
 
         return {"alternativa": alternativas[0].model_dump()}
 
+    @is_tool(ToolType.READ)
     def validate_budget(self, producto_id: str, presupuesto: float) -> dict:
         """
         Verifica si el precio de un producto entra dentro del presupuesto
@@ -135,6 +147,7 @@ class ArrozToolKit(ToolKitBase):
             "viable": viable,
         }
 
+    @is_tool(ToolType.WRITE)
     def create_order(
         self,
         user_id: str,
@@ -192,6 +205,7 @@ class ArrozToolKit(ToolKitBase):
 
         return {"pedido_creado": nuevo_pedido}
 
+    @is_tool(ToolType.READ)
     def get_order_details(self, order_id: str) -> dict:
         """
         Retorna los detalles de un pedido dado su order_id.
@@ -202,6 +216,7 @@ class ArrozToolKit(ToolKitBase):
             return {"error": f"Pedido '{order_id}' no encontrado."}
         return pedido.model_dump()
 
+    @is_tool(ToolType.WRITE)
     def escalate_to_human(self, motivo: str) -> dict:
         """
         Escala la conversación a un vendedor humano cuando el agente
