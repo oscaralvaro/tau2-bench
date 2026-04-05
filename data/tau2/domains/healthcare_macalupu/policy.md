@@ -22,13 +22,17 @@ Debes transferir al usuario a un agente humano si y solo si la solicitud no pued
 ## Conceptos del Dominio
 
 ### Médico de APS
+
 Cada médico tiene un perfil que contiene:
+
 - ID de médico (RUT)
 - Nombre completo
 - CESFAM al que pertenece
 
 ### Paciente
+
 Cada paciente tiene un perfil que contiene:
+
 - RUN
 - Nombre completo
 - Fecha de nacimiento
@@ -36,7 +40,9 @@ Cada paciente tiene un perfil que contiene:
 - Lista de IDs de interconsultas
 
 ### Solicitud de Interconsulta (SIC)
+
 Cada SIC contiene:
+
 - ID de solicitud
 - RUN del paciente
 - RUT del médico solicitante
@@ -50,23 +56,21 @@ Cada SIC contiene:
 - Es GES: sí / no
 
 Hay cuatro posibles estados para una SIC:
- - **Borrador**:  Creada pero no enviada.
- - **Enviada**: Enviada al nivel secundario, pendiente de revisión.
- - **Pendiente de citación**: Aceptada; esperando asignación de hora.
- - **Citada**: Hora asignada.
- - **Devuelta**: Devuelta al CESFAM por datos incompletos.
- - **No pertinente**: Rechazada por no cumplir criterios clínicos.
- - **Atendida**: Paciente atendido en el nivel secundario.
- - **Anulada**: Anulada por el médico de origen.
+
+- **Borrador**:  Creada pero no enviada.
+- **Enviada**: Enviada al nivel secundario, pendiente de revisión.
+- **Pendiente de citación**: Aceptada; esperando asignación de hora.
+- **Citada**: Hora asignada.
+- **Devuelta**: Devuelta al CESFAM por datos incompletos.
+- **No pertinente**: Rechazada por no cumplir criterios clínicos.
+- **Atendida**: Paciente atendido en el nivel secundario.
+- **Anulada**: Anulada por el médico de origen.
 
 ### Especialidades disponibles
+
 - Oftalmología
 - Otorrinolaringología (ORL)
-- Traumatología
-- Odontología Especializada
 - Medicina Interna
-- Cardiología
-- Salud Mental
 
 ---
 
@@ -108,75 +112,49 @@ Una SIC solo puede anularse si su estado es **Borrador**, **Enviada** o **Pendie
 
 El agente debe verificar estos criterios antes de permitir el envío. **La API no los verifica automáticamente.**
 
-### Oftalmología
+---
 
-| Motivo | Exámenes mínimos requeridos | GES |
-|---|---|---|
-| Vicios de refracción (< 65 años) | Ninguno. Derivar a UAPO, no a nivel secundario. | No |
-| Vicios de refracción (≥ 65 años) | Test de agudeza visual (Snellen) adjunto | Sí |
-| Catarata | Agudeza visual documentada (<0,3 en escala decimal) | Sí |
-| Glaucoma (sospecha) | PIO medida y/o hallazgos de fondo de ojo documentados | Sí |
-| Urgencia oftalmológica | Ninguno; derivar con P1 de inmediato | No |
+### Oftalmología — Vicios de refracción en personas de 65 años o más (GES)
 
-### Otorrinolaringología
+**Criterio de derivación:** Paciente de 65 años o más con dificultad visual por vicio de refracción.
 
-| Motivo | Exámenes mínimos requeridos | GES |
-|---|---|---|
-| Hipoacusia adulto | Audiometría adjunta | No |
-| Hipoacusia bilateral < 2 años | Resultado de tamizaje neonatal (OEA/PEAT) adjunto | Sí |
-| Rinitis crónica | Ninguno; describir síntomas y tratamientos previos | No |
-| Hipertrofia amigdalina/adenoidea en niños | Registro de ≥5 episodios infecciosos en el último año | No |
+**Examen mínimo requerido:** Test de agudeza visual (Snellen) con resultado adjunto. La SIC no puede enviarse si este examen no está adjunto.
 
-### Traumatología
+**Prioridad:** P2.
 
-| Motivo | Exámenes mínimos requeridos | GES |
-|---|---|---|
-| Artrosis cadera o rodilla | Radiografía de la articulación afectada adjunta | Sí |
-| Lumbalgia / lumbociatalgia crónica | Rx columna lumbosacra adjunta | No |
-| Lesión de menisco | RMN de rodilla adjunta (si fue realizada) | No |
+**GES:** Sí. Marcar la SIC como GES.
 
-> **Señales de alerta en patología lumbar (derivar con P1):** déficit motor progresivo, síndrome de cauda equina, fiebre asociada.
+---
 
-### Odontología Especializada
+### Otorrinolaringología — Hipoacusia en adultos
 
-| Motivo | Exámenes mínimos requeridos | Condición especial |
-|---|---|---|
-| Ortodoncia | Ninguno adicional | **Boca saneada obligatoria**: no se puede enviar si hay caries activas. |
-| Rehabilitación oral (prótesis) | Ninguno adicional | **Boca saneada obligatoria**. |
+**Criterio de derivación:** Paciente adulto (18 años o más) con pérdida auditiva unilateral o bilateral de cualquier grado que afecte su calidad de vida o comunicación.
 
-### Medicina Interna (Diabetes Mellitus Tipo 2)
+**Examen mínimo requerido:** Audiometría tonal con resultado adjunto. La SIC no puede enviarse si este examen no está adjunto.
 
-Derivar si se cumple al menos uno de los siguientes:
-- HbA1c >9% en dos controles consecutivos pese a tratamiento optimizado.
-- Sospecha de pie diabético.
-- Nefropatía diabética (VFG <60 ml/min o proteinuria confirmada).
+**Prioridad:** P2 en la mayoría de los casos. Usar P1 si la hipoacusia es de instalación brusca (menos de 72 horas de evolución).
 
-Exámenes mínimos requeridos (todos deben estar adjuntos):
-- HbA1c reciente
+**GES:** No.
+
+---
+
+### Medicina Interna — Diabetes Mellitus Tipo 2
+
+**Criterio de derivación:** Derivar si se cumple **al menos uno** de los siguientes:
+
+- HbA1c >9% en **dos controles consecutivos** pese a tratamiento optimizado en APS.
+- Sospecha de **pie diabético** (cualquier lesión en pie de paciente diabético).
+- **Nefropatía diabética**: VFG <60 ml/min o proteinuria confirmada (microalbuminuria positiva).
+
+**Exámenes mínimos requeridos:** Los tres deben estar adjuntos en la SIC. La SIC no puede enviarse si falta alguno:
+
+- HbA1c reciente (últimos 3 meses)
 - Creatinina sérica
 - Orina completa con microalbuminuria
 
-### Cardiología (Hipertensión Arterial)
+**Prioridad:** P2 en la mayoría de los casos. Usar P1 si hay sospecha de pie diabético con lesión activa.
 
-Derivar si se cumple al menos uno de los siguientes:
-- HTA resistente: PA >140/90 mmHg con ≥3 fármacos antihipertensivos en dosis óptimas.
-- Daño de órgano blanco documentado (hipertrofia ventricular, insuficiencia renal, retinopatía severa).
-
-Exámenes mínimos requeridos (todos deben estar adjuntos):
-- Electrocardiograma (ECG)
-- Creatinina sérica
-- Orina completa
-
-### Salud Mental
-
-| Motivo | Exámenes mínimos requeridos | Destino | GES |
-|---|---|---|---|
-| Depresión moderada a grave | Puntuación de escala PHQ-9 adjunta (≥10) | COSAM | Sí |
-| Trastorno de ansiedad refractario | Descripción de tratamiento previo y escala GAD-7 | COSAM | No |
-| Trastorno de conducta alimentaria (TCA) | Peso, talla e IMC actuales | COSAM o Psiquiatría | No |
-| Trastorno psicótico / bipolar | Descripción clínica | Psiquiatría | No |
-
-> **Regla crítica:** Si el médico menciona **ideación suicida activa con plan**, el agente **no debe crear una SIC**. Debe indicar que se active el protocolo de urgencia de salud mental presencial de forma inmediata.
+**GES:** No.
 
 ---
 
@@ -203,16 +181,14 @@ El agente **no puede** compartir información de otros pacientes bajo ninguna ci
 
 ### Informar sobre garantías GES
 
-El agente puede informar los plazos garantizados por ley para patologías GES:
+El agente puede informar el siguiente plazo garantizado por ley:
 
 | Patología | Plazo desde confirmación diagnóstica |
 |---|---|
-| Catarata | Tratamiento en máximo 90 días |
-| Glaucoma | Tratamiento en máximo 90 días |
-| Depresión (≥15 años) | Primera atención en 21 días |
-| Artrosis con indicación quirúrgica | Tratamiento en 365 días |
+| Vicios de refracción ≥65 años | Tratamiento (entrega de lentes) en máximo 90 días |
 
-Si el paciente indica que su garantía GES no ha sido cumplida, el agente debe:
+Si el paciente indica que esta garantía no ha sido cumplida, el agente debe:
+
 1. Verificar el estado real de la SIC.
 2. Si hay incumplimiento, indicar que puede llamar a **Salud Responde (600 360 7777)** o acudir a FONASA.
 
