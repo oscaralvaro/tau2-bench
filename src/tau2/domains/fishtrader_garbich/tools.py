@@ -1,6 +1,6 @@
 import datetime
 from copy import deepcopy
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from tau2.domains.fishtrader_garbich.data_model import (
     Address,
@@ -27,13 +27,14 @@ from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
 class FishTraderTools(ToolKitBase):
     """Tools for the fish trader domain."""
 
+    CURRENT_TIME = datetime.datetime(2026, 3, 29, 12, 0, 0)
     db: FishTraderDB
 
     def __init__(self, db: FishTraderDB) -> None:
         super().__init__(db)
 
     def _now(self) -> datetime.datetime:
-        return datetime.datetime.now().replace(microsecond=0)
+        return self.CURRENT_TIME
 
     def _get_customer(self, customer_id: str) -> CompanyCustomer:
         if customer_id not in self.db.customers:
@@ -88,6 +89,99 @@ class FishTraderTools(ToolKitBase):
             parsed_items.append(OrderLineItem(**item) if isinstance(item, dict) else item)
         return parsed_items
 
+    def _next_order_line_id(self, offset: int = 0) -> str:
+        line_count = sum(len(order.items) for order in self.db.orders.values())
+        return self._generate_id("LINE", line_count + offset)
+
+    def _find_existing_order_line(
+        self, order: Order, item_data: dict[str, Any]
+    ) -> Optional[OrderLineItem]:
+        line_id = item_data.get("line_id")
+        if line_id is not None:
+            for line in order.items:
+                if line.line_id == line_id:
+                    return line
+
+        product_id = item_data.get("product_id")
+        if product_id is None:
+            return None
+
+        matches = [line for line in order.items if line.product_id == product_id]
+        if len(matches) == 1:
+            return matches[0]
+        return None
+
+    def _is_full_order_item_payload(self, item: OrderLineItem | dict[str, Any]) -> bool:
+        if isinstance(item, OrderLineItem):
+            return True
+        required_fields = {
+            "line_id",
+            "product_id",
+            "product_name",
+            "quantity",
+            "unit_of_measure",
+            "unit_price",
+            "subtotal",
+            "supplier_id",
+        }
+        return required_fields.issubset(item.keys())
+
+    def _normalize_order_item(
+        self,
+        item: OrderLineItem | dict[str, Any],
+        existing_line: Optional[OrderLineItem] = None,
+        line_id_fallback: Optional[str] = None,
+    ) -> OrderLineItem:
+        item_data = item.model_dump() if isinstance(item, OrderLineItem) else dict(item)
+
+        product_id = item_data.get("product_id")
+        if product_id is None and existing_line is not None:
+            product_id = existing_line.product_id
+        if product_id is None:
+            raise ValueError("Order item product_id is required")
+
+        product = self._get_product(product_id)
+        quantity = item_data.get("quantity")
+        if quantity is None and existing_line is not None:
+            quantity = existing_line.quantity
+        if quantity is None:
+            raise ValueError("Order item quantity is required")
+
+        unit_price = item_data.get("unit_price")
+        if unit_price is None and existing_line is not None:
+            unit_price = existing_line.unit_price
+        if unit_price is None:
+            raise ValueError("Order item unit_price is required")
+
+        line_id = (
+            item_data.get("line_id")
+            or (existing_line.line_id if existing_line is not None else None)
+            or line_id_fallback
+            or self._next_order_line_id()
+        )
+        product_name = item_data.get("product_name") or (
+            existing_line.product_name if existing_line is not None else product.name
+        )
+        unit_of_measure = item_data.get("unit_of_measure") or (
+            existing_line.unit_of_measure
+            if existing_line is not None
+            else product.unit_of_measure
+        )
+        supplier_id = item_data.get("supplier_id") or (
+            existing_line.supplier_id if existing_line is not None else product.supplier_id
+        )
+
+        return OrderLineItem(
+            line_id=line_id,
+            product_id=product.product_id,
+            product_name=product_name,
+            quantity=quantity,
+            unit_of_measure=unit_of_measure,
+            unit_price=round(float(unit_price), 2),
+            subtotal=round(float(quantity) * float(unit_price), 2),
+            supplier_id=supplier_id,
+        )
+
     def _validate_customer_can_order(self, customer: CompanyCustomer) -> None:
         if customer.status != "active":
             raise ValueError(
@@ -135,10 +229,59 @@ class FishTraderTools(ToolKitBase):
         for item in order.items:
             self._release_stock(item.product_id, item.quantity)
 
-    def _build_order_items(self, items: List[OrderLineItem | dict]) -> list[OrderLineItem]:
-        parsed_items = self._parse_order_items(items)
-        normalized_items = []
-        for item in parsed_items:
+    def _build_order_items(
+        self,
+        items: List[OrderLineItem | dict],
+        existing_order: Optional[Order] = None,
+    ) -> list[OrderLineItem]:
+        if existing_order is not None and not all(
+            self._is_full_order_item_payload(item) for item in items
+        ):
+            normalized_items = [line.model_copy(deep=True) for line in existing_order.items]
+            new_line_offset = 0
+            for item in items:
+                item_data = item.model_dump() if isinstance(item, OrderLineItem) else dict(item)
+                existing_line = self._find_existing_order_line(existing_order, item_data)
+                line_id_fallback = None
+                if existing_line is None and "line_id" not in item_data:
+                    line_id_fallback = self._next_order_line_id(new_line_offset)
+                    new_line_offset += 1
+                normalized_item = self._normalize_order_item(
+                    item,
+                    existing_line=existing_line,
+                    line_id_fallback=line_id_fallback,
+                )
+                if existing_line is None:
+                    normalized_items.append(normalized_item)
+                    continue
+                for idx, current_line in enumerate(normalized_items):
+                    if current_line.line_id == existing_line.line_id:
+                        normalized_items[idx] = normalized_item
+                        break
+        else:
+            normalized_items = []
+            next_line_offset = 0
+            for item in items:
+                item_data = item.model_dump() if isinstance(item, OrderLineItem) else dict(item)
+                line_id_fallback = None
+                if "line_id" not in item_data:
+                    line_id_fallback = self._next_order_line_id(next_line_offset)
+                    next_line_offset += 1
+                existing_line = (
+                    self._find_existing_order_line(existing_order, item_data)
+                    if existing_order is not None
+                    else None
+                )
+                normalized_items.append(
+                    self._normalize_order_item(
+                        item,
+                        existing_line=existing_line,
+                        line_id_fallback=line_id_fallback,
+                    )
+                )
+
+        validated_items = []
+        for item in normalized_items:
             product = self._get_product(item.product_id)
             if product.status != ProductStatus.ACTIVE:
                 raise ValueError(f"Product '{product.product_id}' is not active")
@@ -149,7 +292,7 @@ class FishTraderTools(ToolKitBase):
                     f"Price for product '{product.product_id}' is below the maximum negotiable threshold"
                 )
             self._check_stock_available(product.product_id, item.quantity)
-            normalized_items.append(
+            validated_items.append(
                 OrderLineItem(
                     line_id=item.line_id,
                     product_id=product.product_id,
@@ -161,7 +304,7 @@ class FishTraderTools(ToolKitBase):
                     supplier_id=product.supplier_id,
                 )
             )
-        return normalized_items
+        return validated_items
 
     @is_tool(ToolType.WRITE)
     def register_customer(
@@ -329,7 +472,10 @@ class FishTraderTools(ToolKitBase):
         try:
             if items is not None:
                 self._release_order_stock(order)
-                normalized_items = self._build_order_items(items)
+                normalized_items = self._build_order_items(
+                    items,
+                    existing_order=order,
+                )
                 for item in normalized_items:
                     self._reserve_stock(item.product_id, item.quantity)
                 order.items = normalized_items
