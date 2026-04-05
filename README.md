@@ -502,7 +502,7 @@ sequenceDiagram
 # Hotel Calle Domain
 
 ## Autor
-Jorge Calle
+Jorge Luis Calle Cardoza
 
 ## Domain Summary
 The `hotel_calle` domain simulates a hotel assistant that helps users find rooms, check availability, compare options, and make reservations while following a defined policy.
@@ -532,6 +532,12 @@ The assistant:
 - must ask for missing information before booking
 - must respect hotel rules
 
+Operational policy details:
+- check-in starts at `15:00`
+- check-out is at `12:00`
+- breakfast is included for all room types
+- if a request cannot be completed with the current tools, the assistant must explain the limitation clearly and offer the next best step
+
 ## Tasks
 Includes:
 - availability queries
@@ -540,16 +546,18 @@ Includes:
 - validation cases
 
 ## Simulation Result
-Simulation executed using throttling:
+Final corrected simulation evidence executed using throttling:
 
 - agent: gemini/gemma-3-27b-it  
 - user: gemini/gemma-3-12b-it  
 
-Results:
-- Average Reward: 0.6667  
-- Action Score: 1.000  
-- Communicate Score: 0.667  
-- Pass@k: 0.667  
+Primary consolidated artifact:
+- `data/simulations/hotel_calle_full_10_tasks.json`
 
-Simulation file included in:
-data/simulations/
+Coverage:
+- 10/10 task IDs persisted in the final consolidated JSON
+- tasks were executed with a conservative strategy to preserve evidence even when local NL assertion evaluation was unstable
+
+Correction note:
+- an earlier GitHub version contained incomplete simulation evidence
+- this final corrected version fixes `task.json` / `tasks.json` compatibility, keeps `registry.py` changes only inside Jorge Luis Calle Cardoza's section, and includes the final consolidated simulation artifact for review
