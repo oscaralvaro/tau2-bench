@@ -91,6 +91,49 @@ def test_listar_actividades_preaprobadas(
 
 
 @pytest.fixture
+def get_estudiante_clc_status_call() -> ToolCall:
+    return ToolCall(
+        id="1b", name="get_estudiante_clc_status", arguments={"carnet": "2020123456"}
+    )
+
+
+def test_get_estudiante_clc_status(
+    environment: Environment, get_estudiante_clc_status_call: ToolCall
+):
+    response = environment.get_response(get_estudiante_clc_status_call)
+    assert not response.error
+    data = json.loads(response.content)
+    assert data["programa"] == "IME"
+    assert data["cantidad_clcs_validados"] == "1"
+    assert data["maximo_clcs"] == "4"
+    assert data["clcs_disponibles"] == ["1", "3", "4"]
+    assert data["tiene_todos_los_clcs"] == "False"
+
+
+@pytest.fixture
+def get_clcs_permitidos_call() -> ToolCall:
+    return ToolCall(
+        id="1c",
+        name="get_clcs_permitidos_para_actividad",
+        arguments={"programa": "ARQ", "categoria_actividad": "Congresos/Bienales"},
+    )
+
+
+def test_get_clcs_permitidos_para_actividad(
+    environment: Environment, get_clcs_permitidos_call: ToolCall
+):
+    response = environment.get_response(get_clcs_permitidos_call)
+    assert not response.error
+    data = json.loads(response.content)
+    assert data["programa"] == "ARQ"
+    assert data["clcs_permitidos"] == ["7", "8"]
+
+    get_clcs_permitidos_call.arguments["categoria_actividad"] = "Categoria invalida"
+    response = environment.get_response(get_clcs_permitidos_call)
+    assert response.error
+
+
+@pytest.fixture
 def verificar_pago_call() -> ToolCall:
     return ToolCall(
         id="2",
