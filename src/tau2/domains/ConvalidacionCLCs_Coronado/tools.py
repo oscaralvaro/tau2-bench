@@ -1,6 +1,6 @@
 """Toolkit for the CLC validation system."""
 
-from typing import List
+from typing import Any, List
 
 from tau2.domains.ConvalidacionCLCs_Coronado.data_model import (
     ConvalidacionCLCDB,
@@ -51,10 +51,83 @@ class ConvalidacionCLCTools(ToolKitBase):
     def _normalize_text(value: str) -> str:
         return " ".join(value.strip().upper().split())
 
+    @staticmethod
+    def _get_max_clcs(programa: ProgramaAcademico) -> int:
+        if programa == "ARQ":
+            return 8
+        return 4
+
+    @staticmethod
+    def _get_clcs_permitidos_por_categoria(
+        programa: ProgramaAcademico, categoria_actividad: str
+    ) -> list[int]:
+        categoria = " ".join(categoria_actividad.strip().upper().split())
+
+        if programa == "ARQ":
+            mapping = {
+                "INTERCAMBIO ESTUDIANTIL": list(range(1, 9)),
+                "EXTENSION": list(range(1, 9)),
+                "VIDA UNIVERSITARIA": [7, 8],
+                "ACTIVIDADES EXTERNAS": [5, 6, 7, 8],
+                "CONGRESOS": [7, 8],
+                "BIENALES": [7, 8],
+                "CONGRESOS/BIENALES": [7, 8],
+            }
+        else:
+            mapping = {
+                "INTERCAMBIO ESTUDIANTIL": [1, 2, 3, 4],
+                "EXTENSION": [1, 2, 3, 4],
+                "EXTENSION (FACULTAD DE INGENIERIA)": [1, 2, 3, 4],
+                "VIDA UNIVERSITARIA": [3, 4],
+                "ACTIVIDADES EXTERNAS": [3, 4],
+                "CONGRESOS": [3, 4],
+            }
+
+        if categoria not in mapping:
+            raise ValueError(
+                "Categoria de actividad no reconocida. "
+                "Use una categoria definida en la politica del dominio."
+            )
+
+        return mapping[categoria]
+
     @is_tool(ToolType.READ)
     def get_estudiante_details(self, carnet: str) -> Estudiante:
         """Obtener los datos de un estudiante, incluidos sus CLCs validados."""
         return self._find_estudiante(carnet)
+
+    @is_tool(ToolType.READ)
+    def get_estudiante_clc_status(self, carnet: str) -> dict[str, Any]:
+        """Obtener el estado de CLCs del estudiante, incluyendo cupo restante."""
+        estudiante = self._find_estudiante(carnet)
+        max_clcs = self._get_max_clcs(estudiante.programa)
+        clcs_validados = sorted(set(estudiante.clcs_validados))
+        clcs_disponibles = [
+            clc for clc in range(1, max_clcs + 1) if clc not in clcs_validados
+        ]
+        return {
+            "carnet": estudiante.carnet,
+            "programa": estudiante.programa,
+            "clcs_validados": clcs_validados,
+            "cantidad_clcs_validados": len(clcs_validados),
+            "maximo_clcs": max_clcs,
+            "clcs_disponibles": clcs_disponibles,
+            "tiene_todos_los_clcs": len(clcs_disponibles) == 0,
+        }
+
+    @is_tool(ToolType.READ)
+    def get_clcs_permitidos_para_actividad(
+        self, programa: ProgramaAcademico, categoria_actividad: str
+    ) -> dict[str, Any]:
+        """Obtener los CLCs permitidos segun el programa y la categoria de actividad."""
+        clcs_permitidos = self._get_clcs_permitidos_por_categoria(
+            programa, categoria_actividad
+        )
+        return {
+            "programa": programa,
+            "categoria_actividad": categoria_actividad,
+            "clcs_permitidos": clcs_permitidos,
+        }
 
     @is_tool(ToolType.READ)
     def listar_actividades_preaprobadas(
