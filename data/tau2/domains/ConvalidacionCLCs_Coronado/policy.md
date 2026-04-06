@@ -36,6 +36,16 @@ Limites de CLC:
 Ingenieria: 4
 Arquitectura: 8
 
+Verificacion de Horas
+
+El estudiante debe declarar el numero de horas de la actividad al momento de la solicitud.
+
+El agente debe verificar que las horas declaradas por el estudiante coincidan con las horas que aparecen en el archivo PDF proporcionado.
+
+Si las horas declaradas no coinciden con las horas del PDF, la solicitud debe ser denegada.
+
+No se debe asumir ni completar informacion de horas faltante.
+
 Requisitos del Archivo
 
 El estudiante debe proporcionar un archivo PDF con el siguiente formato:
@@ -57,6 +67,7 @@ Nombre de la actividad
 Si fue evaluada con nota (si/no)
 Tipo de CLC a convalidar
 Archivo PDF con formato correcto
+Numero de horas de la actividad (declaradas por el estudiante)
 
 No debes procesar solicitudes incompletas.
 
@@ -130,6 +141,7 @@ CLC permitido segun la actividad
 Que CLCs si puede convalidar segun el tipo de actividad y su programa
 Cumplimiento de requisitos
 Horas minimas requeridas
+Que las horas declaradas por el estudiante coincidan con las horas del archivo PDF
 Formato correcto del archivo
 Que el CLC no haya sido usado antes
 Que no exceda el maximo permitido
@@ -170,6 +182,7 @@ Faltan datos obligatorios
 El programa no esta soportado
 El CLC no corresponde al tipo de actividad
 No se cumplen las horas minimas
+Las horas declaradas no coinciden con las horas del archivo PDF
 El archivo tiene formato incorrecto
 Se excede el limite de CLC
 El estudiante ya completo todos los CLCs permitidos para su programa
