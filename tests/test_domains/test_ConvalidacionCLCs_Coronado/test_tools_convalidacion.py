@@ -36,6 +36,18 @@ def convalidacion_db() -> ConvalidacionCLCDB:
             "IME": ["CONEIMERA", "INTERCON"],
         },
         bienales_arquitectura=["BIENAL DE ARQUITECTURA 2025"],
+        horas_certificados=[
+            {
+                "carnet": "2020123456",
+                "actividad": "YOUTH FOR DEVELOPMENT 2024",
+                "horas_pdf": 20,
+            },
+            {
+                "carnet": "2020987654",
+                "actividad": "CONEIC 2025",
+                "horas_pdf": 24,
+            },
+        ],
         pagos_derecho_academico=[
             {
                 "carnet": "2020334455",
@@ -156,6 +168,33 @@ def test_verificar_pago_derecho_academico(
 
 
 @pytest.fixture
+def verificar_horas_certificado_call() -> ToolCall:
+    return ToolCall(
+        id="2b",
+        name="verificar_horas_certificado",
+        arguments={
+            "carnet": "2020123456",
+            "actividad": "YOUTH FOR DEVELOPMENT 2024",
+        },
+    )
+
+
+def test_verificar_horas_certificado(
+    environment: Environment, verificar_horas_certificado_call: ToolCall
+):
+    response = environment.get_response(verificar_horas_certificado_call)
+    assert not response.error
+    data = json.loads(response.content)
+    assert data["horas_pdf"] == "20"
+    assert data["carnet"] == "2020123456"
+
+    # Test non-existent activity
+    verificar_horas_certificado_call.arguments["actividad"] = "ACTIVIDAD INEXISTENTE"
+    response = environment.get_response(verificar_horas_certificado_call)
+    assert response.error
+
+
+@pytest.fixture
 def crear_solicitud_call() -> ToolCall:
     return ToolCall(
         id="3",
@@ -168,6 +207,7 @@ def crear_solicitud_call() -> ToolCall:
             "evaluado_con_nota": True,
             "clc": 3,
             "archivo": "IME - SUAREZ PEÑA PABLO_YOUTH FOR DEVELOPMENT 2024.pdf",
+            "horas_declaradas": 20,
             "status": "IN PROCESS",
         },
     )
