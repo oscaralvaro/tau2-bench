@@ -100,10 +100,12 @@ def make_run_name(config: RunConfig) -> str:
     """
     Make a run name from the run config
     """
-    clean_llm_agent_name = [x for x in config.llm_agent.split("/") if x][-1]
+    llm_agent_name = config.llm_agent or "no-agent-llm"
+    clean_llm_agent_name = [x for x in llm_agent_name.split("/") if x][-1]
     agent_name = f"{config.agent}_{clean_llm_agent_name}"
 
-    clean_llm_user_name = [x for x in config.llm_user.split("/") if x][-1]
+    llm_user_name = config.llm_user or "no-user-llm"
+    clean_llm_user_name = [x for x in llm_user_name.split("/") if x][-1]
     user_name = f"{config.user}_{clean_llm_user_name}"
 
     return f"{get_now()}_{config.domain}_{agent_name}_{user_name}"
@@ -238,6 +240,8 @@ def run_tasks(
     random.seed(seed)
 
     seeds = [random.randint(0, 1000000) for _ in range(num_trials)]
+    llm_args_agent = llm_args_agent or {}
+    llm_args_user = llm_args_user or {}
     if "seed" in llm_args_agent:
         logger.warning("Each trial will modify the seed for the agent")
 
@@ -394,9 +398,10 @@ def run_tasks(
             progress_str = f"{i}/{len(tasks)} (trial {trial + 1}/{num_trials})"
             args.append((task, trial, seeds[trial], progress_str))
 
-    with ThreadPoolExecutor(max_workers=max_concurrency) as executor:
-        res = list(executor.map(_run, *zip(*args)))
-        simulation_results.simulations.extend(res)
+    if args:
+        with ThreadPoolExecutor(max_workers=max_concurrency) as executor:
+            res = list(executor.map(_run, *zip(*args)))
+            simulation_results.simulations.extend(res)
     ConsoleDisplay.console.print(
         "\n✨ [bold green]Successfully completed all simulations![/bold green]\n"
         "To review the simulations, run: [bold blue]tau2 view[/bold blue]"
