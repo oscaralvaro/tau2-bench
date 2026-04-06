@@ -55,6 +55,8 @@ El agente debe verificar que las horas declaradas por el estudiante coincidan co
 
 Si las horas declaradas no coinciden con las horas del PDF, la solicitud debe ser denegada.
 
+Las horas del PDF son la evidencia documental valida y pueden ser diferentes a las horas declaradas por el estudiante.
+
 No se debe asumir ni completar informacion de horas faltante.
 
 Requisitos del Archivo
@@ -66,6 +68,22 @@ Ejemplo: IME - SUAREZ SUAREZ PABLITO_YOUTH FOR DEVELOPMENT 2024
 Siglas validas: IIS, IME, IC, ARQ
 
 Los archivos con formato incorrecto no se procesaran.
+
+Ademas del nombre correcto del archivo, cada certificado o PDF debe contener de forma verificable:
+
+Numero de carnet del estudiante al que pertenece
+Nombre de la actividad
+Tipo de actividad
+Numero total de horas del certificado
+La nota obtenida, si la actividad fue evaluada con nota
+
+Si el certificado o PDF no contiene alguno de esos datos obligatorios, la solicitud debe ser denegada.
+
+Si la actividad fue evaluada con nota, el agente debe verificar si la nota es aprobatoria en escala de 0 a 20.
+
+Solo son aprobatorias las notas mayores a 11.
+
+Si la actividad fue evaluada con nota y la nota no es mayor a 11, la solicitud debe ser denegada.
 
 Informacion Requerida para una Solicitud de Convalidacion
 
@@ -153,6 +171,8 @@ Que identificadores de CLC si puede convalidar segun el tipo de actividad y su p
 Cumplimiento de requisitos
 Horas minimas requeridas
 Que las horas declaradas por el estudiante coincidan con las horas del archivo PDF
+Que el certificado o PDF contenga el numero de carnet del estudiante, el nombre de la actividad, el tipo de actividad y el numero total de horas
+Si fue evaluada con nota, que el certificado o PDF incluya la nota y que esta sea mayor a 11
 Formato correcto del archivo
 Que el CLC no haya sido usado antes
 Que no exceda el maximo permitido
@@ -194,6 +214,12 @@ El programa no esta soportado
 El CLC no corresponde al tipo de actividad
 No se cumplen las horas minimas
 Las horas declaradas no coinciden con las horas del archivo PDF
+El certificado o PDF no contiene el numero de carnet del estudiante
+El certificado o PDF no contiene el nombre de la actividad
+El certificado o PDF no contiene el tipo de actividad
+El certificado o PDF no contiene el numero total de horas
+La actividad fue evaluada con nota pero el certificado o PDF no muestra la nota
+La actividad fue evaluada con nota pero la nota no es mayor a 11
 El archivo tiene formato incorrecto
 Se excede el limite de CLC
 El estudiante ya completo todos los CLCs permitidos para su programa
