@@ -21,6 +21,19 @@ class SaludRAGToolkit(ToolKitBase):
                 )
         return "No se encontro un protocolo especifico para ese diagnostico."
 
+    @is_tool(ToolType.READ)
+    def consultar_estado_solicitud(self, id_solicitud: str) -> str:
+        """Consulta el estado actual de una solicitud y sus examenes adjuntos."""
+        solicitud = self.db.solicitudes.get(id_solicitud)
+        if solicitud is None:
+            return "Solicitud no encontrada."
+
+        examenes = ", ".join(solicitud.examenes_adjuntos) or "Sin examenes adjuntos"
+        return (
+            f"Solicitud {solicitud.id}: estado={solicitud.estado}, "
+            f"diagnostico={solicitud.diagnostico_sospecha}, examenes={examenes}."
+        )
+
     @is_tool(ToolType.WRITE)
     def validar_interconsulta(self, id_solicitud: str) -> str:
         """Valida si la solicitud cumple con los examenes obligatorios del protocolo."""
@@ -39,7 +52,9 @@ class SaludRAGToolkit(ToolKitBase):
         if protocolo is None:
             return "No hay un protocolo de validacion cargado para este diagnostico."
 
-        examenes_adjuntos = {examen.strip().lower() for examen in solicitud.examenes_adjuntos}
+        examenes_adjuntos = {
+            examen.strip().lower() for examen in solicitud.examenes_adjuntos
+        }
         faltantes = [
             examen.nombre
             for examen in protocolo.examenes_requeridos
@@ -64,7 +79,9 @@ class SaludRAGToolkit(ToolKitBase):
             return "Solicitud no encontrada."
 
         examen_normalizado = nombre_examen.strip()
-        ya_adjuntos = {examen.strip().lower() for examen in solicitud.examenes_adjuntos}
+        ya_adjuntos = {
+            examen.strip().lower() for examen in solicitud.examenes_adjuntos
+        }
         if examen_normalizado.lower() in ya_adjuntos:
             return "El examen ya estaba adjunto."
 
