@@ -121,7 +121,13 @@ from tau2.domains.divemotor_santiago.environment import (
 
 
 # START DOMAIN IMPORT: Francesco Eduardo Gastelo Boulangger
-from tau2.domains.filtro_gastelo import environment as filtro_gastelo
+from tau2.domains.filtro_gastelo.environment import (
+    get_environment as filtro_gastelo_domain_get_environment,
+)
+from tau2.domains.filtro_gastelo.environment import get_tasks as filtro_gastelo_domain_get_tasks
+from tau2.domains.filtro_gastelo.environment import (
+    get_tasks_split as filtro_gastelo_domain_get_tasks_split,
+)
 # END DOMAIN IMPORT: Francesco Eduardo Gastelo Boulangger
 
 
@@ -447,7 +453,12 @@ try:
 
 
     # START DOMAIN REGISTRATION: Francesco Eduardo Gastelo Boulangger
-    "filtro_gastelo": filtro_gastelo,
+    registry.register_domain(filtro_gastelo_domain_get_environment, "filtro_gastelo")
+    registry.register_tasks(
+        filtro_gastelo_domain_get_tasks,
+        "filtro_gastelo",
+        get_task_splits=filtro_gastelo_domain_get_tasks_split,
+    )
     # END DOMAIN REGISTRATION: Francesco Eduardo Gastelo Boulangger
 
 
