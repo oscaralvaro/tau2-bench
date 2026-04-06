@@ -2,11 +2,12 @@ from datetime import date
 from typing import Optional
 
 from tau2.domains.healthcare_macalupu.data_model import (
+    SIC,
+    Analysis,
     Doctor,
     InterconsultaDB,
     Patient,
     Priority,
-    SIC,
     SICStatus,
     Specialty,
 )
@@ -48,15 +49,13 @@ class InterconsultaTools(ToolKitBase):
         return self.db.doctors[rut]
 
     @is_tool(ToolType.READ)
-    def identificar_paciente(self, run: str, birth_date: str) -> Patient:
+    def identificar_paciente(self, run: str) -> Patient:
         """
-        Retrieve a patient's profile by their RUN and date of birth.
+        Retrieve a patient's profile by their RUN.
         Use this at the start of the conversation to authenticate a patient.
-        Both fields must match for the lookup to succeed.
 
         Args:
             run: The patient's RUN (e.g. '15432876-3').
-            birth_date: The patient's date of birth in YYYY-MM-DD format.
 
         Returns:
             The patient's profile.
@@ -66,12 +65,7 @@ class InterconsultaTools(ToolKitBase):
         """
         if run not in self.db.patients:
             raise ValueError(f"No se encontró ningún paciente con RUN {run}.")
-        patient = self.db.patients[run]
-        if patient.birth_date != birth_date:
-            raise ValueError(
-                f"La fecha de nacimiento no coincide con el RUN {run}."
-            )
-        return patient
+        return self.db.patients[run]
 
     @is_tool(ToolType.READ)
     def get_sic(self, sic_id: str) -> SIC:
@@ -87,9 +81,10 @@ class InterconsultaTools(ToolKitBase):
         Raises:
             ValueError: If no SIC with that ID is found.
         """
-        if sic_id not in self.db.sics:
+        try:
+            return self.db.sics[sic_id]
+        except KeyError:
             raise ValueError(f"No se encontró ninguna interconsulta con ID {sic_id}.")
-        return self.db.sics[sic_id]
 
     @is_tool(ToolType.READ)
     def buscar_sics_paciente(self, run: str) -> list[SIC]:
@@ -110,7 +105,27 @@ class InterconsultaTools(ToolKitBase):
         if run not in self.db.patients:
             raise ValueError(f"No se encontró ningún paciente con RUN {run}.")
         patient = self.db.patients[run]
-        return [self.db.sics[sic_id] for sic_id in patient.sic_ids if sic_id in self.db.sics]
+        return [
+            self.db.sics[sic_id] for sic_id in patient.sic_ids if sic_id in self.db.sics
+        ]
+
+    @is_tool(ToolType.READ)
+    def buscar_analisis(self, id: str) -> Analysis:
+        """
+        Retrieve an analysis by its ID.
+
+        Args:
+            id: The analysis ID.
+
+        Returns:
+            The analysis record.
+
+        Raises:
+            ValueError: If no analysis with that ID is found.
+        """
+        if id not in self.db.analyses:
+            raise ValueError(f"No se encontró ningún análisis con ID {id}.")
+        return self.db.analyses[id]
 
     # -------------------------------------------------------------------------
     # WRITE tools
@@ -143,7 +158,7 @@ class InterconsultaTools(ToolKitBase):
             cie10_description: Human-readable CIE-10 description.
             reason: Clinical justification for the referral.
             priority: 'P1' for urgent, 'P2' for non-urgent.
-            attached_exams: List of exam names confirmed as attached.
+            attached_exams: List of exam's identifiers confirmed as attached.
             is_ges: True if the condition has a GES/AUGE guarantee.
 
         Returns:
@@ -235,46 +250,14 @@ class InterconsultaTools(ToolKitBase):
         return sic
 
     # -------------------------------------------------------------------------
-    # GENERIC tools
-    # -------------------------------------------------------------------------
-
-    @is_tool(ToolType.GENERIC)
-    def transferir_a_agente_humano(self, summary: str) -> str:
-        """
-        Transfer the user to a human agent with a summary of their issue.
-        Only use this if:
-          - The user explicitly requests a human agent, or
-          - The request cannot be resolved with the available tools and policy.
-
-        Args:
-            summary: A brief summary of the user's issue and why transfer is needed.
-
-        Returns:
-            A message confirming the transfer was initiated.
-        """
-        return "Transferencia exitosa. Un agente humano atenderá la solicitud a la brevedad."
-
-    # -------------------------------------------------------------------------
     # Assert functions (used by the evaluator, not callable by the agent)
     # -------------------------------------------------------------------------
 
     def assert_sic_status(self, sic_id: str, expected_status: SICStatus) -> bool:
-        """
-        Check whether a SIC has the expected status.
-
-        Args:
-            sic_id: The SIC identifier.
-            expected_status: The status the SIC is expected to have.
-
-        Returns:
-            True if the SIC's current status matches expected_status.
-
-        Raises:
-            ValueError: If no SIC with that ID exists.
-        """
-        if sic_id not in self.db.sics:
+        try:
+            return self.db.sics[sic_id].status == expected_status
+        except KeyError:
             raise ValueError(f"No se encontró ninguna interconsulta con ID {sic_id}.")
-        return self.db.sics[sic_id].status == expected_status
 
     def assert_sic_not_sent(
         self,

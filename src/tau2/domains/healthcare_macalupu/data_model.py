@@ -1,3 +1,4 @@
+from pydoc import describe
 from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -42,7 +43,7 @@ class SIC(BaseModel):
     priority: Priority = Field(
         description="Priority level: P1 (urgent) or P2 (non-urgent)"
     )
-    attached_exams: List[str] = Field(description="List of attached exam names")
+    attached_exams: List[str] = Field(description="List of attached exam's identifiers")
     status: SICStatus = Field(description="Current status of the referral request")
     is_ges: bool = Field(
         description="Whether the condition is covered by GES guarantee"
@@ -76,6 +77,15 @@ class Patient(BaseModel):
     )
 
 
+class Analysis(BaseModel):
+    """Analysis of a patient's referral request."""
+
+    id: str = Field(description="Analysis ID")
+    description: str = Field(description="Analysis description")
+    patient_run: str = Field(description="Patient's RUN (unique national identifier)")
+    details: Optional[str] = Field(description="Analysis details")
+
+
 class InterconsultaDB(DB):
     """Database for the Chilean health referral agent."""
 
@@ -87,6 +97,9 @@ class InterconsultaDB(DB):
     )
     sics: Dict[str, SIC] = Field(
         description="Dictionary of referral requests indexed by SIC ID"
+    )
+    analyses: Dict[str, Analysis] = Field(
+        description="Dictionary of analyses indexed by analysis ID"
     )
 
 
