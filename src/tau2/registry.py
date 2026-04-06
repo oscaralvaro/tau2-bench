@@ -14,126 +14,6 @@ from tau2.domains.airline.environment import get_tasks as airline_domain_get_tas
 from tau2.domains.airline.environment import (
     get_tasks_split as airline_domain_get_tasks_split,
 )
-
-# START Domain: Burger environment
-from tau2.domains.burger.environment import (
-    get_environment as burger_domain_get_environment,
-)
-from tau2.domains.burger.environment import get_tasks as burger_domain_get_tasks
-from tau2.domains.burger.environment import (
-    get_tasks_split as burger_domain_get_tasks_split,
-)
-# END Domain: Burger environment
-
-
-
-# START DOMAIN IMPORT: Martin Alonso Masias Cerro
-
-# END DOMAIN IMPORT: Martin Alonso Masias Cerro
-
-
-
-# START DOMAIN IMPORT: Sebastian Martin Castro Pacahuala
-
-# END DOMAIN IMPORT: Sebastian Martin Castro Pacahuala
-
-
-
-# START DOMAIN IMPORT: Juana Cristina Mendoza Pacheco
-
-# END DOMAIN IMPORT: Juana Cristina Mendoza Pacheco
-
-
-
-# START DOMAIN IMPORT: Nicolás Calle Seminario
-
-# END DOMAIN IMPORT: Nicolás Calle Seminario
-
-
-
-# START DOMAIN IMPORT: Maricielo Nicolle Irigoin Cabrera
-
-# END DOMAIN IMPORT: Maricielo Nicolle Irigoin Cabrera
-
-
-
-# START DOMAIN IMPORT: Jorge Luis Calle Cardoza
-
-# END DOMAIN IMPORT: Jorge Luis Calle Cardoza
-
-
-
-# START DOMAIN IMPORT: Dany Joel Farfan Moscol
-
-# END DOMAIN IMPORT: Dany Joel Farfan Moscol
-
-
-
-# START DOMAIN IMPORT: Jeferson Lennin Correa Sunción
-
-# END DOMAIN IMPORT: Jeferson Lennin Correa Sunción
-
-
-
-# START DOMAIN IMPORT: Carlos Angelo Coronado Diaz
-
-# END DOMAIN IMPORT: Carlos Angelo Coronado Diaz
-
-
-
-# START DOMAIN IMPORT: Diego Eduardo Rivera Rodriguez
-
-# END DOMAIN IMPORT: Diego Eduardo Rivera Rodriguez
-
-
-# START DOMAIN IMPORT: Joaquin Matias Garbich Rabinovich
-
-# END DOMAIN IMPORT: Joaquin Matias Garbich Rabinovich
-
-
-
-# START DOMAIN IMPORT: Santiago Azur Núñez Arcaya
-
-# END DOMAIN IMPORT: Santiago Azur Núñez Arcaya
-
-
-
-# START DOMAIN IMPORT: Joaquin Cachay Cornejo
-
-# END DOMAIN IMPORT: Joaquin Cachay Cornejo
-
-
-
-# START DOMAIN IMPORT: Santiago Emilio Macalupú Rivas
-
-# END DOMAIN IMPORT: Santiago Emilio Macalupú Rivas
-
-
-
-# START DOMAIN IMPORT: Enrique José Castillo Ancajima
-
-# END DOMAIN IMPORT: Enrique José Castillo Ancajima
-
-
-
-# START DOMAIN IMPORT: Francesco Eduardo Gastelo Boulangger
-
-# END DOMAIN IMPORT: Francesco Eduardo Gastelo Boulangger
-
-
-
-# START DOMAIN IMPORT: Zulema Isbet López Roa
-
-# END DOMAIN IMPORT: Zulema Isbet López Roa
-
-
-
-# START DOMAIN IMPORT: Maria Jose Calderon Samaniego
-
-# END DOMAIN IMPORT: Maria Jose Calderon Samaniego
-
-
-
 from tau2.domains.mock.environment import get_environment as mock_domain_get_environment
 from tau2.domains.mock.environment import get_tasks as mock_domain_get_tasks
 from tau2.domains.retail.environment import (
@@ -163,6 +43,20 @@ from tau2.environment.environment import Environment
 from tau2.user.base import BaseUser
 from tau2.user.user_simulator import DummyUser, UserSimulator
 
+# ... (otros imports de airline, retail, telecom, etc.)
+
+# START DOMAIN IMPORT: Juana Cristina Mendoza Pacheco
+from tau2.domains.salud_mendoza_lista.environment import (
+    get_environment as salud_lista_get_env,
+    get_tasks as salud_lista_get_tasks,
+    get_tasks_split as salud_lista_get_splits,
+)
+from tau2.domains.salud_mendoza_rag.environment import (
+    get_environment as salud_rag_get_env,
+    get_tasks as salud_rag_get_tasks,
+    get_tasks_split as salud_rag_get_splits,
+)
+# END DOMAIN IMPORT: Juana Cristina Mendoza Pacheco
 
 class RegistryInfo(BaseModel):
     """Options for the registry"""
@@ -333,123 +227,6 @@ try:
     registry.register_domain(mock_domain_get_environment, "mock")
     registry.register_tasks(mock_domain_get_tasks, "mock")
 
-    # START DOMAIN REGISTRATION: burger
-    registry.register_domain(burger_domain_get_environment, "burger")
-    registry.register_tasks(
-        burger_domain_get_tasks,
-        "burger",
-        get_task_splits=burger_domain_get_tasks_split,
-    )
-    # END DOMAIN REGISTRATION: burger
-
-
-    # START DOMAIN REGISTRATION: Martin Alonso Masias Cerro
-
-    # END DOMAIN REGISTRATION: Martin Alonso Masias Cerro
-
-
-
-    # START DOMAIN REGISTRATION: Sebastian Martin Castro Pacahuala
-
-    # END DOMAIN REGISTRATION: Sebastian Martin Castro Pacahuala
-
-
-
-    # START DOMAIN REGISTRATION: Juana Cristina Mendoza Pacheco
-
-    # END DOMAIN REGISTRATION: Juana Cristina Mendoza Pacheco
-
-
-
-    # START DOMAIN REGISTRATION: Nicolás Calle Seminario
-
-    # END DOMAIN REGISTRATION: Nicolás Calle Seminario
-
-
-
-    # START DOMAIN REGISTRATION: Maricielo Nicolle Irigoin Cabrera
-
-    # END DOMAIN REGISTRATION: Maricielo Nicolle Irigoin Cabrera
-
-
-
-    # START DOMAIN REGISTRATION: Jorge Luis Calle Cardoza
-
-    # END DOMAIN REGISTRATION: Jorge Luis Calle Cardoza
-
-
-
-    # START DOMAIN REGISTRATION: Dany Joel Farfan Moscol
-
-    # END DOMAIN REGISTRATION: Dany Joel Farfan Moscol
-
-
-
-    # START DOMAIN REGISTRATION: Jeferson Lennin Correa Sunción
-
-    # END DOMAIN REGISTRATION: Jeferson Lennin Correa Sunción
-
-
-
-    # START DOMAIN REGISTRATION: Carlos Angelo Coronado Diaz
-
-    # END DOMAIN REGISTRATION: Carlos Angelo Coronado Diaz
-
-
-
-    # START DOMAIN REGISTRATION: Diego Eduardo Rivera Rodriguez
-
-    # END DOMAIN REGISTRATION: Diego Eduardo Rivera Rodriguez
-
-
-    # START DOMAIN REGISTRATION: Joaquin Matias Garbich Rabinovich
-
-    # END DOMAIN REGISTRATION: Joaquin Matias Garbich Rabinovich
-
-
-
-    # START DOMAIN REGISTRATION: Santiago Azur Núñez Arcaya
-
-    # END DOMAIN REGISTRATION: Santiago Azur Núñez Arcaya
-
-
-
-    # START DOMAIN REGISTRATION: Joaquin Cachay Cornejo
-
-    # END DOMAIN REGISTRATION: Joaquin Cachay Cornejo
-
-
-
-    # START DOMAIN REGISTRATION: Santiago Emilio Macalupú Rivas
-
-    # END DOMAIN REGISTRATION: Santiago Emilio Macalupú Rivas
-
-
-
-    # START DOMAIN REGISTRATION: Enrique José Castillo Ancajima
-
-    # END DOMAIN REGISTRATION: Enrique José Castillo Ancajima
-
-
-
-    # START DOMAIN REGISTRATION: Francesco Eduardo Gastelo Boulangger
-
-    # END DOMAIN REGISTRATION: Francesco Eduardo Gastelo Boulangger
-
-
-
-    # START DOMAIN REGISTRATION: Zulema Isbet López Roa
-
-    # END DOMAIN REGISTRATION: Zulema Isbet López Roa
-
-
-
-    # START DOMAIN REGISTRATION: Maria Jose Calderon Samaniego
-
-    # END DOMAIN REGISTRATION: Maria Jose Calderon Samaniego
-
-
-
     registry.register_domain(airline_domain_get_environment, "airline")
     registry.register_tasks(
         airline_domain_get_tasks,
@@ -480,6 +257,26 @@ try:
         "telecom-workflow",
         get_task_splits=telecom_domain_get_tasks_split,
     )
+
+# ... (registros de airline, retail, telecom, etc.)
+
+    # START DOMAIN REGISTRATION: Juana Cristina Mendoza Pacheco
+    # Registro Dominio 1: Gestión de Listas
+    registry.register_domain(salud_lista_get_env, "salud_mendoza_lista")
+    registry.register_tasks(
+        salud_lista_get_tasks, 
+        "salud_mendoza_lista", 
+        get_task_splits=salud_lista_get_splits
+    )
+
+    # Registro Dominio 2: Asistente RAG Clínico
+    registry.register_domain(salud_rag_get_env, "salud_mendoza_rag")
+    registry.register_tasks(
+        salud_rag_get_tasks, 
+        "salud_mendoza_rag", 
+        get_task_splits=salud_rag_get_splits
+    )
+    # END DOMAIN REGISTRATION: Juana Cristina Mendoza Pacheco
 
     logger.debug(
         f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
