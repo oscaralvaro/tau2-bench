@@ -26,10 +26,10 @@ def get_environment():
 
     # crear entorno
     env = Environment(
-        db=db,
-        tools=toolkit,
-        policy=policy
-    )
+    domain_name="healthcare_enrique",
+    tools=toolkit.get_tools(),
+    policy=policy
+)
 
     return env
 
