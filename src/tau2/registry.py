@@ -121,7 +121,7 @@ from tau2.domains.divemotor_santiago.environment import (
 
 
 # START DOMAIN IMPORT: Francesco Eduardo Gastelo Boulangger
-
+from tau2.domains.filtro_gastelo import environment as filtro_gastelo
 # END DOMAIN IMPORT: Francesco Eduardo Gastelo Boulangger
 
 
@@ -447,7 +447,7 @@ try:
 
 
     # START DOMAIN REGISTRATION: Francesco Eduardo Gastelo Boulangger
-
+    "filtro_gastelo": filtro_gastelo,
     # END DOMAIN REGISTRATION: Francesco Eduardo Gastelo Boulangger
 
 
