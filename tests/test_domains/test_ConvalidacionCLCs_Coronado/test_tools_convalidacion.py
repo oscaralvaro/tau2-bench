@@ -22,12 +22,16 @@ def convalidacion_db() -> ConvalidacionCLCDB:
                 "nombre_completo": "SUAREZ PEÑA PABLO",
                 "programa": "IME",
                 "clcs_validados": [2],
+                "clcs_validados_ids": ["clc2"],
+                "cantidad_clcs_validados": 1,
             },
             {
                 "carnet": "2020987654",
                 "nombre_completo": "RAMIREZ LOPEZ ANA",
                 "programa": "IC",
                 "clcs_validados": [],
+                "clcs_validados_ids": [],
+                "cantidad_clcs_validados": 0,
             },
         ],
         congresos_preaprobados={
@@ -78,6 +82,9 @@ def test_get_estudiante_details(
     assert not response.error
     data = json.loads(response.content)
     assert data["nombre_completo"] == "SUAREZ PEÑA PABLO"
+    assert data["clcs_validados"] == [2]
+    assert data["clcs_validados_ids"] == ["clc2"]
+    assert data["cantidad_clcs_validados"] == 1
 
     # Test non-existent carnet
     get_estudiante_details_call.arguments["carnet"] = "0000000000"
@@ -117,8 +124,11 @@ def test_get_estudiante_clc_status(
     data = json.loads(response.content)
     assert data["programa"] == "IME"
     assert data["cantidad_clcs_validados"] == "1"
+    assert data["clcs_validados"] == ["2"]
+    assert data["clcs_validados_ids"] == ["clc2"]
     assert data["maximo_clcs"] == "4"
     assert data["clcs_disponibles"] == ["1", "3", "4"]
+    assert data["clcs_disponibles_ids"] == ["clc1", "clc3", "clc4"]
     assert data["tiene_todos_los_clcs"] == "False"
 
 
@@ -139,6 +149,7 @@ def test_get_clcs_permitidos_para_actividad(
     data = json.loads(response.content)
     assert data["programa"] == "ARQ"
     assert data["clcs_permitidos"] == ["7", "8"]
+    assert data["clcs_permitidos_ids"] == ["clc7", "clc8"]
 
     get_clcs_permitidos_call.arguments["categoria_actividad"] = "Categoria invalida"
     response = environment.get_response(get_clcs_permitidos_call)
@@ -219,6 +230,8 @@ def test_crear_solicitud(environment: Environment, crear_solicitud_call: ToolCal
     solicitud = json.loads(response.content)
     assert solicitud["carnet"] == "2020123456"
     assert solicitud["status"] == "IN PROCESS"
+    assert solicitud["clc"] == 3
+    assert solicitud["clc_id"] == "clc3"
     assert solicitud["request_id"].startswith("REQ-")
 
     # Test APPROVED status updates student profile
@@ -230,6 +243,8 @@ def test_crear_solicitud(environment: Environment, crear_solicitud_call: ToolCal
     # Verify student has the new CLC
     estudiante = environment.tools.get_estudiante_details("2020123456")
     assert 4 in estudiante.clcs_validados
+    assert "clc4" in estudiante.clcs_validados_ids
+    assert estudiante.cantidad_clcs_validados == 2
 
 
 @pytest.fixture
