@@ -1,6 +1,7 @@
 ﻿"""Toolkit for the estaciondeservicio_Rivera domain."""
 
 import datetime
+import re
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -9,8 +10,8 @@ from tau2.domains.estaciondeservicio_Rivera.data_model import (
     BankTransfer,
     Claim,
     Cash,
-    Credit,
     Customer,
+    CustomerCredit,
     FuelStationDB,
     Item,
     Order,
@@ -91,6 +92,47 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         while f"{prefix}_{index:04d}" in existing_ids:
             index += 1
         return f"{prefix}_{index:04d}"
+
+    def _next_event_timestamp(self) -> datetime.datetime:
+        """Builds a deterministic timestamp for persisted events."""
+        candidates: list[datetime.datetime] = []
+
+        for order in self.db.orders.values():
+            candidates.append(order.fecha_hora_solicitada)
+            candidates.append(order.fecha_hora_programada)
+            if order.fecha_hora_entrega_real is not None:
+                candidates.append(order.fecha_hora_entrega_real)
+            if order.fecha_hora_cancelacion is not None:
+                candidates.append(order.fecha_hora_cancelacion)
+
+        for pago in self.db.pagos.values():
+            candidates.append(pago.fecha_pago)
+
+        for claim in self.db.reclamaciones.values():
+            candidates.append(claim.fecha_reclamacion)
+
+        if not candidates:
+            return datetime.datetime(2026, 1, 1, 0, 0, 0)
+        return max(candidates) + datetime.timedelta(seconds=1)
+
+    def _normalize_claim_reason(self, motivo: str) -> str:
+        motivo_clean = " ".join(motivo.strip().split())
+        if motivo_clean.lower() == "late delivery":
+            return "Late delivery"
+        return motivo_clean
+
+    def _normalize_claim_description(
+        self, descripcion: str, id_order: Optional[str] = None
+    ) -> str:
+        descripcion_clean = " ".join(descripcion.strip().split())
+        if id_order is not None:
+            descripcion_clean = re.sub(
+                rf"\s+for\s+{re.escape(id_order)}\.?$",
+                "",
+                descripcion_clean,
+                flags=re.IGNORECASE,
+            )
+        return descripcion_clean
 
     def _get_cliente(self, id_cliente: str) -> Customer:
         if id_cliente not in self.db.clientes:
@@ -342,23 +384,13 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
     def register_payment_method(
         self,
         source: str,
-        brand: Optional[str] = None,
-        last_four: Optional[str] = None,
         bank_name: Optional[str] = None,
         account_reference: Optional[str] = None,
+        credit_agreement: Optional[str] = None,
     ) -> PaymentMethod:
         """Registers a payment method that can be used in orders."""
         id_metodo = self._generate_id("payment", set(self.db.payment_methods.keys()))
-        if source == "credit":
-            if not brand or not last_four:
-                raise ValueError("Registering a credit payment method requires brand and last_four")
-            metodo: PaymentMethod = Credit(
-                id=id_metodo,
-                source="credit",
-                brand=brand,
-                last_four=last_four,
-            )
-        elif source == "bank_transfer":
+        if source == "bank_transfer":
             if not bank_name or not account_reference:
                 raise ValueError("Registering a bank transfer requires bank_name and account_reference")
             metodo = BankTransfer(
@@ -371,6 +403,14 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
             metodo = Cash(
                 id=id_metodo,
                 source="cash",
+            )
+        elif source == "customer_credit":
+            if not credit_agreement:
+                raise ValueError("Registering customer credit requires credit_agreement")
+            metodo = CustomerCredit(
+                id=id_metodo,
+                source="customer_credit",
+                credit_agreement=credit_agreement,
             )
         else:
             raise ValueError("The payment method type is invalid")
@@ -608,13 +648,17 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         id_reclamacion = self._generate_id(
             "reclamacion", set(self.db.reclamaciones.keys())
         )
+        motivo_normalizado = self._normalize_claim_reason(motivo)
+        descripcion_normalizada = self._normalize_claim_description(
+            descripcion, id_order=id_order
+        )
         reclamacion = Claim(
             id_reclamacion=id_reclamacion,
             id_cliente=id_cliente,
             id_order=id_order,
-            motivo=motivo,
-            descripcion=descripcion,
-            fecha_reclamacion=datetime.datetime.now(),
+            motivo=motivo_normalizado,
+            descripcion=descripcion_normalizada,
+            fecha_reclamacion=self._next_event_timestamp(),
             estado_reclamacion="registered",
         )
         self.db.reclamaciones[id_reclamacion] = reclamacion
@@ -688,10 +732,10 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
     def make_payment(
         self, id_order: str, payment_method_id: str, monto: float
     ) -> PaymentResult:
-        """Registers a payment for an order using credit, bank transfer, or cash."""
+        """Registers a payment for an order using bank transfer, cash, or customer credit."""
         order = self._get_order(id_order)
         payment_method = self._get_payment_method(payment_method_id)
-        if not isinstance(payment_method, (Credit, BankTransfer, Cash)):
+        if not isinstance(payment_method, (BankTransfer, Cash, CustomerCredit)):
             raise ValueError("The payment method is not valid for this domain")
 
         total_pagado_actual = self._get_total_pagado(order)
@@ -714,7 +758,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
             id_pago=id_pago,
             id_order=id_order,
             monto=monto,
-            fecha_pago=datetime.datetime.now(),
+            fecha_pago=self._next_event_timestamp(),
             payment_method_id=payment_method_id,
             estado_pago="paid",
         )
