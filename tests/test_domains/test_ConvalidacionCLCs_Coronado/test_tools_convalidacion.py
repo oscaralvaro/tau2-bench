@@ -52,6 +52,32 @@ def convalidacion_db() -> ConvalidacionCLCDB:
                 "horas_pdf": 24,
             },
         ],
+        certificados_pdf=[
+            {
+                "carnet": "2020123456",
+                "actividad": "YOUTH FOR DEVELOPMENT 2024",
+                "tipo_actividad": "Actividades Externas",
+                "horas_pdf": 20,
+                "incluye_carnet": True,
+                "incluye_nombre_actividad": True,
+                "incluye_tipo_actividad": True,
+                "incluye_horas_totales": True,
+                "incluye_nota": True,
+                "nota": 15,
+            },
+            {
+                "carnet": "2020987654",
+                "actividad": "CONEIC 2025",
+                "tipo_actividad": "Congresos",
+                "horas_pdf": 24,
+                "incluye_carnet": False,
+                "incluye_nombre_actividad": True,
+                "incluye_tipo_actividad": True,
+                "incluye_horas_totales": True,
+                "incluye_nota": False,
+                "nota": None,
+            },
+        ],
         pagos_derecho_academico=[
             {
                 "carnet": "2020334455",
@@ -206,6 +232,37 @@ def test_verificar_horas_certificado(
 
 
 @pytest.fixture
+def verificar_detalles_certificado_call() -> ToolCall:
+    return ToolCall(
+        id="2c",
+        name="verificar_detalles_certificado",
+        arguments={
+            "carnet": "2020123456",
+            "actividad": "YOUTH FOR DEVELOPMENT 2024",
+        },
+    )
+
+
+def test_verificar_detalles_certificado(
+    environment: Environment, verificar_detalles_certificado_call: ToolCall
+):
+    response = environment.get_response(verificar_detalles_certificado_call)
+    assert not response.error
+    data = json.loads(response.content)
+    assert data["tipo_actividad"] == "Actividades Externas"
+    assert data["horas_pdf"] == "20"
+    assert data["incluye_carnet"] == "True"
+    assert data["incluye_nota"] == "True"
+    assert data["nota"] == "15"
+    assert data["campos_obligatorios_presentes"] == "True"
+    assert data["nota_aprobatoria"] == "True"
+
+    verificar_detalles_certificado_call.arguments["carnet"] = "0000000000"
+    response = environment.get_response(verificar_detalles_certificado_call)
+    assert response.error
+
+
+@pytest.fixture
 def crear_solicitud_call() -> ToolCall:
     return ToolCall(
         id="3",
@@ -220,6 +277,7 @@ def crear_solicitud_call() -> ToolCall:
             "archivo": "IME - SUAREZ PEÑA PABLO_YOUTH FOR DEVELOPMENT 2024.pdf",
             "horas_declaradas": 20,
             "status": "IN PROCESS",
+            "nota": 15,
         },
     )
 
@@ -232,6 +290,7 @@ def test_crear_solicitud(environment: Environment, crear_solicitud_call: ToolCal
     assert solicitud["status"] == "IN PROCESS"
     assert solicitud["clc"] == 3
     assert solicitud["clc_id"] == "clc3"
+    assert solicitud["nota"] == 15
     assert solicitud["request_id"].startswith("REQ-")
 
     # Test APPROVED status updates student profile

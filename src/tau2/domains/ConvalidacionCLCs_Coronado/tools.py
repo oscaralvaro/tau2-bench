@@ -1,12 +1,12 @@
 """Toolkit for the CLC validation system."""
 
-from typing import Any, List
+from typing import Any, List, Optional
 
 from tau2.domains.ConvalidacionCLCs_Coronado.data_model import (
+    CertificadoPDF,
     ConvalidacionCLCDB,
     EstadoSolicitud,
     Estudiante,
-    HorasCertificado,
     ProgramaAcademico,
     Solicitud,
 )
@@ -47,6 +47,18 @@ class ConvalidacionCLCTools(ToolKitBase):
             if estudiante.carnet == carnet:
                 return estudiante
         raise ValueError(f"Estudiante con carnet {carnet} no encontrado.")
+
+    def _find_certificado_pdf(
+        self, carnet: str, actividad: str
+    ) -> Optional[CertificadoPDF]:
+        actividad_normalizada = self._normalize_text(actividad)
+        for certificado in self.db.certificados_pdf:
+            if (
+                certificado.carnet == carnet
+                and self._normalize_text(certificado.actividad) == actividad_normalizada
+            ):
+                return certificado
+        return None
 
     @staticmethod
     def _normalize_text(value: str) -> str:
@@ -164,6 +176,14 @@ class ConvalidacionCLCTools(ToolKitBase):
     @is_tool(ToolType.READ)
     def verificar_horas_certificado(self, carnet: str, actividad: str) -> dict[str, Any]:
         """Verificar las horas registradas en el certificado PDF de una actividad."""
+        certificado = self._find_certificado_pdf(carnet, actividad)
+        if certificado is not None:
+            return {
+                "carnet": certificado.carnet,
+                "actividad": certificado.actividad,
+                "horas_pdf": certificado.horas_pdf,
+            }
+
         actividad_normalizada = self._normalize_text(actividad)
         for registro in self.db.horas_certificados:
             if (
@@ -179,6 +199,46 @@ class ConvalidacionCLCTools(ToolKitBase):
             f"No se encontraron horas registradas en el certificado para el carnet {carnet} y la actividad '{actividad}'."
         )
 
+    @is_tool(ToolType.READ)
+    def verificar_detalles_certificado(
+        self, carnet: str, actividad: str
+    ) -> dict[str, Any]:
+        """Obtener los datos verificables del certificado PDF, incluyendo nota y campos requeridos."""
+        certificado = self._find_certificado_pdf(carnet, actividad)
+        if certificado is None:
+            raise ValueError(
+                f"No se encontraron metadatos del certificado PDF para el carnet {carnet} y la actividad '{actividad}'."
+            )
+
+        nota_aprobatoria = (
+            certificado.incluye_nota
+            and certificado.nota is not None
+            and certificado.nota > 11
+        )
+        campos_obligatorios_presentes = all(
+            [
+                certificado.incluye_carnet,
+                certificado.incluye_nombre_actividad,
+                certificado.incluye_tipo_actividad,
+                certificado.incluye_horas_totales,
+            ]
+        )
+
+        return {
+            "carnet": certificado.carnet,
+            "actividad": certificado.actividad,
+            "tipo_actividad": certificado.tipo_actividad,
+            "horas_pdf": certificado.horas_pdf,
+            "incluye_carnet": certificado.incluye_carnet,
+            "incluye_nombre_actividad": certificado.incluye_nombre_actividad,
+            "incluye_tipo_actividad": certificado.incluye_tipo_actividad,
+            "incluye_horas_totales": certificado.incluye_horas_totales,
+            "incluye_nota": certificado.incluye_nota,
+            "nota": certificado.nota,
+            "campos_obligatorios_presentes": campos_obligatorios_presentes,
+            "nota_aprobatoria": nota_aprobatoria,
+        }
+
     @is_tool(ToolType.WRITE)
     def crear_solicitud(
         self,
@@ -191,6 +251,7 @@ class ConvalidacionCLCTools(ToolKitBase):
         archivo: str,
         horas_declaradas: int,
         status: EstadoSolicitud,
+        nota: Optional[int] = None,
     ) -> Solicitud:
         """Crear una nueva solicitud de convalidacion con Request ID unico."""
         request_id = self._get_new_request_id()
@@ -201,6 +262,7 @@ class ConvalidacionCLCTools(ToolKitBase):
             programa=programa,
             actividad=actividad,
             evaluado_con_nota=evaluado_con_nota,
+            nota=nota,
             clc=clc,
             archivo=archivo,
             horas_declaradas=horas_declaradas,
