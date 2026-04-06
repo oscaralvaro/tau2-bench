@@ -6,6 +6,7 @@ from tau2.domains.ConvalidacionCLCs_Coronado.data_model import (
     ConvalidacionCLCDB,
     EstadoSolicitud,
     Estudiante,
+    HorasCertificado,
     ProgramaAcademico,
     Solicitud,
 )
@@ -153,6 +154,24 @@ class ConvalidacionCLCTools(ToolKitBase):
                 return pago.pagado
         return False
 
+    @is_tool(ToolType.READ)
+    def verificar_horas_certificado(self, carnet: str, actividad: str) -> dict[str, Any]:
+        """Verificar las horas registradas en el certificado PDF de una actividad."""
+        actividad_normalizada = self._normalize_text(actividad)
+        for registro in self.db.horas_certificados:
+            if (
+                registro.carnet == carnet
+                and self._normalize_text(registro.actividad) == actividad_normalizada
+            ):
+                return {
+                    "carnet": registro.carnet,
+                    "actividad": registro.actividad,
+                    "horas_pdf": registro.horas_pdf,
+                }
+        raise ValueError(
+            f"No se encontraron horas registradas en el certificado para el carnet {carnet} y la actividad '{actividad}'."
+        )
+
     @is_tool(ToolType.WRITE)
     def crear_solicitud(
         self,
@@ -163,6 +182,7 @@ class ConvalidacionCLCTools(ToolKitBase):
         evaluado_con_nota: bool,
         clc: int,
         archivo: str,
+        horas_declaradas: int,
         status: EstadoSolicitud,
     ) -> Solicitud:
         """Crear una nueva solicitud de convalidacion con Request ID unico."""
@@ -176,6 +196,7 @@ class ConvalidacionCLCTools(ToolKitBase):
             evaluado_con_nota=evaluado_con_nota,
             clc=clc,
             archivo=archivo,
+            horas_declaradas=horas_declaradas,
             status=status,
         )
         self.db.solicitudes.append(nueva_solicitud)

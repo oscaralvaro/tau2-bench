@@ -19,6 +19,12 @@ class Estudiante(BaseModel):
     )
 
 
+class HorasCertificado(BaseModel):
+    carnet: str = Field(description="Numero de carnet del estudiante")
+    actividad: str = Field(description="Nombre de la actividad")
+    horas_pdf: int = Field(description="Horas registradas en el certificado PDF")
+
+
 class PagoDerechoAcademico(BaseModel):
     carnet: str = Field(description="Numero de carnet del estudiante")
     actividad: str = Field(description="Nombre de la actividad")
@@ -34,6 +40,7 @@ class Solicitud(BaseModel):
     evaluado_con_nota: bool = Field(description="Indica si la actividad fue evaluada")
     clc: int = Field(description="CLC solicitado")
     archivo: str = Field(description="Nombre del archivo PDF")
+    horas_declaradas: int = Field(description="Horas declaradas por el estudiante")
     status: EstadoSolicitud = Field(description="Estado de la solicitud")
 
 
@@ -46,6 +53,10 @@ class ConvalidacionCLCDB(DB):
     )
     bienales_arquitectura: List[str] = Field(
         description="Bienales preaprobadas para Arquitectura"
+    )
+    horas_certificados: List[HorasCertificado] = Field(
+        description="Horas registradas en certificados PDF por actividad",
+        default_factory=list,
     )
     pagos_derecho_academico: List[PagoDerechoAcademico] = Field(
         description="Pagos de derecho academico registrados"
