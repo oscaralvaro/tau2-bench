@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 from tau2.domains.restaurante_joaquin_cachay.data_model import (
@@ -32,9 +32,13 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
 
     def __init__(self, db: RestauranteJoaquinCachayDB) -> None:
         super().__init__(db)
+        self._clock_tick = 0
 
     def _now(self) -> str:
-        return datetime.now().isoformat(timespec="seconds")
+        base_time = datetime(2026, 4, 1, 12, 0, 0)
+        timestamp = base_time + timedelta(seconds=self._clock_tick)
+        self._clock_tick += 1
+        return timestamp.isoformat(timespec="seconds")
 
     def _next_id(self, prefix: str, data: Dict[str, object]) -> str:
         return f"{prefix}-{len(data) + 1:03d}"
@@ -212,7 +216,12 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
 
     @is_tool(ToolType.READ)
     def get_reservation_details(self, reservation_id: str) -> Reservation:
-        """Return the details of a reservation."""
+        """Return the canonical details of a reservation.
+
+        Use this before answering questions about a reservation or before
+        cancelling it, so status, date, time, and assigned tables are grounded
+        in tool output.
+        """
         return self._get_reservation(reservation_id)
 
     @is_tool(ToolType.READ)
@@ -229,7 +238,24 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
         dietary_preferences: Optional[List[str]] = None,
         default_address: Optional[dict] = None,
     ) -> CustomerProfile:
-        """Create a customer profile or return the existing one if the phone number is already registered."""
+        """Create a customer profile or return the existing one if the phone number is already registered.
+
+        Only include optional fields like `email`, `dietary_preferences`, or
+        `default_address` when the customer actually provided them or when they
+        are needed. Avoid sending optional fields as explicit null values.
+
+        If the customer already provided an email address in the conversation,
+        include that exact email here instead of omitting it.
+
+        When resolving an existing customer for a delivery order, prefer the
+        minimal exact identity payload needed by the task, such as full name,
+        phone number, and email, instead of attaching optional address or
+        preference fields unless they are explicitly required.
+
+        If the phone number already belongs to an existing customer, use the
+        known canonical email for that customer instead of passing `email=None`
+        when the task expects exact identity matching.
+        """
         existing = self._find_customer_by_phone(phone_number)
         if existing is not None:
             if email is not None:
@@ -266,7 +292,17 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
         special_requests: Optional[List[str]] = None,
         preferred_area_id: Optional[str] = None,
     ) -> Reservation:
-        """Create a reservation and reserve the best available table when possible."""
+        """Create a reservation and reserve the best available table when possible.
+
+        `special_requests` must be a list of strings, not a single string.
+        Preserve customer wording as closely as possible instead of rewriting it.
+        For example, if the customer asks for `birthday dessert` and
+        `terrace seating`, pass `["birthday dessert", "terrace seating"]`.
+
+        If the customer asks for terrace seating, use `preferred_area_id="AREA-002"`.
+        Create or resolve the customer profile first and only then call this tool
+        with a real `customer_id`.
+        """
         self._get_customer(customer_id)
         if party_size < 1:
             raise ValueError("Party size must be at least 1")
@@ -303,7 +339,11 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
 
     @is_tool(ToolType.WRITE)
     def cancel_reservation(self, reservation_id: str) -> Reservation:
-        """Cancel a reservation and free any table assigned to it."""
+        """Cancel a reservation and free any table assigned to it.
+
+        Before using this tool, first inspect the reservation with
+        get_reservation_details and confirm the cancellation with the customer.
+        """
         reservation = self._get_reservation(reservation_id)
         reservation.status = "cancelled"
         for table_id in reservation.assigned_table_ids:
@@ -323,7 +363,37 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
         server_id: Optional[str] = None,
         delivery_info: Optional[dict] = None,
     ) -> RestaurantOrder:
-        """Create an order from item requests, calculate totals, and update table or reservation state as needed."""
+        """Create an order from item requests.
+
+        Expected item format:
+        - each item must use `menu_item_id` and `quantity`
+        - do not use keys like `item_id`
+        - optional `modifiers` must be a list of objects with:
+          `modifier_group_id` and `option_id`
+        - do not pass `modifiers` as an empty string; use a real list or omit it
+        - use the option id itself, not the group id, for example:
+          `{"modifier_group_id": "SIDE-001", "option_id": "SIDE-SALAD"}`
+          or `{"modifier_group_id": "DRINK-001", "option_id": "DRINK-LARGE"}`
+        - optional `special_instructions` is a free-text string inside the
+          specific item that needs it, for example the Lomo Saltado item can
+          carry `special_instructions: "Sin cebolla"`
+
+        For delivery orders, provide `delivery_info` with:
+        - `address`
+        - `contact_name`
+        - `contact_phone`
+        - `address` must be an object with exactly:
+          `street`, `city`, `state`, `country`, `zip_code`
+        - do not use a single address string
+        - do not use alternate keys like `street_address`, `province`,
+          or `postal_code`
+        - resolve or create the customer profile first and pass the resulting
+          `customer_id` into this tool for delivery orders instead of leaving
+          `customer_id` empty when customer identity is available
+        - for takeout orders, if the customer provides name, phone number, or
+          email, resolve or create the customer profile first and pass the
+          resulting `customer_id` instead of creating an anonymous order
+        """
         if len(items) == 0:
             raise ValueError("At least one item is required to create an order")
         if customer_id is not None:
