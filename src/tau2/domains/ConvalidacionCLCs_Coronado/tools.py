@@ -59,6 +59,10 @@ class ConvalidacionCLCTools(ToolKitBase):
         return 4
 
     @staticmethod
+    def _clc_id(clc: int) -> str:
+        return f"clc{clc}"
+
+    @staticmethod
     def _get_clcs_permitidos_por_categoria(
         programa: ProgramaAcademico, categoria_actividad: str
     ) -> list[int]:
@@ -110,9 +114,11 @@ class ConvalidacionCLCTools(ToolKitBase):
             "carnet": estudiante.carnet,
             "programa": estudiante.programa,
             "clcs_validados": clcs_validados,
-            "cantidad_clcs_validados": len(clcs_validados),
+            "clcs_validados_ids": [self._clc_id(clc) for clc in clcs_validados],
+            "cantidad_clcs_validados": estudiante.cantidad_clcs_validados,
             "maximo_clcs": max_clcs,
             "clcs_disponibles": clcs_disponibles,
+            "clcs_disponibles_ids": [self._clc_id(clc) for clc in clcs_disponibles],
             "tiene_todos_los_clcs": len(clcs_disponibles) == 0,
         }
 
@@ -128,6 +134,7 @@ class ConvalidacionCLCTools(ToolKitBase):
             "programa": programa,
             "categoria_actividad": categoria_actividad,
             "clcs_permitidos": clcs_permitidos,
+            "clcs_permitidos_ids": [self._clc_id(clc) for clc in clcs_permitidos],
         }
 
     @is_tool(ToolType.READ)
@@ -205,6 +212,11 @@ class ConvalidacionCLCTools(ToolKitBase):
             estudiante = self._find_estudiante(carnet)
             if clc not in estudiante.clcs_validados:
                 estudiante.clcs_validados.append(clc)
+                estudiante.clcs_validados = sorted(set(estudiante.clcs_validados))
+                estudiante.clcs_validados_ids = [
+                    self._clc_id(clc_number) for clc_number in estudiante.clcs_validados
+                ]
+                estudiante.cantidad_clcs_validados = len(estudiante.clcs_validados)
 
         return nueva_solicitud
 
