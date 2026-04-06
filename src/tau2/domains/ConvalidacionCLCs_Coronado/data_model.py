@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, TypeAlias
+from typing import Any, Dict, List, Literal, Optional, TypeAlias
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -58,6 +58,32 @@ class HorasCertificado(BaseModel):
     horas_pdf: int = Field(description="Horas registradas en el certificado PDF")
 
 
+class CertificadoPDF(BaseModel):
+    carnet: str = Field(description="Numero de carnet del estudiante")
+    actividad: str = Field(description="Nombre de la actividad")
+    tipo_actividad: str = Field(description="Tipo de actividad registrado en el PDF")
+    horas_pdf: int = Field(description="Horas totales registradas en el PDF")
+    incluye_carnet: bool = Field(
+        description="Indica si el PDF incluye el numero de carnet del estudiante"
+    )
+    incluye_nombre_actividad: bool = Field(
+        description="Indica si el PDF incluye el nombre de la actividad"
+    )
+    incluye_tipo_actividad: bool = Field(
+        description="Indica si el PDF incluye el tipo de actividad"
+    )
+    incluye_horas_totales: bool = Field(
+        description="Indica si el PDF incluye el numero total de horas"
+    )
+    incluye_nota: bool = Field(
+        description="Indica si el PDF incluye la nota de la actividad"
+    )
+    nota: Optional[int] = Field(
+        default=None,
+        description="Nota registrada en el PDF si la actividad fue evaluada con nota",
+    )
+
+
 class PagoDerechoAcademico(BaseModel):
     carnet: str = Field(description="Numero de carnet del estudiante")
     actividad: str = Field(description="Nombre de la actividad")
@@ -71,6 +97,10 @@ class Solicitud(BaseModel):
     programa: ProgramaAcademico = Field(description="Programa academico")
     actividad: str = Field(description="Nombre de la actividad")
     evaluado_con_nota: bool = Field(description="Indica si la actividad fue evaluada")
+    nota: Optional[int] = Field(
+        default=None,
+        description="Nota registrada en la solicitud cuando corresponde",
+    )
     clc: int = Field(description="CLC solicitado en formato numerico")
     clc_id: str = Field(
         default="",
@@ -100,6 +130,10 @@ class ConvalidacionCLCDB(DB):
         description="Horas registradas en certificados PDF por actividad",
         default_factory=list,
     )
+    certificados_pdf: List[CertificadoPDF] = Field(
+        description="Metadatos verificables extraidos de certificados PDF por actividad",
+        default_factory=list,
+    )
     pagos_derecho_academico: List[PagoDerechoAcademico] = Field(
         description="Pagos de derecho academico registrados"
     )
@@ -112,6 +146,7 @@ class ConvalidacionCLCDB(DB):
         """Obtiene estadisticas simples de la base del dominio."""
         return {
             "num_estudiantes": len(self.estudiantes),
+            "num_certificados_pdf": len(self.certificados_pdf),
             "num_pagos": len(self.pagos_derecho_academico),
             "num_solicitudes": len(self.solicitudes),
         }
