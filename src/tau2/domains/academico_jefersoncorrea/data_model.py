@@ -38,6 +38,7 @@ class AcademicDB(DB):
     enrollments: Dict[str, Enrollment] = Field(
         description="Registro de matrículas indexadas por enrollment_id"
     )
+    users: list = []
 
     def get_statistics(self) -> dict[str, Any]:
         return {
