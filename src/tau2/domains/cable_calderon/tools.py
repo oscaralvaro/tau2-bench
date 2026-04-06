@@ -1,5 +1,5 @@
 from typing import Optional
-from tau2.environment.toolkit import ToolKitBase
+from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
 from tau2.domains.cable_calderon.data_model import CableCalderonDB
 
 
@@ -8,6 +8,7 @@ class CableCalderonToolKit(ToolKitBase):
 
     db: CableCalderonDB
 
+    @is_tool(ToolType.READ)
     def get_client_details(self, cliente_id: str) -> dict:
         """
         Obtiene los datos completos de un cliente, incluyendo nombre del titular,
@@ -18,7 +19,8 @@ class CableCalderonToolKit(ToolKitBase):
         if not cliente:
             return {"error": f"No se encontró cliente con ID {cliente_id}"}
         return cliente.model_dump()
-
+    
+    @is_tool(ToolType.READ)
     def get_service_details(self, cliente_id: str) -> dict:
         """
         Obtiene los detalles del servicio activo de un cliente: plan contratado,
@@ -38,6 +40,7 @@ class CableCalderonToolKit(ToolKitBase):
             "plan_precio": plan.precio_mensual if plan else None,
         }
 
+    @is_tool(ToolType.READ)
     def list_available_plans(self, tipo: Optional[str] = None) -> dict:
         """
         Lista todos los planes disponibles. Opcionalmente filtra por tipo:
@@ -50,6 +53,7 @@ class CableCalderonToolKit(ToolKitBase):
             return {"error": f"No se encontraron planes para el tipo '{tipo}'"}
         return {"planes": [p.model_dump() for p in planes]}
 
+    @is_tool(ToolType.READ)
     def get_order_details(self, orden_id: str) -> dict:
         """
         Obtiene los detalles de una orden de instalación: tipo, fecha programada,
@@ -60,6 +64,7 @@ class CableCalderonToolKit(ToolKitBase):
             return {"error": f"No se encontró orden con ID {orden_id}"}
         return orden.model_dump()
 
+    @is_tool(ToolType.WRITE)
     def schedule_installation(
         self,
         cliente_id: str,
@@ -102,6 +107,7 @@ class CableCalderonToolKit(ToolKitBase):
             "orden": nueva_orden.model_dump()
         }
 
+    @is_tool(ToolType.WRITE)
     def reschedule_installation(
         self,
         orden_id: str,
@@ -138,6 +144,7 @@ class CableCalderonToolKit(ToolKitBase):
             "orden": orden.model_dump()
         }
 
+    @is_tool(ToolType.WRITE)
     def cancel_installation(self, orden_id: str) -> dict:
         """
         Cancela una orden de instalación.
@@ -171,6 +178,7 @@ class CableCalderonToolKit(ToolKitBase):
             "orden": orden.model_dump()
         }
 
+    @is_tool(ToolType.WRITE)
     def upgrade_plan(self, cliente_id: str, nuevo_plan_id: str) -> dict:
         """
         Realiza un upgrade del plan de servicio de un cliente a un plan de mayor nivel.
@@ -206,6 +214,7 @@ class CableCalderonToolKit(ToolKitBase):
             "nuevo_precio": plan_nuevo.precio_mensual
         }
 
+    @is_tool(ToolType.WRITE)
     def create_complaint(
         self,
         cliente_id: str,
@@ -247,6 +256,7 @@ class CableCalderonToolKit(ToolKitBase):
             "reclamo": nuevo_reclamo.model_dump()
         }
 
+    @is_tool(ToolType.READ)
     def get_complaint_status(self, reclamo_id: str) -> dict:
         """
         Consulta el estado actual de un reclamo existente.
