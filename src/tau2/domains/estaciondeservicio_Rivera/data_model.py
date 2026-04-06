@@ -75,21 +75,19 @@ class Customer(BaseModel):
         return self
 
 
+class User(BaseModel):
+    """Represents a contact person associated with a customer account."""
+
+    user_id: str = Field(description="Unique user identifier")
+    name: str = Field(description="Full name of the contact person")
+    customer_id: str = Field(description="Identifier of the related customer")
+
+
 class PaymentMethodBase(BaseModel):
     """Represents a payment method available for fuel station orders."""
 
     id: str = Field(description="Unique payment method identifier")
     source: str = Field(description="Payment method type")
-
-
-class Credit(PaymentMethodBase):
-    """Credit payment method."""
-
-    source: Literal["credit"] = Field(
-        description="Indicates that the payment method is credit"
-    )
-    brand: str = Field(description="Credit method brand")
-    last_four: str = Field(description="Last four digits of the credit method")
 
 
 class BankTransfer(PaymentMethodBase):
@@ -112,7 +110,18 @@ class Cash(PaymentMethodBase):
     )
 
 
-PaymentMethod = Union[Credit, BankTransfer, Cash]
+class CustomerCredit(PaymentMethodBase):
+    """Commercial credit line granted by the fuel station to a customer."""
+
+    source: Literal["customer_credit"] = Field(
+        description="Indicates that the payment method is a customer credit line"
+    )
+    credit_agreement: str = Field(
+        description="Reference to the approved commercial credit agreement"
+    )
+
+
+PaymentMethod = Union[BankTransfer, Cash, CustomerCredit]
 
 
 class VirtualInvoice(BaseModel):
@@ -318,6 +327,10 @@ class FuelStationDB(DB):
     clientes: Dict[str, Customer] = Field(
         default_factory=dict,
         description="Dictionary of customers indexed by id_cliente",
+    )
+    users: Dict[str, User] = Field(
+        default_factory=dict,
+        description="Dictionary of contact users indexed by user_id",
     )
     items: Dict[str, Item] = Field(
         default_factory=dict,
