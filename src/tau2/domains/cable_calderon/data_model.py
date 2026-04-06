@@ -71,6 +71,7 @@ class Reclamo(BaseModel):
 class CableCalderonDB(DB):
     """Base de datos del dominio CableHogar"""
     clientes: Dict[str, Cliente] = Field(default={}, description="Clientes indexados por cliente_id")
+    users: Dict[str, Cliente] = Field(default={}, description="Alias de clientes para compatibilidad con el framework")
     planes: Dict[str, Plan] = Field(default={}, description="Planes indexados por plan_id")
     servicios: Dict[str, Servicio] = Field(default={}, description="Servicios indexados por servicio_id")
     ordenes: Dict[str, OrdenInstalacion] = Field(default={}, description="Órdenes indexadas por orden_id")

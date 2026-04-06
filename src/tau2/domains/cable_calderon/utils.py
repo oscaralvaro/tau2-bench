@@ -84,6 +84,64 @@ if __name__ == "__main__":
                 ]
             ),
         },
+        users={
+            "C001": Cliente(
+                cliente_id="C001",
+                nombre_titular="Maria Fernanda Torres Vega",
+                telefono="987654321",
+                email="mftorres@gmail.com",
+                direccion="Av. Los Pinos 123, Piura",
+                tiene_deuda=False,
+                monto_deuda=0.0,
+                contactos_autorizados=[
+                    ContactoAutorizado(nombre="Carlos Torres", telefono="912345678")
+                ]
+            ),
+            "C002": Cliente(
+                cliente_id="C002",
+                nombre_titular="Roberto Silva Paredes",
+                telefono="976543210",
+                email="rsilva@hotmail.com",
+                direccion="Jr. Tacna 456, Piura",
+                tiene_deuda=True,
+                monto_deuda=85.50,
+                contactos_autorizados=[]
+            ),
+            "C003": Cliente(
+                cliente_id="C003",
+                nombre_titular="Ana Lucia Ramirez Diaz",
+                telefono="965432109",
+                email="anaramirez@gmail.com",
+                direccion="Calle Lima 789, Piura",
+                tiene_deuda=False,
+                monto_deuda=0.0,
+                contactos_autorizados=[
+                    ContactoAutorizado(nombre="Pedro Ramirez", telefono="923456789")
+                ]
+            ),
+            "C004": Cliente(
+                cliente_id="C004",
+                nombre_titular="Luis Alberto Mendoza Cruz",
+                telefono="954321098",
+                email="lmendoza@gmail.com",
+                direccion="Av. Grau 321, Piura",
+                tiene_deuda=False,
+                monto_deuda=0.0,
+                contactos_autorizados=[]
+            ),
+            "C005": Cliente(
+                cliente_id="C005",
+                nombre_titular="Carmen Rosa Huanca Flores",
+                telefono="943210987",
+                email="chuanca@yahoo.com",
+                direccion="Av. Sanchez Cerro 654, Piura",
+                tiene_deuda=True,
+                monto_deuda=120.00,
+                contactos_autorizados=[
+                    ContactoAutorizado(nombre="Jose Huanca", telefono="934567890")
+                ]
+            ),
+        },
         planes={
             "P001": Plan(
                 plan_id="P001",
