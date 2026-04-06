@@ -6,9 +6,7 @@ from tau2.data_model.tasks import Task
 from tau2.domains.healthcare_macalupu.data_model import InterconsultaDB, get_db
 from tau2.domains.healthcare_macalupu.tools import InterconsultaTools
 from tau2.domains.healthcare_macalupu.utils import (
-    HEALTHCARE_POLICY_PATH,
-    HEALTHCARE_POLICY_SOLO_PATH,
-    HEALTHCARE_TASK_SET_PATH,
+    HEALTHCARE_POLICY_PATH, HEALTHCARE_TASK_SET_PATH
 )
 from tau2.environment.environment import Environment
 from tau2.utils import load_file
@@ -21,36 +19,22 @@ from tau2.utils import load_file
 def get_environment(
     db: Optional[InterconsultaDB] = None, solo_mode: bool = False
 ) -> Environment:
-    """
-    Build and return the Interconsulta domain Environment.
 
-    Args:
-        db: Optional pre-loaded database. If None, the default db.json is used.
-        solo_mode: If True, loads the solo-mode policy variant and sets the
-                   environment to solo mode (agent acts without a user simulator).
+	if solo_mode:
+		raise ValueError("healthcare_macalupu domain does not support solo mode")
+	if db is None:
+		db = get_db()
 
-    Returns:
-        A fully configured Environment instance for the interconsulta domain.
-    """
-    if db is None:
-        db = get_db()
+	tools = InterconsultaTools(db)
 
-    tools = InterconsultaTools(db)
+	with open(HEALTHCARE_POLICY_PATH, "r", encoding="utf-8") as fp:
+		policy = fp.read()
 
-    policy_path = HEALTHCARE_POLICY_SOLO_PATH if solo_mode else HEALTHCARE_POLICY_PATH
-    with open(policy_path, "r", encoding="utf-8") as fp:
-        policy = fp.read()
-
-    env = Environment(
-        domain_name="interconsulta",
-        policy=policy,
-        tools=tools,
-    )
-
-    if solo_mode:
-        env.set_solo_mode(True)
-
-    return env
+	return Environment(
+	    domain_name="healthcare_macalupu",
+	    policy=policy,
+	    tools=tools,
+	)
 
 
 # ---------------------------------------------------------------------------
