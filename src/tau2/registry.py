@@ -163,6 +163,11 @@ from tau2.environment.environment import Environment
 from tau2.user.base import BaseUser
 from tau2.user.user_simulator import DummyUser, UserSimulator
 
+from tau2.domains.filtro_gastelo.environment import (
+    get_environment as filtro_gastelo_get_environment,
+    get_tasks as filtro_gastelo_get_tasks,
+    get_tasks_split as filtro_gastelo_get_tasks_split,
+)
 
 class RegistryInfo(BaseModel):
     """Options for the registry"""
@@ -479,6 +484,12 @@ try:
         telecom_domain_get_tasks,
         "telecom-workflow",
         get_task_splits=telecom_domain_get_tasks_split,
+    )
+    registry.register_domain(filtro_gastelo_get_environment, "filtro_gastelo")
+    registry.register_tasks(
+        filtro_gastelo_get_tasks,
+        "filtro_gastelo",
+        get_task_splits=filtro_gastelo_get_tasks_split,
     )
 
     logger.debug(
