@@ -19,7 +19,7 @@ The domain is centered on realistic operational constraints for fuel delivery:
 - `Item`: Product catalog entry with product name, product type, unit of measure, unit price, and available stock.
 - `Customer`: Registered company customer with contact data, RUC, billing email, fiscal address, and authorized delivery addresses.
 - `Order`: Delivery order linked to a customer and an item, with quantity, delivery scheduling, payment method, invoice data, and operational status.
-- `PaymentMethod`: Registered payment method. Supported types are `credit`, `bank_transfer`, and `cash`.
+- `PaymentMethod`: Registered payment method. Supported types are `bank_transfer`, `cash`, and `customer_credit`.
 - `Payment`: Recorded payment for an order.
 - `Claim`: Complaint registered by a customer, optionally linked to an order.
 - `VirtualInvoice`: Invoice delivery data associated with an order.
@@ -85,6 +85,7 @@ The full policy is defined in [policy.md](/c:/Users/diego/tau2-bench/data/tau2/d
 - Each order uses a single payment method.
 - The selected payment method may be changed only before any payment is registered.
 - Each order must be paid in a single full transaction.
+- Commercial credit granted by the station is modeled as `customer_credit`, not as a bank card.
 - Delivery has no additional charge.
 - A proof of delivery is required to mark an order as delivered.
 - Requests outside tool scope must be transferred to a human agent.
@@ -97,7 +98,7 @@ Representative examples:
 
 - `0`: Customer requests the catalog and stock information.
 - `1`: Register a new corporate customer.
-- `20`: Register a payment method and create a valid fuel order for an existing customer.
+- `13`: Register a payment method and create a valid fuel order for an existing customer.
 - `4`: Register a lubricant order linked to a valid fuel order.
 - `5`: Cancel a pending order within the allowed time window.
 - `6`: Change the payment method before payment and then complete the full payment.
