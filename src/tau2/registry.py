@@ -1,14 +1,6 @@
 import json
 from typing import Callable, Dict, Optional, Type
 
-# START DOMAIN IMPORT: Santiago Azur Núñez Arcaya
-from tau2.domains.divemotor_sales_support_nunez.environment import (
-    get_environment as santiago_domain_get_environment,
-    get_tasks as santiago_domain_get_tasks,
-    get_tasks_split as santiago_domain_get_tasks_split,
-)
-# END DOMAIN IMPORT: Santiago Azur Núñez Arcaya
-
 from loguru import logger
 from pydantic import BaseModel
 
@@ -101,7 +93,11 @@ from tau2.domains.burger.environment import (
 
 
 # START DOMAIN IMPORT: Santiago Azur Núñez Arcaya
-
+from tau2.domains.divemotor_sales_support_nunez.environment import (
+    get_environment as santiago_domain_get_environment,
+    get_tasks as santiago_domain_get_tasks,
+    get_tasks_split as santiago_domain_get_tasks_split,
+)
 # END DOMAIN IMPORT: Santiago Azur Núñez Arcaya
 
 
@@ -421,7 +417,6 @@ try:
         santiago_domain_get_environment,
         "divemotor_sales_support_nunez"
     )
-
     registry.register_tasks(
         santiago_domain_get_tasks,
         "divemotor_sales_support_nunez",

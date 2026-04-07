@@ -5,7 +5,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
 
 from loguru import logger
 
@@ -107,8 +106,8 @@ def make_run_name(config: RunConfig) -> str:
     clean_llm_user_name = [x for x in config.llm_user.split("/") if x][-1]
     user_name = f"{config.user}_{clean_llm_user_name}"
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    return f"{timestamp}_{config.domain}_{agent_name}_{user_name}"
+    return f"{get_now()}_{config.domain}_{agent_name}_{user_name}"
+
 
 def run_domain(config: RunConfig) -> Results:
     """
@@ -338,18 +337,18 @@ def run_tasks(
             if not save_to.parent.exists():
                 save_to.parent.mkdir(parents=True, exist_ok=True)
             logger.info(f"Saving simulation batch to {save_to}")
-            with open(save_to, "w", encoding="utf-8") as fp:
+            with open(save_to, "w") as fp:
                 fp.write(simulation_results.model_dump_json(indent=2))
 
     def _save(simulation: SimulationRun):
         if save_to is None:
             return
         with lock:
-            with open(save_to, "r", encoding="utf-8") as fp:
+            with open(save_to, "r") as fp:
                 ckpt = json.load(fp)
             ckpt["simulations"].append(simulation.model_dump())
-            with open(save_to, "w", encoding="utf-8") as fp:
-                json.dump(ckpt, fp, indent=2, ensure_ascii=False)
+            with open(save_to, "w") as fp:
+                json.dump(ckpt, fp, indent=2)
 
     def _run(task: Task, trial: int, seed: int, progress_str: str) -> SimulationRun:
         console_text = Text(
