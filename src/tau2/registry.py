@@ -1,11 +1,13 @@
 import json
 from typing import Callable, Dict, Optional, Type
 
+# START DOMAIN IMPORT: Santiago Azur Núñez Arcaya
 from tau2.domains.divemotor_sales_support_nunez.environment import (
-    get_environment as divemotor_sales_support_nunez_get_environment,
-    get_tasks as divemotor_sales_support_nunez_get_tasks,
-    get_tasks_split as divemotor_sales_support_nunez_get_tasks_split,
+    get_environment as santiago_domain_get_environment,
+    get_tasks as santiago_domain_get_tasks,
+    get_tasks_split as santiago_domain_get_tasks_split,
 )
+# END DOMAIN IMPORT: Santiago Azur Núñez Arcaya
 
 from loguru import logger
 from pydantic import BaseModel
@@ -415,7 +417,16 @@ try:
 
 
     # START DOMAIN REGISTRATION: Santiago Azur Núñez Arcaya
+    registry.register_domain(
+        santiago_domain_get_environment,
+        "divemotor_sales_support_nunez"
+    )
 
+    registry.register_tasks(
+        santiago_domain_get_tasks,
+        "divemotor_sales_support_nunez",
+        get_task_splits=santiago_domain_get_tasks_split,
+    )
     # END DOMAIN REGISTRATION: Santiago Azur Núñez Arcaya
 
 
@@ -464,17 +475,6 @@ try:
     )
 
     registry.register_domain(retail_domain_get_environment, "retail")
-    registry.register_domain(
-    divemotor_sales_support_nunez_get_environment,
-    "divemotor_sales_support_nunez"
-    )
-
-    registry.register_tasks(
-    divemotor_sales_support_nunez_get_tasks,
-    "divemotor_sales_support_nunez",
-    get_task_splits=divemotor_sales_support_nunez_get_tasks_split,
-    )
-    
     registry.register_tasks(
         retail_domain_get_tasks,
         "retail",
