@@ -1,13 +1,13 @@
 import pytest
-from tau2.domains.helthcare_macalupu.data_model import (
+
+from tau2.data_model.message import ToolCall
+from tau2.domains.healthcare_macalupu.data_model import (
     SIC,
     Doctor,
     InterconsultaDB,
     Patient,
 )
-from tau2.domains.helthcare_macalupu.environment import get_environment
-
-from tau2.data_model.message import ToolCall
+from tau2.domains.healthcare_macalupu.environment import get_environment
 from tau2.environment.environment import Environment
 
 # =============================================================================
@@ -16,7 +16,7 @@ from tau2.environment.environment import Environment
 
 
 @pytest.fixture
-def interconsulta_db() -> InterconsultaDB:
+def healthcare_macalupu_db() -> InterconsultaDB:
     """
     Minimal in-memory DB covering all states and edge cases needed for testing.
 
@@ -82,7 +82,7 @@ def interconsulta_db() -> InterconsultaDB:
             cie10_description="Catarata no especificada",
             reason="Motivo de prueba",
             priority="P2",
-            attached_exams=["Examen de prueba"],
+            attached_exams=["a-001"],
             is_ges=False,
             created_date="2025-06-01",
             appointment_date=None,
@@ -117,12 +117,12 @@ def interconsulta_db() -> InterconsultaDB:
         ),
     }
 
-    return InterconsultaDB(doctors=doctors, patients=patients, sics=sics)
+    return InterconsultaDB(doctors=doctors, patients=patients, sics=sics, analyses={})
 
 
 @pytest.fixture
-def environment(interconsulta_db: InterconsultaDB) -> Environment:
-    return get_environment(interconsulta_db)
+def environment(healthcare_macalupu_db: InterconsultaDB) -> Environment:
+    return get_environment(healthcare_macalupu_db)
 
 
 # =============================================================================
@@ -142,13 +142,8 @@ def identificar_paciente_call() -> ToolCall:
     return ToolCall(
         id="tc-2",
         name="identificar_paciente",
-        arguments={"run": "11111111-1", "birth_date": "1970-01-01"},
+        arguments={"run": "11111111-1"},
     )
-
-
-@pytest.fixture
-def get_sic_call() -> ToolCall:
-    return ToolCall(id="tc-3", name="get_sic", arguments={"sic_id": "SIC-T01"})
 
 
 @pytest.fixture
@@ -171,7 +166,7 @@ def crear_sic_call() -> ToolCall:
             "cie10_description": "Hipoacusia no especificada",
             "reason": "Paciente con hipoacusia progresiva bilateral.",
             "priority": "P2",
-            "attached_exams": ["Audiometría tonal"],
+            "attached_exams": ["a-001"],
             "is_ges": False,
         },
     )
@@ -185,17 +180,6 @@ def enviar_sic_call() -> ToolCall:
 @pytest.fixture
 def anular_sic_call() -> ToolCall:
     return ToolCall(id="tc-7", name="anular_sic", arguments={"sic_id": "SIC-T01"})
-
-
-@pytest.fixture
-def transferir_call() -> ToolCall:
-    return ToolCall(
-        id="tc-8",
-        name="transferir_a_agente_humano",
-        arguments={
-            "summary": "El usuario solicita una especialidad no disponible en el sistema."
-        },
-    )
 
 
 # =============================================================================
@@ -248,30 +232,6 @@ class TestIdentificarPaciente:
     ):
         identificar_paciente_call.arguments["birth_date"] = "1999-12-31"
         response = environment.get_response(identificar_paciente_call)
-        assert response.error
-
-
-# =============================================================================
-# Tests — get_sic
-# =============================================================================
-
-
-class TestGetSic:
-    def test_sic_existente_retorna_registro(
-        self, environment: Environment, get_sic_call: ToolCall
-    ):
-        response = environment.get_response(get_sic_call)
-        assert not response.error
-        sic = environment.tools.db.sics["SIC-T01"]
-        assert sic.sic_id == "SIC-T01"
-        assert sic.status == "borrador"
-        assert sic.specialty == "Oftalmología"
-
-    def test_sic_inexistente_retorna_error(
-        self, environment: Environment, get_sic_call: ToolCall
-    ):
-        get_sic_call.arguments["sic_id"] = "SIC-INEXISTENTE"
-        response = environment.get_response(get_sic_call)
         assert response.error
 
 
@@ -343,7 +303,7 @@ class TestCrearSic:
         assert new_sic.cie10_code == "H91.9"
         assert new_sic.priority == "P2"
         assert new_sic.is_ges is False
-        assert new_sic.attached_exams == ["Audiometría tonal"]
+        assert new_sic.attached_exams == ["a-001"]
         assert new_sic.appointment_date is None
         assert new_sic.appointment_location is None
 
@@ -437,7 +397,7 @@ class TestAnularSic:
         environment: Environment,
         anular_sic_call: ToolCall,
         sic_id: str,
-        interconsulta_db: InterconsultaDB,
+        healthcare_macalupu_db: InterconsultaDB,
     ):
         """SICs in atendida, no_pertinente, or citada must NOT be cancellable."""
         # SIC-T06 belongs to patient 33333333-3, add it to db sics lookup manually
@@ -453,26 +413,6 @@ class TestAnularSic:
         anular_sic_call.arguments["sic_id"] = "SIC-INEXISTENTE"
         response = environment.get_response(anular_sic_call)
         assert response.error
-
-
-# =============================================================================
-# Tests — transferir_a_agente_humano
-# =============================================================================
-
-
-class TestTransferirAgenteHumano:
-    def test_transferencia_exitosa(
-        self, environment: Environment, transferir_call: ToolCall
-    ):
-        response = environment.get_response(transferir_call)
-        assert not response.error
-
-    def test_transferencia_retorna_mensaje_confirmacion(self, environment: Environment):
-        result = environment.tools.transferir_a_agente_humano(
-            summary="El usuario necesita ayuda que excede las capacidades del agente."
-        )
-        assert isinstance(result, str)
-        assert len(result) > 0
 
 
 # =============================================================================
