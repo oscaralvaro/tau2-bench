@@ -9,7 +9,7 @@ from tau2.environment.environment import Environment
 @pytest.fixture
 def fishtrader_db() -> FishTraderDB:
     return FishTraderDB(
-        customers={
+        users={
             "CUST-001": {
                 "customer_id": "CUST-001",
                 "legal_name": "Pacific Fresh Imports SAC",

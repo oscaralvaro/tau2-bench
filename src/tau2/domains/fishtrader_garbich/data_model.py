@@ -2,7 +2,7 @@ import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field
+from pydantic import AliasChoices, Field, model_validator
 
 from tau2.environment.db import DB
 from tau2.utils.pydantic_utils import BaseModelNoExtra
@@ -395,8 +395,10 @@ class Shipment(BaseModelNoExtra):
 class FishTraderDB(DB):
     """Database for the fish trading domain."""
 
-    customers: Dict[str, CompanyCustomer] = Field(
-        default_factory=dict, description="Customer companies indexed by customer id"
+    users: Dict[str, CompanyCustomer] = Field(
+        default_factory=dict,
+        description="Customer companies indexed by customer id",
+        validation_alias=AliasChoices("users", "customers"),
     )
     suppliers: Dict[str, Supplier] = Field(
         default_factory=dict, description="Suppliers indexed by supplier id"
@@ -420,9 +422,27 @@ class FishTraderDB(DB):
         default_factory=dict, description="Shipments indexed by shipment id"
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_user_keys(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "users" not in data and "customers" in data:
+            normalized = dict(data)
+            normalized["users"] = normalized.pop("customers")
+            return normalized
+        return data
+
+    @property
+    def customers(self) -> Dict[str, CompanyCustomer]:
+        return self.users
+
+    @customers.setter
+    def customers(self, value: Dict[str, CompanyCustomer]) -> None:
+        self.users = value
+
     def get_statistics(self) -> Dict[str, Any]:
         return {
-            "num_customers": len(self.customers),
+            "num_users": len(self.users),
+            "num_customers": len(self.users),
             "num_suppliers": len(self.suppliers),
             "num_products": len(self.products),
             "num_inventory_records": len(self.inventory),
