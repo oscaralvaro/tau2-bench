@@ -37,9 +37,9 @@ class FishTraderTools(ToolKitBase):
         return self.CURRENT_TIME
 
     def _get_customer(self, customer_id: str) -> CompanyCustomer:
-        if customer_id not in self.db.customers:
+        if customer_id not in self.db.users:
             raise ValueError(f"Customer '{customer_id}' not found")
-        return self.db.customers[customer_id]
+        return self.db.users[customer_id]
 
     def _get_product(self, product_id: str) -> FishProduct:
         if product_id not in self.db.products:
@@ -327,10 +327,10 @@ class FishTraderTools(ToolKitBase):
         """
         Register a new business customer.
         """
-        if any(customer.ruc == ruc for customer in self.db.customers.values()):
+        if any(customer.ruc == ruc for customer in self.db.users.values()):
             raise ValueError(f"A customer with RUC '{ruc}' already exists")
 
-        customer_id = self._generate_id("CUST", len(self.db.customers))
+        customer_id = self._generate_id("CUST", len(self.db.users))
         customer = CompanyCustomer(
             customer_id=customer_id,
             legal_name=legal_name,
@@ -350,7 +350,7 @@ class FishTraderTools(ToolKitBase):
             credit_limit=credit_limit,
             notes=notes,
         )
-        self.db.customers[customer_id] = customer
+        self.db.users[customer_id] = customer
         return customer
 
     @is_tool(ToolType.READ)
