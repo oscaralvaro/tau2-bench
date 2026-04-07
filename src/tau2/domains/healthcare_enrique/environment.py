@@ -27,7 +27,7 @@ def get_environment():
     # crear entorno
     env = Environment(
     domain_name="healthcare_enrique",
-    tools=toolkit.get_tools(),
+    tools=toolkit,
     policy=policy
 )
 
@@ -41,14 +41,17 @@ def get_environment():
 def get_tasks(task_split_name="base"):
     tasks_path = get_data_path("tasks.json")
 
-    with open(tasks_path, "r", encoding="utf-8") as f:
-        tasks = json.load(f)
+    from tau2.data_model.tasks import Task
 
-    # filtrar por split
+    with open(tasks_path, "r", encoding="utf-8") as f:
+        raw_tasks = json.load(f)
+
+    tasks = [Task(**t) for t in raw_tasks]
+
     splits = get_tasks_split()
     if task_split_name in splits:
         task_ids = splits[task_split_name]
-        tasks = [t for t in tasks if t["id"] in task_ids]
+        tasks = [t for t in tasks if t.id in task_ids]
 
     return tasks
 

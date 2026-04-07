@@ -337,7 +337,7 @@ def run_tasks(
             if not save_to.parent.exists():
                 save_to.parent.mkdir(parents=True, exist_ok=True)
             logger.info(f"Saving simulation batch to {save_to}")
-            with open(save_to, "w") as fp:
+            with open(save_to, "w", encoding="utf-8") as fp:
                 fp.write(simulation_results.model_dump_json(indent=2))
 
     def _save(simulation: SimulationRun):
