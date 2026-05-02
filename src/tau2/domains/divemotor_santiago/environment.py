@@ -12,6 +12,9 @@ def get_environment(solo_mode=False):
     with open("data/tau2/domains/divemotor_santiago/db.json") as f:
         data = json.load(f)
 
+    # eliminar campo extra para que pydantic no falle
+    data.pop("users", None)
+
     db = DivemotorDB(**data)
 
     with open("data/tau2/domains/divemotor_santiago/policy.md") as f:
