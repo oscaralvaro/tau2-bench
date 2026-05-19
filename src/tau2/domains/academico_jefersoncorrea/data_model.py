@@ -1,4 +1,4 @@
-from typing import Any, Dict, Literal, List
+from typing import Any, Dict, Literal, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -13,6 +13,9 @@ class Student(BaseModel):
     name: str = Field(description="Nombre completo del estudiante")
     approved_credits: int = Field(description="Créditos aprobados hasta el momento")
     approved_courses: List[str] = Field(description="Lista de IDs de cursos ya aprobados")
+    phone_number: str = Field(description="Número de teléfono del estudiante")
+    current_sms_code: Optional[str] = Field(default=None, description="Código SMS temporal para verificación")
+    role: str = Field(default="student", description="Rol del usuario (student, admin, employee)")
 
 class Course(BaseModel):
     course_id: str = Field(description="Código único del curso (ej. IND305)")

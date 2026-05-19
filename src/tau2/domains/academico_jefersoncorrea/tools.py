@@ -1,6 +1,7 @@
 # src/tau2/domains/academico_jefersoncorrea/tools.py
 from typing import List, Optional
 import uuid
+import random
 
 from tau2.domains.academico_jefersoncorrea.data_model import AcademicDB, Student, Course, Enrollment
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
@@ -242,3 +243,57 @@ class AcademicTools(ToolKitBase):
         course.available_seats += 1
         
         return target_enrollment
+
+    # ==========================================
+    # 6. Herramientas de Verificación SMS
+    # ==========================================
+    @is_tool(ToolType.WRITE)
+    def send_verification_sms(self, student_id: str) -> str:
+        """
+        Envía un código de verificación SMS al teléfono registrado del estudiante.
+        Debe usarse antes de cualquier operación sensible.
+        
+        Args:
+            student_id: El ID del estudiante.
+        """
+        student_id = student_id.lower()
+        if student_id not in self.db.students:
+            return "Error: Estudiante no encontrado."
+            
+        # Genera un código de 6 dígitos
+        code = str(random.randint(100000, 999999))
+        self.db.students[student_id].current_sms_code = code
+        
+        # IMPORTANTE: En la simulación real no enviamos el SMS, solo lo guardamos en la DB
+        # para que el 'user_tool' pueda leerlo.
+        return f"Código SMS enviado exitosamente al número registrado de {student_id}."
+
+    @is_tool(ToolType.WRITE)
+    def verify_sms_code(self, student_id: str, code: str, required_role: str = "student") -> str:
+        """
+        Verifica si el código SMS proporcionado por el usuario es correcto y si tiene el rol adecuado.
+        
+        Args:
+            student_id: El ID del estudiante.
+            code: El código de 6 dígitos proporcionado por el usuario.
+            required_role: El rol necesario para la operación (por defecto 'student').
+        """
+        student_id = student_id.lower()
+        if student_id not in self.db.students:
+            return "Error: Estudiante no encontrado."
+            
+        student = self.db.students[student_id]
+        
+        if student.role != required_role:
+             return f"Error de Autorización: El usuario tiene rol '{student.role}', se requiere '{required_role}'."
+             
+        if not student.current_sms_code:
+            return "Error: No se ha enviado ningún código SMS a este usuario."
+            
+        if student.current_sms_code == str(code):
+            # Limpiamos el código después de usarlo por seguridad
+            student.current_sms_code = None
+            return "Verificación exitosa. Identidad y rol confirmados. Puedes proceder con la operación sensible."
+        else:
+            return "Error: Código de verificación incorrecto. Operación denegada."
+    
