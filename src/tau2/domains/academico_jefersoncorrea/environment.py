@@ -5,6 +5,7 @@ from typing import Optional
 from tau2.data_model.tasks import Task
 from tau2.domains.academico_jefersoncorrea.data_model import AcademicDB
 from tau2.domains.academico_jefersoncorrea.tools import AcademicTools
+from tau2.domains.academico_jefersoncorrea.user_tools import AcademicUserTools
 from tau2.domains.academico_jefersoncorrea.utils import (
     ACADEMICO_DB_PATH,
     ACADEMICO_POLICY_PATH,
@@ -29,6 +30,7 @@ def get_environment(
         db = AcademicDB.load(ACADEMICO_DB_PATH)
         
     tools = AcademicTools(db)
+    user_tools = AcademicUserTools(db)
     
     # encoding="utf-8" es crucial para que lea bien las tildes de nuestro policy.md en español
     with open(ACADEMICO_POLICY_PATH, "r", encoding="utf-8") as fp:
@@ -38,6 +40,7 @@ def get_environment(
         domain_name="academico_jefersoncorrea",
         policy=policy,
         tools=tools,
+        user_tools=user_tools,
     )
 
 

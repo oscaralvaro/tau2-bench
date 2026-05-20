@@ -1,13 +1,21 @@
 import pytest
 from tau2.domains.academico_jefersoncorrea.data_model import AcademicDB, Student, Course, Enrollment
+from tau2.domains.academico_jefersoncorrea.environment import get_environment
 from tau2.domains.academico_jefersoncorrea.tools import AcademicTools
+from tau2.domains.academico_jefersoncorrea.user_tools import AcademicUserTools
 
 @pytest.fixture
 def tools():
     """Fixture que crea una base de datos en memoria limpia antes de cada test."""
     db = AcademicDB(
         students={
-            "u2024001": Student(student_id="u2024001", name="Carlos Mendoza", approved_credits=10, approved_courses=[]),
+            "u2024001": Student(
+                student_id="u2024001",
+                name="Carlos Mendoza",
+                approved_credits=10,
+                approved_courses=[],
+                phone_number="912345678",
+            ),
         },
         courses={
             "MAT101": Course(course_id="MAT101", name="Mate I", credits=4, prerequisites=[], schedule="Lunes", available_seats=2),
@@ -107,3 +115,26 @@ def test_cancel_enrollment_error_not_found(tools):
     """Error: Intenta cancelar un curso que no está llevando."""
     with pytest.raises(ValueError, match="No hay matrícula activa"):
         tools.cancel_enrollment("u2024001", "MAT101")
+
+
+def test_academic_environment_exposes_user_sms_tools():
+    environment = get_environment()
+
+    user_tool_names = {tool.name for tool in environment.get_user_tools()}
+
+    assert "check_verification_sms" in user_tool_names
+    assert "check_phone_messages" in user_tool_names
+
+
+def test_user_tools_can_read_agent_sms_code(tools):
+    user_tools = AcademicUserTools(tools.db)
+
+    tools.send_verification_sms("u2024001")
+    message = user_tools.check_verification_sms("u2024001")
+    code = tools.db.students["u2024001"].current_sms_code
+
+    assert code is not None
+    assert code in message
+    verification_result = tools.verify_sms_code("u2024001", code)
+    assert "exitosa" in verification_result
+    assert "proceder" in verification_result

@@ -1,12 +1,16 @@
+import re
+import uuid
 from typing import Optional, Tuple
 
 from loguru import logger
 
 from tau2.data_model.message import (
+    AssistantMessage,
     Message,
     MultiToolMessage,
     SystemMessage,
     ToolCall,
+    ToolMessage,
     UserMessage,
 )
 from tau2.data_model.tasks import UserInstructions
@@ -61,6 +65,14 @@ SYSTEM_PROMPT = """
 {instructions}
 </scenario>
 """.strip()
+
+SMS_TOOL_NAMES = {"check_verification_sms", "check_phone_messages"}
+SMS_REQUEST_PATTERN = re.compile(
+    r"(c[oó]digo|sms|verificaci[oó]n|6\s*d[ií]gitos)",
+    re.IGNORECASE,
+)
+SMS_CODE_PATTERN = re.compile(r"\b\d{6}\b")
+STUDENT_ID_PATTERN = re.compile(r"\bu\d{7}\b", re.IGNORECASE)
 
 
 class UserSimulator(BaseUser):
@@ -152,6 +164,12 @@ class UserSimulator(BaseUser):
             state.messages.extend(message.tool_messages)
         else:
             state.messages.append(message)
+
+        auto_message = self._maybe_handle_sms_verification(message, state)
+        if auto_message is not None:
+            state.messages.append(auto_message)
+            return auto_message, state
+
         messages = state.system_messages + state.flip_roles()
 
         # Generate response
@@ -189,6 +207,90 @@ class UserSimulator(BaseUser):
         # Updating state with response
         state.messages.append(user_message)
         return user_message, state
+
+    def _maybe_handle_sms_verification(
+        self, message: ValidUserInputMessage, state: UserState
+    ) -> Optional[UserMessage]:
+        if self.tools is None:
+            return None
+
+        if isinstance(message, AssistantMessage):
+            return self._maybe_call_sms_tool(message, state)
+        if isinstance(message, ToolMessage):
+            return self._maybe_answer_from_sms_tool(message, state)
+        return None
+
+    def _maybe_call_sms_tool(
+        self, message: AssistantMessage, state: UserState
+    ) -> Optional[UserMessage]:
+        if not self._has_user_tool("check_verification_sms"):
+            return None
+        if not message.content or not SMS_REQUEST_PATTERN.search(message.content):
+            return None
+
+        student_id = self._extract_student_id(state)
+        if student_id is None:
+            return None
+
+        return UserMessage(
+            role="user",
+            tool_calls=[
+                ToolCall(
+                    id=f"call_{uuid.uuid4().hex[:8]}",
+                    name="check_verification_sms",
+                    arguments={"student_id": student_id},
+                    requestor="user",
+                )
+            ],
+        )
+
+    def _maybe_answer_from_sms_tool(
+        self, message: ToolMessage, state: UserState
+    ) -> Optional[UserMessage]:
+        if message.requestor != "user" or message.content is None:
+            return None
+        if not self._is_response_to_sms_tool(message, state):
+            return None
+
+        code_match = SMS_CODE_PATTERN.search(message.content)
+        if code_match is None:
+            return UserMessage(
+                role="user",
+                content="No tengo ningún código de verificación nuevo.",
+            )
+
+        return UserMessage(
+            role="user",
+            content=f"El código de verificación que recibí es {code_match.group(0)}.",
+        )
+
+    def _has_user_tool(self, tool_name: str) -> bool:
+        return any(tool.name == tool_name for tool in self.tools or [])
+
+    def _extract_student_id(self, state: UserState) -> Optional[str]:
+        candidate_texts = [str(self.instructions or "")]
+        candidate_texts.extend(
+            message.content
+            for message in reversed(state.messages)
+            if getattr(message, "content", None)
+        )
+        for text in candidate_texts:
+            match = STUDENT_ID_PATTERN.search(text)
+            if match:
+                return match.group(0).lower()
+        return None
+
+    def _is_response_to_sms_tool(self, message: ToolMessage, state: UserState) -> bool:
+        for previous_message in reversed(state.messages[:-1]):
+            if not isinstance(previous_message, UserMessage):
+                continue
+            if previous_message.tool_calls is None:
+                continue
+            return any(
+                tool_call.id == message.id and tool_call.name in SMS_TOOL_NAMES
+                for tool_call in previous_message.tool_calls
+            )
+        return False
 
 
 class DummyUser(UserSimulator):
