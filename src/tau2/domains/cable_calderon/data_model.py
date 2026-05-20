@@ -76,6 +76,8 @@ class CableCalderonDB(DB):
     servicios: Dict[str, Servicio] = Field(default={}, description="Servicios indexados por servicio_id")
     ordenes: Dict[str, OrdenInstalacion] = Field(default={}, description="Órdenes indexadas por orden_id")
     reclamos: Dict[str, Reclamo] = Field(default={}, description="Reclamos indexados por reclamo_id")
+    pending_sms_code: Optional[str] = Field(default=None, description="Código SMS pendiente de verificación")
+    pending_sms_cliente_id: Optional[str] = Field(default=None, description="Cliente al que se envió el SMS pendiente")
 
     @classmethod
     def load(cls) -> "CableCalderonDB":

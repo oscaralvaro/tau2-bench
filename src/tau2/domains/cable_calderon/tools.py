@@ -1,6 +1,8 @@
 from typing import Optional
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
 from tau2.domains.cable_calderon.data_model import CableCalderonDB
+import random
+
 
 
 class CableCalderonToolKit(ToolKitBase):
@@ -266,3 +268,102 @@ class CableCalderonToolKit(ToolKitBase):
         if not reclamo:
             return {"error": f"No se encontró reclamo con ID {reclamo_id}"}
         return reclamo.model_dump()
+    @is_tool
+    def send_sms_code(self, cliente_id: str) -> str:
+        """
+        Envía un código de verificación SMS de 6 dígitos al número de teléfono
+        registrado del cliente. Usar ANTES de realizar operaciones sensibles que
+        requieran verificación de identidad (cambio de plan, cancelación de orden,
+        reprogramación, apertura de reclamos).
+ 
+        El código expira al ser verificado exitosamente o al enviarse uno nuevo.
+ 
+        Args:
+            cliente_id: ID del cliente que debe recibir el código SMS.
+ 
+        Returns:
+            Confirmación de que el SMS fue enviado con el número enmascarado,
+            o un mensaje de error si el cliente no existe.
+        """
+        cliente = self.db.clientes.get(cliente_id)
+        if not cliente:
+            return f"Error: no se encontró el cliente '{cliente_id}'."
+ 
+        # Generar código de 6 dígitos
+        codigo = str(random.randint(100000, 999999))
+ 
+        # Guardar en la DB para que el user_tools pueda leerlo
+        self.db.pending_sms_code = codigo
+        self.db.pending_sms_cliente_id = cliente_id
+ 
+        # Enmascarar el teléfono para mostrar solo los últimos 3 dígitos
+        telefono = cliente.telefono
+        telefono_enmascarado = "*" * (len(telefono) - 3) + telefono[-3:]
+ 
+        return (
+            f"Código SMS enviado exitosamente al número {telefono_enmascarado} "
+            f"del titular {cliente.nombre_titular}. "
+            f"Solicita al cliente que te proporcione el código de 6 dígitos recibido."
+        )
+ 
+    @is_tool
+    def verify_sms_code(self, cliente_id: str, codigo: str, rol: str = "user") -> str:
+        """
+        Verifica el código SMS proporcionado por el cliente. Debe llamarse después de
+        send_sms_code() y luego de que el cliente haya comunicado el código recibido.
+ 
+        También valida el rol del solicitante (user = cliente titular, employee = empleado
+        de la empresa). Solo los roles autorizados pueden continuar con operaciones sensibles.
+ 
+        Args:
+            cliente_id: ID del cliente que está verificando su identidad.
+            codigo: El código de 6 dígitos que el cliente proporcionó.
+            rol: Rol del solicitante. Valores válidos: 'user' (cliente) o 'employee'.
+ 
+        Returns:
+            Confirmación de identidad verificada exitosamente, o mensaje de error
+            si el código es incorrecto, no existe código pendiente, o el rol es inválido.
+        """
+        # Validar rol
+        roles_validos = ["user", "employee"]
+        if rol not in roles_validos:
+            return (
+                f"Error: rol '{rol}' no reconocido. "
+                f"Los roles válidos son: {', '.join(roles_validos)}."
+            )
+ 
+        # Verificar que existe un código pendiente para este cliente
+        codigo_esperado = getattr(self.db, "pending_sms_code", None)
+        cliente_esperado = getattr(self.db, "pending_sms_cliente_id", None)
+ 
+        if not codigo_esperado or not cliente_esperado:
+            return (
+                "Error: no hay ningún código SMS pendiente de verificación. "
+                "Usa send_sms_code primero para enviar un código al cliente."
+            )
+ 
+        if cliente_esperado != cliente_id:
+            return (
+                f"Error: el código pendiente corresponde a otro cliente. "
+                f"Envía un nuevo código al cliente '{cliente_id}' con send_sms_code."
+            )
+ 
+        # Verificar el código
+        if codigo.strip() != codigo_esperado:
+            return (
+                "Error: el código ingresado es incorrecto. "
+                "Solicita al cliente que verifique el SMS recibido e intente nuevamente."
+            )
+ 
+        # Código correcto -> limpiar el código pendiente
+        self.db.pending_sms_code = None
+        self.db.pending_sms_cliente_id = None
+ 
+        cliente = self.db.clientes.get(cliente_id)
+        nombre = cliente.nombre_titular if cliente else cliente_id
+ 
+        return (
+            f"Identidad verificada exitosamente. "
+            f"Cliente: {nombre} (ID: {cliente_id}) | Rol: {rol}. "
+            f"Puede proceder con la operación solicitada."
+        )
