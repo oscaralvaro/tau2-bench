@@ -8,6 +8,7 @@ class Cliente(BaseModel):
     nombre: str
     tipo: str  # empresa / persona
     presupuesto: float
+    rol: str = "user"
 
 
 class Vehiculo(BaseModel):
@@ -32,9 +33,17 @@ class Pedido(BaseModel):
     estado: str  # confirmado / cancelado
 
 
+class CodigoSMS(BaseModel):
+    cliente_id: str
+    codigo: str
+    rol_requerido: str
+    verificado: bool = False
+
+
 class DivemotorDB(DB):
     users: Dict[str, Cliente]
     clientes: Dict[str, Cliente]
     vehiculos: Dict[str, Vehiculo]
     cotizaciones: Dict[str, Cotizacion]
     pedidos: Dict[str, Pedido]
+    codigos_sms: Dict[str, CodigoSMS] = {}
