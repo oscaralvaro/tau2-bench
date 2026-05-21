@@ -68,3 +68,21 @@ class EcommerceUserToolKit(ToolKitBase):
             "status": ret.status,
             "approved": ret.approved,
         }
+    
+    @is_tool(ToolType.READ)
+    def receive_sms_code(self, user_id: str) -> dict:
+        """
+        Permite al usuario simulado 'recibir' el código SMS que el agente envió.
+        Solo funciona si el agente llamó primero a send_verification_sms.
+        Simula la bandajea de entrada de SMS del teléfono del usuario
+        """
+        sms = self.db.sms_codes.get(user_id)
+        if not sms:
+            return {"error": "No has recibido ningún código SMS. Pide al agente que lo envíe."}
+        if sms.used:
+            return {"error": "El código ya fue utilizado."}
+        return {
+            "user_id": user_id,
+            "code":    sms.code,
+            "message": "Código recibido por SMS. Compártelo con el agente para verificar tu identidad."
+        }

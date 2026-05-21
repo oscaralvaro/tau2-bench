@@ -2,7 +2,7 @@ from typing import Dict, List
 from enum import Enum
 from pydantic import BaseModel
 from tau2.environment.db import DB
-
+import random
 
 class OrderStatus(str, Enum):
     pending_payment = "pending_payment"
@@ -28,6 +28,7 @@ class User(BaseModel):
     user_id: str
     name: str
     email: str
+    phone: str
     address: str
     customer_type: CustomerType
     status: AccountStatus
@@ -66,6 +67,10 @@ class Order(BaseModel):
     shipping_address: str
     items: List[str]
 
+class SMSCode(BaseModel):
+    user_id: str
+    code: str
+    used: bool = False  # evita reutilización del código
 
 class EcommerceDB(DB):
     users: Dict[str, User] = {}
@@ -73,4 +78,6 @@ class EcommerceDB(DB):
     orders: Dict[str, Order] = {}
     shipments: Dict[str, Shipment] = {}
     returns: Dict[str, Return] = {}
-    
+    sms_codes: Dict[str, SMSCode] = {} 
+
+

@@ -1,7 +1,7 @@
 from datetime import datetime, date
-from tau2.domains.ecommerce_calle.data_model import EcommerceDB, OrderStatus, Return
+from tau2.domains.ecommerce_calle.data_model import EcommerceDB, OrderStatus, Return, SMSCode
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
-
+import random
 
 class EcommerceToolKit(ToolKitBase):
     """Tools for an e-commerce customer support domain."""
@@ -131,3 +131,46 @@ class EcommerceToolKit(ToolKitBase):
         """Escala el caso a un agente humano."""
         return {"success": True,
                 "message": f"Caso del pedido {order_id} escalado a agente humano. Razon: {reason}"}
+
+    @is_tool(ToolType.WRITE)
+    def send_verification_sms(self, user_id: str) -> dict:
+        """ 
+        Envía un código SMS de verificación al usuario.
+        Usar antes de operaciones sensibles (cancelaciones, reembolsos). 
+        """
+        user = self.db.users.get(user_id)
+        if not user:
+            return {"error": f"Usuario {user_id} no encontrado."}
+
+        # Generamos un código de 4 dígitos y lo guardamos en la DB
+        # El agente NO debe ver este código directamente
+        code = str(random.randint(1000, 9999))
+        self.db.sms_codes[user_id] = SMSCode(user_id=user_id, code=code)
+
+        return {
+            "success": True,
+            "message": f"Código SMS enviado al teléfono registrado de {user.name}. Pídale al usuario que lo ingrese."
+        }
+
+
+    @is_tool(ToolType.WRITE)
+    def verify_sms_code(self, user_id: str, code: str) -> dict:
+        """
+        Verifica el código SMS ingresado por el usuario.
+        Retorna success si el código es correcto y no fue usado antes.
+        """
+        sms = self.db.sms_codes.get(user_id)
+
+        if not sms:
+            return {"error": "No hay código SMS activo para este usuario. Envíe uno primero."}
+        if sms.used:
+            return {"error": "Este código ya fue usado. Solicite uno nuevo."}
+        if sms.code != code:
+            return {"error": "Código incorrecto. Verifique e intente nuevamente."}
+
+        # Marcamos como usado para evitar reutilización
+        sms.used = True
+        return {"success": True, "message": "Identidad verificada correctamente."}
+    
+
+   
