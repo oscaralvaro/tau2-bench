@@ -21,7 +21,7 @@ def get_environment(
     if db is None:
         db = FiltrosDB.load(FILTRO_DB_PATH)
     tools = FiltrosTools(db)
-    with open(FILTRO_POLICY_PATH, "r") as fp:
+    with open(FILTRO_POLICY_PATH, "r", encoding="utf-8") as fp:
         policy = fp.read()
     return Environment(
         domain_name="filtro_gastelo",

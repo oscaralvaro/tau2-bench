@@ -3,6 +3,7 @@ from typing import Any, Dict, Literal, Optional
 from pydantic import BaseModel, Field
 from pathlib import Path
 from tau2.environment.db import DB
+from typing import Dict, Any, Optional
 filtro_DB_PATH = Path(__file__).parent / "filtros.json" 
 
 OrderStatus = Literal['Confirmed']
@@ -26,11 +27,14 @@ class FiltrosDB(DB):
     customers: Dict[str, Customer] = Field(description="Diccionario de clientes indexado por customer_id")
     inventory: Dict[str, Filter] = Field(description="Diccionario de filtros indexado por item_id")
     provider_orders: Dict[str, dict] = Field(default={}, description="Pedidos registrados a proveedor")
+    last_generated_sms: Optional[str] = Field(default=None, description="Último código SMS generado por el sistema")
+    sms_verified_phone: Optional[str] = Field(default=None, description="Número de teléfono celular verificado por SMS")
     def get_statistics(self) -> dict[str, Any]:
         return {
             "num_filters": len(self.inventory),
             "num_customers": len(self.customers),
             "num_provider_orders": len(self.provider_orders)
             }
+    
 def get_db(path: Path = filtro_DB_PATH):
     return FiltrosDB.load(path)

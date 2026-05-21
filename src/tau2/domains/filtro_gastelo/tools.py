@@ -144,7 +144,6 @@ class FiltrosTools(ToolKitBase):
         quantity: int
     ) -> dict:
         """
-
         Registra un pedido a proveedor cuando el filtro no tiene stock
         ni equivalente disponible. El tiempo de entrega es de 3 a 5 días hábiles.
         Úsalo SOLO si el cliente aceptó esperar y proporcionó sus datos.
@@ -154,10 +153,23 @@ class FiltrosTools(ToolKitBase):
         - item_id: ID del filtro a pedir al proveedor
         - quantity: Cantidad de unidades solicitadas
         """
+        phone_stripped = str(customer_phone).strip()
+        customer_orders = 0
+        for c in self.db.customers.values():
+            if str(c.phone).strip() == phone_stripped:
+                customer_orders = c.past_orders
+                break
+        if customer_orders < 1:
+            if self.db.sms_verified_phone != phone_stripped:
+                return {
+                    "error": "Transacción bloqueada. Los clientes sin historial verificado requieren validación de identidad SMS previa antes de registrar un pedido a proveedor."
+                }
+
         if item_id not in self.db.inventory:
             return {"error": f"El filtro '{item_id}' no existe en el catálogo."}
         if quantity <= 0:
             return {"error": "La cantidad debe ser mayor a 0."}
+            
         filter_info = self.db.inventory[item_id]
         order_id = f"ORD-{len(self.db.provider_orders) + 1:03d}"
         order = {
@@ -198,4 +210,28 @@ class FiltrosTools(ToolKitBase):
             "escalated": True,
             "message": "Tu solicitud ha sido transferida a un agente humano. En breve se comunicarán contigo.",
             "reason": reason
+        }
+    @is_tool(ToolType.WRITE)
+    def send_sms_verification_code(self, customer_phone: str) -> dict:
+        """
+        Genera y envía un código de verificación SMS al teléfono del cliente.
+        Es un requisito obligatorio previo para procesar registros de pedidos a proveedor
+        en clientes nuevos o sin historial de compra (past_orders < 1).
+        Parámetros:
+        - customer_phone: Número de celular de 9 dígitos del cliente.
+        """
+        phone = str(customer_phone).strip()
+        
+        if not phone:
+            return {"status": "error", "message": "El número de teléfono es obligatorio."}
+         
+        generated_code = "1234" 
+        
+        self.db.last_generated_sms = generated_code
+        self.db.sms_verified_phone = phone
+        
+        return {
+            "status": "success",
+            "message": f"Código SMS enviado exitosamente al número {phone}.",
+            "verification_code": generated_code
         }
