@@ -3,6 +3,7 @@ from tau2.data_model.tasks import Task
 from tau2.environment.environment import Environment
 from .data_model import DivemotorDB
 from .tools import DivemotorTools
+from .user_tools import DivemotorUserTools
 
 
 def get_environment(solo_mode=False):
@@ -11,6 +12,7 @@ def get_environment(solo_mode=False):
 
     db = DivemotorDB(**data)
     tools = DivemotorTools(db=db)
+    user_tools = DivemotorUserTools(db=db)
 
     with open("data/tau2/domains/divemotor_santiago/policy.md") as f:
         policy = f.read()
@@ -19,6 +21,7 @@ def get_environment(solo_mode=False):
         domain_name="divemotor_santiago",
         policy=policy,
         tools=tools,
+        user_tools=user_tools,
         solo_mode=solo_mode,
     )
 
