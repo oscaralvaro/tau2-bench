@@ -3,7 +3,7 @@ from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
 
 
 class ArrozToolKit(ToolKitBase):
-    """Herramientas para el dominio de insumos agrícolas para arroz."""
+    """Herramientas para el dominio de insumos agricolas para arroz."""
     db: ArrozDB
 
     def __init__(self, db: ArrozDB) -> None:
@@ -12,7 +12,7 @@ class ArrozToolKit(ToolKitBase):
     @is_tool(ToolType.READ)
     def get_user_details(self, user_id: str) -> dict:
         """
-        Obtiene la información de un cliente dado su user_id.
+        Obtiene la informacion de un cliente dado su user_id.
         Retorna nombre y tipo de cliente (nuevo/frecuente).
         Retorna error si el usuario no existe.
         """
@@ -24,8 +24,8 @@ class ArrozToolKit(ToolKitBase):
     @is_tool(ToolType.READ)
     def get_producto_details(self, producto_id: str) -> dict:
         """
-        Devuelve información completa de un producto dado su producto_id:
-        nombre, tipo, composición, precio y stock actual.
+        Devuelve informacion completa de un producto dado su producto_id:
+        nombre, tipo, composicion, precio y stock actual.
         Retorna error si el producto no existe.
         """
         producto = self.db.productos.get(producto_id)
@@ -37,7 +37,7 @@ class ArrozToolKit(ToolKitBase):
     def check_stock(self, producto_id: str) -> dict:
         """
         Verifica si un producto tiene stock disponible.
-        Retorna el stock actual y si está disponible (True/False).
+        Retorna el stock actual y si esta disponible (True/False).
         Retorna error si el producto no existe.
         """
         producto = self.db.productos.get(producto_id)
@@ -53,7 +53,7 @@ class ArrozToolKit(ToolKitBase):
     @is_tool(ToolType.READ)
     def get_soil_details(self, suelo_id: str) -> dict:
         """
-        Obtiene las características de un suelo dado su suelo_id:
+        Obtiene las caracteristicas de un suelo dado su suelo_id:
         nombre, pH y nivel de nutrientes.
         Retorna error si el suelo no existe.
         """
@@ -65,7 +65,7 @@ class ArrozToolKit(ToolKitBase):
     @is_tool(ToolType.READ)
     def get_crop_details(self, cultivo_id: str) -> dict:
         """
-        Obtiene la información de un cultivo dado su cultivo_id:
+        Obtiene la informacion de un cultivo dado su cultivo_id:
         etapa actual del arroz (almacigo, siembra, crecimiento, cosecha).
         Retorna error si el cultivo no existe.
         """
@@ -77,18 +77,18 @@ class ArrozToolKit(ToolKitBase):
     @is_tool(ToolType.READ)
     def recommend_fertilizer(self, diagnostico_id: str, presupuesto: float) -> dict:
         """
-        Recomienda un fertilizante adecuado basado en el diagnóstico del suelo
+        Recomienda un fertilizante adecuado basado en el diagnostico del suelo
         y el presupuesto del cliente. Solo recomienda productos con stock
         disponible y que entren en el presupuesto.
-        Retorna error si no hay recomendación posible.
+        Retorna error si no hay recomendacion posible.
         """
         diagnostico = self.db.diagnosticos.get(diagnostico_id)
         if not diagnostico:
-            return {"error": f"Diagnóstico '{diagnostico_id}' no encontrado."}
+            return {"error": f"Diagnostico '{diagnostico_id}' no encontrado."}
 
         suelo = self.db.suelos.get(diagnostico.suelo_id)
         if not suelo:
-            return {"error": "Suelo asociado al diagnóstico no encontrado."}
+            return {"error": "Suelo asociado al diagnostico no encontrado."}
 
         candidatos = [
             p for p in self.db.productos.values()
@@ -132,7 +132,7 @@ class ArrozToolKit(ToolKitBase):
     def validate_budget(self, producto_id: str, presupuesto: float) -> dict:
         """
         Verifica si el precio de un producto entra dentro del presupuesto
-        del cliente. Retorna si es viable y cuánto costaría.
+        del cliente. Retorna si es viable y cuanto costaria.
         Retorna error si el producto no existe.
         """
         producto = self.db.productos.get(producto_id)
@@ -176,17 +176,17 @@ class ArrozToolKit(ToolKitBase):
         if estado_pago in ("credito", "cuotas") and user.tipo_cliente == "nuevo":
             return {
                 "error": "Los clientes nuevos solo pueden pagar al contado. "
-                "El crédito está disponible solo para clientes frecuentes."
+                "El credito esta disponible solo para clientes frecuentes."
             }
 
         if producto.stock < cantidad:
             return {"error": f"Stock insuficiente. Stock disponible: {producto.stock} unidades."}
 
         if metodo_pago not in ("efectivo", "transferencia"):
-            return {"error": "Método de pago inválido. Use 'efectivo' o 'transferencia'."}
+            return {"error": "Metodo de pago invalido. Use 'efectivo' o 'transferencia'."}
 
         if estado_pago not in ("al contado", "credito", "cuotas"):
-            return {"error": "Estado de pago inválido. Use 'al contado', 'credito' o 'cuotas'."}
+            return {"error": "Estado de pago invalido. Use 'al contado', 'credito' o 'cuotas'."}
 
         order_id = f"ORD-{len(self.db.pedidos) + 1:03d}"
         nuevo_pedido = {
@@ -219,16 +219,69 @@ class ArrozToolKit(ToolKitBase):
     @is_tool(ToolType.WRITE)
     def escalate_to_human(self, motivo: str) -> dict:
         """
-        Escala la conversación a un vendedor humano cuando el agente
+        Escala la conversacion a un vendedor humano cuando el agente
         no puede resolver la solicitud. Usar cuando el cliente solicita
-        atención humana, la consulta es muy técnica, o hay un problema
+        atencion humana, la consulta es muy tecnica, o hay un problema
         con un pedido ya entregado.
-        Retorna confirmación del escalamiento.
+        Retorna confirmacion del escalamiento.
         """
         return {
             "escalado": True,
             "mensaje": (
                 f"Su consulta ha sido escalada a un vendedor humano. "
-                f"Motivo: {motivo}. En breve será atendido."
+                f"Motivo: {motivo}. En breve sera atendido."
             ),
+        }
+
+    @is_tool(ToolType.WRITE)
+    def send_sms_code(self, user_id: str) -> dict:
+        """
+        Envia un codigo de verificacion SMS al usuario para autenticar
+        operaciones sensibles. Debe llamarse antes de ejecutar acciones
+        que requieran verificacion de identidad.
+        Retorna el codigo enviado (en simulacion se expone para pruebas).
+        """
+        import random
+        user = self.db.users.get(user_id)
+        if not user:
+            return {"error": f"Usuario '{user_id}' no encontrado."}
+
+        codigo = str(random.randint(100000, 999999))
+        from tau2.domains.sanita_irigoin.user_tools import _sms_codes
+        _sms_codes[user_id] = codigo
+
+        return {
+            "mensaje": f"Codigo SMS enviado al usuario {user_id}.",
+            "codigo_enviado": codigo,
+        }
+
+    @is_tool(ToolType.WRITE)
+    def verify_sms_code(self, user_id: str, codigo: str, rol: str = "user") -> dict:
+        """
+        Verifica el codigo SMS proporcionado por el usuario.
+        Tambien valida el rol del usuario (user, employee, admin).
+        Roles validos: 'user', 'employee', 'admin'.
+        Retorna exito si el codigo es correcto y el rol es valido,
+        error si el codigo es incorrecto o el rol no coincide.
+        """
+        from tau2.domains.sanita_irigoin.user_tools import _sms_codes
+
+        roles_validos = ["user", "employee", "admin"]
+        if rol not in roles_validos:
+            return {"error": f"Rol '{rol}' no valido. Roles permitidos: {roles_validos}"}
+
+        codigo_esperado = _sms_codes.get(user_id)
+        if not codigo_esperado:
+            return {"error": "No se ha enviado ningun codigo SMS a este usuario."}
+
+        if codigo != codigo_esperado:
+            return {"error": "Codigo SMS incorrecto. Verifique e intente nuevamente."}
+
+        user = self.db.users.get(user_id)
+        return {
+            "verificado": True,
+            "user_id": user_id,
+            "rol": rol,
+            "nombre": user.nombre if user else "Desconocido",
+            "mensaje": "Identidad verificada correctamente.",
         }
