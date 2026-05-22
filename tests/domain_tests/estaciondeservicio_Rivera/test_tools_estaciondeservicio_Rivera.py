@@ -12,6 +12,7 @@ from tau2.domains.estaciondeservicio_Rivera.data_model import (
     Item,
     Order,
     Payment,
+    SMSPolicyConfig,
     VirtualInvoice,
 )
 from tau2.domains.estaciondeservicio_Rivera.tools import (
@@ -735,3 +736,44 @@ def test_make_payment(tools: EstacionDeServicioRiveraTools):
 def test_transfer_to_human_agents(tools: EstacionDeServicioRiveraTools):
     result = tools.transfer_to_human_agents("Need human support")
     assert result == "Transfer successful"
+
+
+def test_send_and_verify_sms_code(tools: EstacionDeServicioRiveraTools):
+    dispatch = tools.send_sms_verification_code(
+        id_cliente="cliente_0001",
+        reason="Confirmar cancelacion de orden",
+    )
+    assert dispatch.status == "sent"
+    assert dispatch.role == "customer_contact"
+    verification = next(iter(tools.db.sms_verifications.values()))
+    result = tools.verify_sms_code(
+        id_cliente="cliente_0001",
+        code=verification.code,
+    )
+    assert result.verified is True
+    assert verification.status == "verified"
+
+
+def test_verify_sms_code_rejects_wrong_code(tools: EstacionDeServicioRiveraTools):
+    tools.send_sms_verification_code(id_cliente="cliente_0001")
+    with pytest.raises(ValueError, match="invalid"):
+        tools.verify_sms_code(
+            id_cliente="cliente_0001",
+            code="999999",
+        )
+
+
+def test_sensitive_action_can_require_verified_sms(tools: EstacionDeServicioRiveraTools):
+    tools.db.sms_policy = SMSPolicyConfig(
+        enabled=True,
+        actions_requiring_sms=["cancel_order"],
+        required_role="customer_contact",
+    )
+    with pytest.raises(ValueError, match="No SMS verification challenge found"):
+        tools.cancel_order("order_pending_0001", "Customer request")
+
+    dispatch = tools.send_sms_verification_code(id_cliente="cliente_0001")
+    verification = tools.db.sms_verifications[dispatch.verification_id]
+    tools.verify_sms_code(id_cliente="cliente_0001", code=verification.code)
+    cancelled = tools.cancel_order("order_pending_0001", "Customer request")
+    assert cancelled.estado_pedido == "cancelled"
