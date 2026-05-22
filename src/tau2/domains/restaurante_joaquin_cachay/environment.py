@@ -17,6 +17,7 @@ from tau2.domains.restaurante_joaquin_cachay.user_data_model import (
     UserModifierOptionSnapshot,
     UserOrderStatusSnapshot,
     UserReservationStatusSnapshot,
+    UserSMSMessage,
 )
 from tau2.domains.restaurante_joaquin_cachay.user_tools import (
     RestauranteJoaquinCachayUserTools,
@@ -269,6 +270,23 @@ class RestauranteJoaquinCachayEnvironment(Environment):
             if order.table_id is not None:
                 user_db.surroundings.seated_table_id = order.table_id
 
+    def _sync_sms_state(self) -> None:
+        messages: list[UserSMSMessage] = []
+        for challenge in self.tools._sms_challenges.values():
+            messages.append(
+                UserSMSMessage(
+                    message_id=challenge.challenge_id,
+                    phone_number=challenge.phone_number,
+                    role=challenge.role,
+                    purpose=challenge.purpose,
+                    reference_id=challenge.reference_id,
+                    code=challenge.code,
+                    sent_at=challenge.sent_at,
+                    consumed=challenge.status == "verified",
+                )
+            )
+        self.user_tools.db.sms_inbox = sorted(messages, key=lambda message: message.message_id)
+
     def sync_tools(self):
         self._sync_visible_menu()
         self._ensure_customer_identity()
@@ -276,6 +294,7 @@ class RestauranteJoaquinCachayEnvironment(Environment):
         self._sync_order_request()
         self._sync_payment_intent()
         self._sync_tracked_state()
+        self._sync_sms_state()
 
 
 def _load_text_or_default(path: Path, default_text: str) -> str:

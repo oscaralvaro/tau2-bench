@@ -38,6 +38,7 @@ EmployeeStatus = Literal["active", "on_break", "off_shift", "inactive"]
 IngredientUnit = Literal["g", "kg", "ml", "l", "unit", "oz"]
 StockStatus = Literal["in_stock", "low_stock", "out_of_stock"]
 MenuItemType = Literal["starter", "main", "dessert", "beverage", "combo", "side"]
+VerificationRole = Literal["user", "employee"]
 
 
 class Address(BaseModelNoExtra):
@@ -356,6 +357,23 @@ class Review(BaseModelNoExtra):
     rating: int = Field(description="Rating value from 1 to 5")
     comment: Optional[str] = Field(default=None, description="Written customer feedback")
     created_at: str = Field(description="Timestamp when the review was created")
+
+
+class SMSVerificationChallenge(BaseModelNoExtra):
+    challenge_id: str = Field(description="Unique identifier for the SMS challenge")
+    phone_number: str = Field(description="Destination phone number")
+    role: VerificationRole = Field(description="Role associated with the verification")
+    purpose: str = Field(description="Sensitive action protected by this challenge")
+    reference_id: str = Field(description="Entity id protected by the verification flow")
+    code: str = Field(description="Verification code delivered by SMS")
+    status: Literal["pending", "verified", "failed", "expired"] = Field(
+        description="Current verification status"
+    )
+    sent_at: str = Field(description="Timestamp when the code was issued")
+    verified_at: Optional[str] = Field(
+        default=None,
+        description="Timestamp when the code was successfully verified",
+    )
 
 
 class RestaurantInfo(BaseModelNoExtra):

@@ -142,6 +142,59 @@ def test_cancel_reservation_updates_status(
     assert reservation.status == "cancelled"
 
 
+def test_send_sms_verification_code_returns_expected_challenge(
+    assistant_tools: RestauranteJoaquinCachayTools,
+) -> None:
+    challenge = assistant_tools.send_sms_verification_code(
+        phone_number="+51-933-111-111",
+        role="user",
+        purpose="cancel_reservation",
+        reference_id="RES-001",
+    )
+
+    assert challenge.challenge_id == "SMS-001"
+    assert challenge.code == "482911"
+    assert challenge.status == "pending"
+
+
+def test_verify_sms_verification_code_marks_challenge_verified(
+    assistant_tools: RestauranteJoaquinCachayTools,
+) -> None:
+    assistant_tools.send_sms_verification_code(
+        phone_number="+51-933-111-111",
+        role="user",
+        purpose="cancel_reservation",
+        reference_id="RES-001",
+    )
+
+    challenge = assistant_tools.verify_sms_verification_code(
+        phone_number="+51-933-111-111",
+        role="user",
+        code="482911",
+    )
+
+    assert challenge.status == "verified"
+    assert challenge.verified_at is not None
+
+
+def test_verify_sms_verification_code_rejects_wrong_code(
+    assistant_tools: RestauranteJoaquinCachayTools,
+) -> None:
+    assistant_tools.send_sms_verification_code(
+        phone_number="+51-933-111-111",
+        role="user",
+        purpose="cancel_reservation",
+        reference_id="RES-001",
+    )
+
+    with pytest.raises(ValueError, match="Incorrect SMS verification code"):
+        assistant_tools.verify_sms_verification_code(
+            phone_number="+51-933-111-111",
+            role="user",
+            code="000000",
+        )
+
+
 def test_create_order_requires_items(
     assistant_tools: RestauranteJoaquinCachayTools,
 ) -> None:
@@ -386,3 +439,23 @@ def test_user_tools_set_presence_updates_surroundings(
 
     assert surroundings["currently_in_restaurant"] is True
     assert surroundings["seated_table_id"] == "TBL-004"
+
+
+def test_user_tools_sms_inbox_syncs_from_environment() -> None:
+    db = RestauranteJoaquinCachayDB.load(RESTAURANTE_JOAQUIN_CACHAY_DB_PATH)
+    user_db = RestaurantUserDB()
+    env = get_environment(db=db, user_db=user_db)
+
+    env.tools.send_sms_verification_code(
+        phone_number="+51-933-111-111",
+        role="user",
+        purpose="cancel_reservation",
+        reference_id="RES-001",
+    )
+    env.sync_tools()
+
+    inbox = env.user_tools.view_sms_inbox()
+
+    assert len(inbox) == 1
+    assert inbox[0].code == "482911"
+    assert inbox[0].purpose == "cancel_reservation"

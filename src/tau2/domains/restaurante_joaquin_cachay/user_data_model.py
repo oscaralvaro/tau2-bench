@@ -6,6 +6,7 @@ from tau2.domains.restaurante_joaquin_cachay.data_model import (
     Address,
     OrderType,
     PaymentMethodType,
+    VerificationRole,
 )
 from tau2.environment.db import DB
 from tau2.utils.pydantic_utils import BaseModelNoExtra, update_pydantic_model_with_dict
@@ -214,6 +215,20 @@ class RestaurantUserSurroundings(BaseModelNoExtra):
     )
 
 
+class UserSMSMessage(BaseModelNoExtra):
+    message_id: str = Field(description="Unique identifier for the visible SMS message")
+    phone_number: str = Field(description="Phone number that received the SMS")
+    role: VerificationRole = Field(description="Role tied to the verification flow")
+    purpose: str = Field(description="Protected action referenced by the SMS")
+    reference_id: str = Field(description="Entity protected by the verification flow")
+    code: str = Field(description="SMS verification code visible to the user")
+    sent_at: str = Field(description="Timestamp when the SMS was sent")
+    consumed: bool = Field(
+        default=False,
+        description="Whether the user already used this code in a verification attempt",
+    )
+
+
 class RestaurantUserDB(DB):
     identity: UserIdentity = Field(
         default_factory=UserIdentity,
@@ -270,6 +285,10 @@ class RestaurantUserDB(DB):
     surroundings: RestaurantUserSurroundings = Field(
         default_factory=RestaurantUserSurroundings,
         description="Customer surroundings and current in-restaurant state",
+    )
+    sms_inbox: List[UserSMSMessage] = Field(
+        default_factory=list,
+        description="SMS verification messages visible to the user",
     )
 
     def update_session(self, update_data: Dict[str, Any]) -> None:

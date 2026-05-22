@@ -8,6 +8,7 @@ from tau2.domains.restaurante_joaquin_cachay.user_data_model import (
     PaymentIntent,
     ReservationRequest,
     RestaurantUserDB,
+    UserSMSMessage,
     UserMenuItemSnapshot,
 )
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
@@ -286,4 +287,21 @@ class RestauranteJoaquinCachayUserTools(ToolKitBase):
         self.db.surroundings.currently_in_restaurant = currently_in_restaurant
         self.db.surroundings.seated_table_id = seated_table_id
         return self.db.surroundings.model_dump()
+
+    @is_tool(ToolType.READ)
+    def view_sms_inbox(self, only_unused: bool = False) -> list[UserSMSMessage]:
+        """Return SMS verification messages visible to the user."""
+        messages = self.db.sms_inbox
+        if only_unused:
+            messages = [message for message in messages if not message.consumed]
+        return messages
+
+    @is_tool(ToolType.WRITE)
+    def mark_sms_code_used(self, message_id: str) -> UserSMSMessage:
+        """Mark one SMS verification message as consumed by the user."""
+        for message in self.db.sms_inbox:
+            if message.message_id == message_id:
+                message.consumed = True
+                return message
+        raise ValueError(f"SMS message '{message_id}' not found")
 

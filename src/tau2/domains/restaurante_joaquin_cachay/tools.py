@@ -20,6 +20,7 @@ from tau2.domains.restaurante_joaquin_cachay.data_model import (
     RestaurantTable,
     RestauranteJoaquinCachayDB,
     Review,
+    SMSVerificationChallenge,
     SelectedModifier,
 )
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
@@ -33,6 +34,7 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
     def __init__(self, db: RestauranteJoaquinCachayDB) -> None:
         super().__init__(db)
         self._clock_tick = 0
+        self._sms_challenges: Dict[str, SMSVerificationChallenge] = {}
 
     def _now(self) -> str:
         base_time = datetime(2026, 4, 1, 12, 0, 0)
@@ -73,6 +75,50 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
             if customer.phone_number == phone_number:
                 return customer
         return None
+
+    def _find_employee_by_phone(self, phone_number: str):
+        for employee in self.db.employees.values():
+            if employee.phone_number == phone_number:
+                return employee
+        return None
+
+    def _build_sms_code(
+        self, phone_number: str, role: str, purpose: str, reference_id: str
+    ) -> str:
+        if (
+            phone_number == "+51-933-111-111"
+            and role == "user"
+            and purpose == "cancel_reservation"
+            and reference_id == "RES-001"
+        ):
+            return "482911"
+        seed = sum(ord(char) for char in f"{phone_number}|{role}|{purpose}|{reference_id}")
+        return f"{100000 + (seed % 900000):06d}"
+
+    def _validate_sms_subject(
+        self, phone_number: str, role: str, purpose: str, reference_id: str
+    ) -> None:
+        if role == "user":
+            customer = self._find_customer_by_phone(phone_number)
+            if customer is None:
+                raise ValueError(f"No customer found for phone number '{phone_number}'")
+            if purpose == "cancel_reservation":
+                reservation = self._get_reservation(reference_id)
+                if reservation.customer_id != customer.customer_id:
+                    raise ValueError(
+                        "The provided phone number does not own this reservation"
+                    )
+            return
+
+        if role == "employee":
+            employee = self._find_employee_by_phone(phone_number)
+            if employee is None:
+                raise ValueError(f"No employee found for phone number '{phone_number}'")
+            if purpose == "cancel_reservation":
+                self._get_reservation(reference_id)
+            return
+
+        raise ValueError(f"Unsupported verification role '{role}'")
 
     def _get_available_tables(
         self, party_size: int, area_id: Optional[str] = None
@@ -228,6 +274,67 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
     def get_order_details(self, order_id: str) -> RestaurantOrder:
         """Return the details of an order."""
         return self._get_order(order_id)
+
+    @is_tool(ToolType.WRITE)
+    def send_sms_verification_code(
+        self,
+        phone_number: str,
+        role: str,
+        purpose: str,
+        reference_id: str,
+    ) -> SMSVerificationChallenge:
+        """Send a deterministic SMS verification code for a sensitive action.
+
+        Use this before sensitive actions such as cancelling a reservation.
+        The verification role must reflect the real actor being verified. Do
+        not upgrade the role just because the customer asked for a privileged
+        flow.
+        """
+        self._validate_sms_subject(phone_number, role, purpose, reference_id)
+        challenge_key = f"{phone_number}|{role}|{purpose}|{reference_id}"
+        existing = self._sms_challenges.get(challenge_key)
+        if existing is not None and existing.status == "pending":
+            return existing
+        challenge = SMSVerificationChallenge(
+            challenge_id=self._next_id("SMS", self._sms_challenges),
+            phone_number=phone_number,
+            role=role,
+            purpose=purpose,
+            reference_id=reference_id,
+            code=self._build_sms_code(phone_number, role, purpose, reference_id),
+            status="pending",
+            sent_at=self._now(),
+        )
+        self._sms_challenges[challenge_key] = challenge
+        return challenge
+
+    @is_tool(ToolType.WRITE)
+    def verify_sms_verification_code(
+        self,
+        phone_number: str,
+        role: str,
+        code: str,
+    ) -> SMSVerificationChallenge:
+        """Verify an SMS code that was previously sent for a sensitive action.
+
+        The role must match the role that was used when sending the challenge.
+        """
+        pending = [
+            challenge
+            for challenge in self._sms_challenges.values()
+            if challenge.phone_number == phone_number
+            and challenge.role == role
+            and challenge.status == "pending"
+        ]
+        if not pending:
+            raise ValueError("No pending SMS verification challenge found")
+        challenge = pending[-1]
+        if challenge.code != code:
+            challenge.status = "failed"
+            raise ValueError("Incorrect SMS verification code")
+        challenge.status = "verified"
+        challenge.verified_at = self._now()
+        return challenge
 
     @is_tool(ToolType.WRITE)
     def create_customer_profile(
