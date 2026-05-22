@@ -6,6 +6,7 @@ from tau2.domains.hotel_calle.data_model import (
     Reservation,
     RoomType,
     User,
+    VerificationCode,
 )
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
 
@@ -44,6 +45,11 @@ class HotelCalleTools(ToolKitBase):
 
     def _reservation_blocks_inventory(self, reservation: Reservation) -> bool:
         return reservation.status in {"confirmed", "pending"}
+
+    def _generate_sms_code(self, reservation_id: str, role: str) -> str:
+        raw = f"{reservation_id}:{role}:{self.db.reservations[reservation_id].guest_phone}"
+        checksum = sum((idx + 1) * ord(char) for idx, char in enumerate(raw))
+        return f"{checksum % 1000000:06d}"
 
     def _get_available_rooms_by_type(
         self,
@@ -256,9 +262,83 @@ class HotelCalleTools(ToolKitBase):
             raise ValueError(f"Reservation '{reservation_id}' not found")
         return self.db.reservations[reservation_id]
 
+    @is_tool(ToolType.WRITE)
+    def send_sms_verification_code(
+        self, reservation_id: str, role: str = "user"
+    ) -> dict:
+        """
+        Send a verification code by SMS for a sensitive reservation operation.
+
+        Args:
+            reservation_id: Reservation identifier to verify.
+            role: Role being verified. Must be 'user' or 'employee'.
+        """
+        if role not in {"user", "employee"}:
+            raise ValueError("Role must be 'user' or 'employee'")
+        reservation = self.get_reservation(reservation_id)
+        if not reservation.guest_phone:
+            raise ValueError("Reservation does not have a phone number for SMS")
+
+        code = self._generate_sms_code(reservation_id, role)
+        self.db.verification_codes[reservation_id] = VerificationCode(
+            reservation_id=reservation_id,
+            phone=reservation.guest_phone,
+            role=role,
+            code=code,
+            verified=False,
+        )
+        return {
+            "reservation_id": reservation_id,
+            "role": role,
+            "sent": True,
+            "phone_last_digits": reservation.guest_phone[-3:],
+        }
+
+    @is_tool(ToolType.WRITE)
+    def verify_sms_code(
+        self, reservation_id: str, code: str, role: str = "user"
+    ) -> dict:
+        """
+        Verify an SMS code before a sensitive reservation operation.
+
+        Args:
+            reservation_id: Reservation identifier being verified.
+            code: Code provided by the user.
+            role: Role being verified. Must match the role used when sending the code.
+        """
+        if reservation_id not in self.db.verification_codes:
+            raise ValueError("No SMS verification code has been sent for this reservation")
+        verification = self.db.verification_codes[reservation_id]
+        if verification.role != role:
+            raise ValueError("Verification role does not match")
+        if verification.code != code.strip():
+            return {
+                "reservation_id": reservation_id,
+                "role": role,
+                "verified": False,
+                "reason": "incorrect_code",
+            }
+        verification.verified = True
+        return {
+            "reservation_id": reservation_id,
+            "role": role,
+            "verified": True,
+        }
+
     def assert_reservation_status(self, reservation_id: str, expected_status: str) -> bool:
         """
         Check whether a reservation exists with the expected status.
         """
         reservation = self.get_reservation(reservation_id)
         return reservation.status == expected_status
+
+    def assert_sms_verification_status(
+        self, reservation_id: str, expected_verified: bool
+    ) -> bool:
+        """
+        Check whether a reservation has the expected SMS verification status.
+        """
+        verification = self.db.verification_codes.get(reservation_id)
+        if verification is None:
+            return expected_verified is False
+        return verification.verified == expected_verified

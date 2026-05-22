@@ -188,3 +188,85 @@ def test_check_room_availability_uses_dates_and_ignores_maintenance(
         guests=2,
     )
     assert non_overlapping["available_rooms"] == 2
+
+
+def test_sms_verification_flow(environment: Environment):
+    environment.get_response(
+        ToolCall(
+            id="sms-setup",
+            name="create_reservation",
+            arguments={
+                "guest_name": "Andrea Flores",
+                "room_type_id": "standard_queen",
+                "check_in_date": "2026-04-10",
+                "check_out_date": "2026-04-12",
+                "guests": 2,
+                "special_request": "",
+                "guest_phone": "+51 900 111 222",
+            },
+        )
+    )
+
+    send_response = environment.get_response(
+        ToolCall(
+            id="sms-send",
+            name="send_sms_verification_code",
+            arguments={"reservation_id": "RES-001", "role": "user"},
+        )
+    )
+    assert not send_response.error
+
+    code = environment.use_user_tool(
+        "read_latest_sms_code", reservation_id="RES-001"
+    )
+    assert code.isdigit()
+    assert len(code) == 6
+
+    verify_response = environment.get_response(
+        ToolCall(
+            id="sms-verify",
+            name="verify_sms_code",
+            arguments={
+                "reservation_id": "RES-001",
+                "role": "user",
+                "code": code,
+            },
+        )
+    )
+    assert not verify_response.error
+    assert environment.tools.assert_sms_verification_status("RES-001", True)
+
+
+def test_sms_verification_rejects_wrong_code(environment: Environment):
+    environment.get_response(
+        ToolCall(
+            id="sms-setup",
+            name="create_reservation",
+            arguments={
+                "guest_name": "Andrea Flores",
+                "room_type_id": "standard_queen",
+                "check_in_date": "2026-04-10",
+                "check_out_date": "2026-04-12",
+                "guests": 2,
+                "special_request": "",
+                "guest_phone": "+51 900 111 222",
+            },
+        )
+    )
+    environment.get_response(
+        ToolCall(
+            id="sms-send",
+            name="send_sms_verification_code",
+            arguments={"reservation_id": "RES-001", "role": "user"},
+        )
+    )
+
+    result = environment.use_tool(
+        "verify_sms_code",
+        reservation_id="RES-001",
+        role="user",
+        code="000000",
+    )
+    assert result["verified"] is False
+    assert result["reason"] == "incorrect_code"
+    assert environment.tools.assert_sms_verification_status("RES-001", False)

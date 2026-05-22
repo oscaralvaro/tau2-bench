@@ -62,6 +62,18 @@ class Reservation(BaseModel):
     status: ReservationStatus = Field(description="Current reservation status")
 
 
+class VerificationCode(BaseModel):
+    reservation_id: str = Field(description="Reservation being verified")
+    phone: str = Field(description="Phone number where the code was sent")
+    role: Literal["user", "employee"] = Field(
+        description="Role that must present the code"
+    )
+    code: str = Field(description="Six digit verification code")
+    verified: bool = Field(
+        default=False, description="Whether the code has been verified"
+    )
+
+
 class HotelInfo(BaseModel):
     hotel_name: str = Field(description="Official hotel name")
     city: str = Field(description="City where the hotel is located")
@@ -82,6 +94,10 @@ class HotelCalleDB(DB):
     )
     reservations: Dict[str, Reservation] = Field(
         description="Reservations indexed by reservation id"
+    )
+    verification_codes: Dict[str, VerificationCode] = Field(
+        default_factory=dict,
+        description="Active SMS verification codes indexed by reservation id",
     )
 
     def get_statistics(self) -> dict[str, Any]:
