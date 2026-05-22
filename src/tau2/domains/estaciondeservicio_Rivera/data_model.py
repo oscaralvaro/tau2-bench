@@ -18,6 +18,8 @@ InvoiceStatus = Literal["pending", "sent", "not_requested"]
 PaymentStatus = Literal["pending", "paid", "failed"]
 ComplaintStatus = Literal["registered", "in_progress", "resolved", "cancelled"]
 OrderPaymentStatus = Literal["pending", "paid"]
+SMSVerificationStatus = Literal["pending", "verified", "expired"]
+SMSRole = Literal["customer_contact", "registered_user", "employee"]
 
 
 class Item(BaseModel):
@@ -81,6 +83,14 @@ class User(BaseModel):
     user_id: str = Field(description="Unique user identifier")
     name: str = Field(description="Full name of the contact person")
     customer_id: str = Field(description="Identifier of the related customer")
+    telefono: str | None = Field(
+        default=None,
+        description="Phone number of the contact person, if available",
+    )
+    role: SMSRole = Field(
+        default="customer_contact",
+        description="Role of the contact person for SMS verification flows",
+    )
 
 
 class PaymentMethodBase(BaseModel):
@@ -183,6 +193,49 @@ class Claim(BaseModel):
         description="Claim registration date and time in YYYY-MM-DDTHH:MM:SS format"
     )
     estado_reclamacion: ComplaintStatus = Field(description="Current claim status")
+
+
+class SMSVerification(BaseModel):
+    """Represents an SMS verification challenge sent to a user."""
+
+    verification_id: str = Field(description="Unique verification identifier")
+    id_cliente: str = Field(description="Customer identifier associated with the challenge")
+    role: SMSRole = Field(description="Role that must validate the code")
+    user_id: str | None = Field(
+        default=None,
+        description="Target user identifier when the challenge is sent to a specific user",
+    )
+    destination_phone: str = Field(description="Destination phone where the SMS is sent")
+    code: str = Field(description="Verification code sent by SMS")
+    reason: str | None = Field(
+        default=None,
+        description="Reason for the SMS verification request",
+    )
+    sent_at: datetime.datetime = Field(
+        description="Date and time when the verification SMS was sent"
+    )
+    verified_at: datetime.datetime | None = Field(
+        default=None,
+        description="Date and time when the code was verified",
+    )
+    status: SMSVerificationStatus = Field(description="Current challenge status")
+
+
+class SMSPolicyConfig(BaseModel):
+    """Defines which actions require SMS verification."""
+
+    enabled: bool = Field(
+        default=False,
+        description="Whether SMS verification is enforced for selected actions",
+    )
+    actions_requiring_sms: List[str] = Field(
+        default_factory=list,
+        description="List of tool names that require a verified SMS challenge",
+    )
+    required_role: SMSRole = Field(
+        default="customer_contact",
+        description="Role that must be verified before sensitive actions",
+    )
 
 
 class Order(BaseModel):
@@ -347,6 +400,14 @@ class FuelStationDB(DB):
     reclamaciones: Dict[str, Claim] = Field(
         default_factory=dict,
         description="Dictionary of claims indexed by id_reclamacion",
+    )
+    sms_verifications: Dict[str, SMSVerification] = Field(
+        default_factory=dict,
+        description="Dictionary of SMS verification challenges indexed by verification_id",
+    )
+    sms_policy: SMSPolicyConfig = Field(
+        default_factory=SMSPolicyConfig,
+        description="Configuration of SMS verification requirements for sensitive actions",
     )
     orders: Dict[str, Order] = Field(
         default_factory=dict,

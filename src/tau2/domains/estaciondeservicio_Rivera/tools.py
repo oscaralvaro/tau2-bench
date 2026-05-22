@@ -17,6 +17,8 @@ from tau2.domains.estaciondeservicio_Rivera.data_model import (
     Order,
     Payment,
     PaymentMethod,
+    SMSRole,
+    SMSVerification,
     VirtualInvoice,
 )
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
@@ -76,6 +78,35 @@ class PaymentStatusInfo(BaseModel):
     )
 
 
+class SMSDispatchResult(BaseModel):
+    """Result of sending an SMS verification code."""
+
+    verification_id: str = Field(description="Verification identifier")
+    id_cliente: str = Field(description="Customer identifier")
+    role: SMSRole = Field(description="Role that must validate the SMS")
+    user_id: Optional[str] = Field(
+        default=None,
+        description="Target user identifier when applicable",
+    )
+    destination_phone_masked: str = Field(
+        description="Masked phone number that received the SMS"
+    )
+    status: str = Field(description="Dispatch status")
+
+
+class SMSVerificationResult(BaseModel):
+    """Result of validating an SMS verification code."""
+
+    verification_id: str = Field(description="Verification identifier")
+    id_cliente: str = Field(description="Customer identifier")
+    role: SMSRole = Field(description="Verified role")
+    user_id: Optional[str] = Field(
+        default=None,
+        description="Verified user identifier when applicable",
+    )
+    verified: bool = Field(description="Whether the code was verified successfully")
+
+
 class EstacionDeServicioRiveraTools(ToolKitBase):
     """Toolkit for the fuel-station delivery-order domain."""
 
@@ -133,6 +164,74 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
                 flags=re.IGNORECASE,
             )
         return descripcion_clean
+
+    def _mask_phone(self, phone: str) -> str:
+        if len(phone) <= 2:
+            return "*" * len(phone)
+        return "*" * (len(phone) - 2) + phone[-2:]
+
+    def _resolve_sms_recipient(
+        self,
+        id_cliente: str,
+        role: SMSRole,
+        user_id: Optional[str] = None,
+    ) -> tuple[Optional[str], str]:
+        cliente = self._get_cliente(id_cliente)
+        if role == "customer_contact":
+            return None, cliente.telefono
+
+        if user_id is None:
+            raise ValueError("user_id is required for this SMS verification role")
+        user = self.db.users.get(user_id)
+        if user is None:
+            raise ValueError("User not found")
+        if user.customer_id != id_cliente:
+            raise ValueError("The selected user does not belong to the customer")
+        if user.role != role:
+            raise ValueError("The selected user does not have the required role")
+        if not user.telefono:
+            raise ValueError("The selected user does not have a phone number registered")
+        return user.user_id, user.telefono
+
+    def _get_latest_sms_verification(
+        self,
+        id_cliente: str,
+        role: SMSRole,
+        user_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> SMSVerification:
+        candidates = [
+            verification
+            for verification in self.db.sms_verifications.values()
+            if verification.id_cliente == id_cliente
+            and verification.role == role
+            and verification.user_id == user_id
+            and (status is None or verification.status == status)
+        ]
+        if not candidates:
+            raise ValueError("No SMS verification challenge found for the requested customer and role")
+        candidates.sort(key=lambda verification: verification.sent_at)
+        return candidates[-1]
+
+    def _require_verified_sms(
+        self,
+        action_name: str,
+        id_cliente: str,
+        role: Optional[SMSRole] = None,
+        user_id: Optional[str] = None,
+    ) -> None:
+        policy = self.db.sms_policy
+        if not policy.enabled or action_name not in policy.actions_requiring_sms:
+            return
+        verification_role = role or policy.required_role
+        verification = self._get_latest_sms_verification(
+            id_cliente=id_cliente,
+            role=verification_role,
+            user_id=user_id,
+            status="verified",
+        )
+        if verification.status != "verified":
+            raise ValueError("A verified SMS code is required before completing this action")
 
     def _get_cliente(self, id_cliente: str) -> Customer:
         if id_cliente not in self.db.clientes:
@@ -282,6 +381,72 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         return self._get_payment_method(payment_method_id)
 
     @is_tool(ToolType.WRITE)
+    def send_sms_verification_code(
+        self,
+        id_cliente: str,
+        role: SMSRole = "customer_contact",
+        user_id: Optional[str] = None,
+        reason: Optional[str] = None,
+    ) -> SMSDispatchResult:
+        """Sends an SMS verification code to validate a sensitive operation."""
+        resolved_user_id, destination_phone = self._resolve_sms_recipient(
+            id_cliente=id_cliente,
+            role=role,
+            user_id=user_id,
+        )
+        verification_id = self._generate_id(
+            "sms_verification", set(self.db.sms_verifications.keys())
+        )
+        code = f"{len(self.db.sms_verifications) + 1:06d}"
+        verification = SMSVerification(
+            verification_id=verification_id,
+            id_cliente=id_cliente,
+            role=role,
+            user_id=resolved_user_id,
+            destination_phone=destination_phone,
+            code=code,
+            reason=reason,
+            sent_at=self._next_event_timestamp(),
+            status="pending",
+        )
+        self.db.sms_verifications[verification_id] = verification
+        return SMSDispatchResult(
+            verification_id=verification_id,
+            id_cliente=id_cliente,
+            role=role,
+            user_id=resolved_user_id,
+            destination_phone_masked=self._mask_phone(destination_phone),
+            status="sent",
+        )
+
+    @is_tool(ToolType.WRITE)
+    def verify_sms_code(
+        self,
+        id_cliente: str,
+        code: str,
+        role: SMSRole = "customer_contact",
+        user_id: Optional[str] = None,
+    ) -> SMSVerificationResult:
+        """Verifies the latest SMS code sent for a customer and role."""
+        verification = self._get_latest_sms_verification(
+            id_cliente=id_cliente,
+            role=role,
+            user_id=user_id,
+            status="pending",
+        )
+        if verification.code != code:
+            raise ValueError("The SMS verification code is invalid")
+        verification.status = "verified"
+        verification.verified_at = self._next_event_timestamp()
+        return SMSVerificationResult(
+            verification_id=verification.verification_id,
+            id_cliente=id_cliente,
+            role=verification.role,
+            user_id=verification.user_id,
+            verified=True,
+        )
+
+    @is_tool(ToolType.WRITE)
     def register_client(
         self,
         nombre_contacto: str,
@@ -328,6 +493,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         correo_facturacion: Optional[str] = None,
     ) -> Customer:
         """Updates the data of a registered customer."""
+        self._require_verified_sms("update_client", id_cliente)
         cliente = self._get_cliente(id_cliente)
         if nombre_contacto is not None:
             cliente.nombre_contacto = nombre_contacto
@@ -359,6 +525,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
     ) -> Order:
         """Changes the selected payment method of a pending order before payment."""
         order = self._get_order(id_order)
+        self._require_verified_sms("update_order_payment_method", order.id_cliente)
         if order.estado_pedido != "pending":
             raise ValueError("The payment method can only be changed for pending orders")
         if order.pago_ids:
@@ -583,6 +750,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
     def cancel_order(self, id_order: str, motivo: str) -> Order:
         """Cancels a pending order and restores the reserved stock."""
         order = self._get_order(id_order)
+        self._require_verified_sms("cancel_order", order.id_cliente)
         if order.estado_pedido != "pending":
             raise ValueError("Only pending orders can be cancelled")
         if order.fecha_hora_programada - self._get_now() < datetime.timedelta(hours=12):
@@ -697,6 +865,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
     ) -> InvoiceEmissionResult:
         """Issues or updates the virtual invoice of an order."""
         order = self._get_order(id_order)
+        self._require_verified_sms("emit_virtual_invoice", order.id_cliente)
         cliente = self._get_cliente(order.id_cliente)
 
         destino = email_envio or order.factura_virtual.email_envio or cliente.correo_facturacion or cliente.email
