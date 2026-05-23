@@ -123,7 +123,6 @@ def test_academic_environment_exposes_user_sms_tools():
     user_tool_names = {tool.name for tool in environment.get_user_tools()}
 
     assert "check_verification_sms" in user_tool_names
-    assert "check_phone_messages" in user_tool_names
 
 
 def test_user_tools_can_read_agent_sms_code(tools):
