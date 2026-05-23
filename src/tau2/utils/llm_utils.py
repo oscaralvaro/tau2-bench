@@ -762,6 +762,7 @@ def generate(
     if kwargs.get("num_retries") is None:
         kwargs["num_retries"] = DEFAULT_MAX_RETRIES
 
+    empty_response_retries = kwargs.pop("empty_response_retries", DEFAULT_MAX_RETRIES)
     rate_limit_config = _extract_rate_limit_config(kwargs)
 
     if model.startswith("claude") and not ALLOW_SONNET_THINKING:
@@ -956,6 +957,25 @@ def generate(
         usage=usage,
         raw_data=response.to_dict(),
     )
+    if not (message.has_text_content() or message.is_tool_call()):
+        if empty_response_retries > 0:
+            logger.warning(
+                "Provider returned an empty assistant message; retrying "
+                f"({empty_response_retries} retries remaining)"
+            )
+            retry_kwargs = dict(kwargs)
+            retry_kwargs["empty_response_retries"] = empty_response_retries - 1
+            return generate(
+                model=model,
+                messages=messages,
+                tools=tools,
+                tool_choice=tool_choice,
+                **retry_kwargs,
+            )
+        raise ValueError(
+            "AssistantMessage must have either content or tool calls. "
+            f"Got empty response from provider for model {model}"
+        )
     return message
 
 
