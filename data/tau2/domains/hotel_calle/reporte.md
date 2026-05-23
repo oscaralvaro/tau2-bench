@@ -3,10 +3,20 @@
 ## Configuracion
 
 - Dominio: hotel_calle
-- Modelo agente: gemini/gemma-3-27b-it o Gemma 4 permitido por Google AI Studio
-- Modelo usuario: gemini/gemma-3-12b-it o equivalente Gemma permitido
+- Modelo agente: gemini/gemma-4-31b-it
+- Modelo usuario: gemini/gemma-4-26b-a4b-it
+- Evaluador NL: gemini/gemma-4-26b-a4b-it para tareas con `NL_ASSERTION`
 - Metrica final: pass^10 por tarea
 - Nota: completar esta tabla con los JSON reales generados en `simulations/`.
+
+## Estado parcial de corridas
+
+Se esta organizando la evidencia en 10 corridas. Cada corrida debe cubrir las 20 tareas una vez. Por inestabilidad de la API de Google/Gemma, algunas corridas se completan por partes y se documentan en manifest.
+
+- Manifest parcial Corrida 1: `simulations_manifest_round_01.csv`
+- Cobertura actual Corrida 1: 10/20 tareas completas
+- Faltan en Corrida 1: tareas 11 a 20
+- Nota tecnica: las tareas 11 a 20 incluyen `NL_ASSERTION`, por lo que deben evaluarse con `EvaluationType.ALL_WITH_NL_ASSERTIONS`.
 
 ## Tabla de resultados pass^10
 
