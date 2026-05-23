@@ -14,8 +14,9 @@
 Se esta organizando la evidencia en 10 corridas. Cada corrida debe cubrir las 20 tareas una vez. Por inestabilidad de la API de Google/Gemma, algunas corridas se completan por partes y se documentan en manifest.
 
 - Manifest parcial Corrida 1: `simulations_manifest_round_01.csv`
-- Cobertura actual Corrida 1: 10/20 tareas completas
-- Faltan en Corrida 1: tareas 11 a 20
+- Cobertura actual Corrida 1: 20/20 tareas completas
+- Resultado Corrida 1: 12/20 tareas exitosas
+- Faltan en Corrida 1: ninguna
 - Nota tecnica: las tareas 11 a 20 incluyen `NL_ASSERTION`, por lo que deben evaluarse con `EvaluationType.ALL_WITH_NL_ASSERTIONS`.
 
 ## Tabla de resultados pass^10
