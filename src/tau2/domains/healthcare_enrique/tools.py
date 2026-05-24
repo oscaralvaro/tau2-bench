@@ -83,4 +83,4 @@ class HealthcareToolkit(ToolKitBase):
             return None
 
         bloque.estado_cupo = "disponible"
-        return f"Bloque {bloque_id} cancelado correctamente"
+        return bloque
