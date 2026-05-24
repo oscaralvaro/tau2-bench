@@ -61,13 +61,13 @@ class HealthcareToolkit(ToolKitBase):
     # ACCIONES
     # -------------------------
     @is_tool(ToolType.WRITE)
-    def agendar_bloque(self, bloque_id: str, tipo: str, profesional_1: str):
+    def agendar_bloque(self, bloque_id: str, tipo: str, profesionales: List[str]):
         """Agenda un bloque multiprofesional"""
 
         nuevo_bloque = BloqueAgenda(
             id=bloque_id,
             tipo_prestacion=tipo,
-            profesionales=[profesional_1],
+            profesionales=profesionales,
             duracion=60,
             estado_cupo="reservado"
         )
