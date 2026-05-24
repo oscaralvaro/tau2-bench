@@ -61,19 +61,19 @@ class HealthcareToolkit(ToolKitBase):
     # ACCIONES
     # -------------------------
     @is_tool(ToolType.WRITE)
-    def agendar_bloque(self, bloque_id: str, tipo: str, profesionales: List[str]):
+    def agendar_bloque(self, bloque_id: str, tipo: str, profesional_1: str):
         """Agenda un bloque multiprofesional"""
 
         nuevo_bloque = BloqueAgenda(
             id=bloque_id,
             tipo_prestacion=tipo,
-            profesionales=profesionales,
+            profesionales=[profesional_1],
             duracion=60,
             estado_cupo="reservado"
         )
 
         self.db.bloques_agenda[bloque_id] = nuevo_bloque
-        return nuevo_bloque
+        return f"Bloque {bloque_id} agendado correctamente"
 
     @is_tool(ToolType.WRITE)
     def cancelar_bloque(self, bloque_id: str):
@@ -83,4 +83,4 @@ class HealthcareToolkit(ToolKitBase):
             return None
 
         bloque.estado_cupo = "disponible"
-        return bloque
+        return f"Bloque {bloque_id} cancelado correctamente"
