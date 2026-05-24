@@ -163,6 +163,20 @@ from tau2.environment.environment import Environment
 from tau2.user.base import BaseUser
 from tau2.user.user_simulator import DummyUser, UserSimulator
 
+# ... (otros imports de airline, retail, telecom, etc.)
+
+# START DOMAIN IMPORT: Juana Cristina Mendoza Pacheco
+from tau2.domains.salud_mendoza_lista.environment import (
+    get_environment as salud_lista_get_env,
+    get_tasks as salud_lista_get_tasks,
+    get_tasks_split as salud_lista_get_splits,
+)
+from tau2.domains.salud_mendoza_rag.environment import (
+    get_environment as salud_rag_get_env,
+    get_tasks as salud_rag_get_tasks,
+    get_tasks_split as salud_rag_get_splits,
+)
+# END DOMAIN IMPORT: Juana Cristina Mendoza Pacheco
 
 class RegistryInfo(BaseModel):
     """Options for the registry"""
@@ -480,6 +494,26 @@ try:
         "telecom-workflow",
         get_task_splits=telecom_domain_get_tasks_split,
     )
+
+# ... (registros de airline, retail, telecom, etc.)
+
+    # START DOMAIN REGISTRATION: Juana Cristina Mendoza Pacheco
+    # Registro Dominio 1: Gestión de Listas
+    registry.register_domain(salud_lista_get_env, "salud_mendoza_lista")
+    registry.register_tasks(
+        salud_lista_get_tasks, 
+        "salud_mendoza_lista", 
+        get_task_splits=salud_lista_get_splits
+    )
+
+    # Registro Dominio 2: Asistente RAG Clínico
+    registry.register_domain(salud_rag_get_env, "salud_mendoza_rag")
+    registry.register_tasks(
+        salud_rag_get_tasks, 
+        "salud_mendoza_rag", 
+        get_task_splits=salud_rag_get_splits
+    )
+    # END DOMAIN REGISTRATION: Juana Cristina Mendoza Pacheco
 
     logger.debug(
         f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
