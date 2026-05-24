@@ -29,6 +29,10 @@ Se esta organizando la evidencia en 10 corridas. Cada corrida debe cubrir las 20
 - Cobertura actual Corrida 4: 20/20 tareas completas
 - Resultado Corrida 4: 12/20 tareas exitosas
 - Faltan en Corrida 4: ninguna
+- Manifest parcial Corrida 5: `simulations_manifest_round_05.csv`
+- Cobertura actual Corrida 5: 20/20 tareas completas
+- Resultado Corrida 5: 12/20 tareas exitosas
+- Faltan en Corrida 5: ninguna
 - Nota tecnica: las tareas 11 a 20 incluyen `NL_ASSERTION`, por lo que deben evaluarse con `EvaluationType.ALL_WITH_NL_ASSERTIONS`.
 
 ## Tabla de resultados pass^10
