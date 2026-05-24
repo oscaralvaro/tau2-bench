@@ -7,24 +7,42 @@ from tau2.domains.healthcare_enrique.tools import HealthcareToolkit
 def toolkit():
     db = HealthcareDB(
         pacientes={
-            "111": {
-                "rut": "111",
-                "prevision": "FONASA",
-                "inscrito": True
-            },
-            "222": {
-                "rut": "222",
-                "prevision": "ISAPRE",
-                "inscrito": True
-            }
-        },
+    "111": {
+        "rut": "111",
+        "nombre": "Juan Perez",
+        "edad": 58,
+        "sexo": "M",
+        "prevision": "FONASA",
+        "clasificacion_riesgo": "G2",
+        "riesgo_cardiovascular": "Moderado",
+        "estado_pscv": "Activo",
+        "cesfam": "CESFAM Central",
+        "inscrito": True
+    },
+    "222": {
+        "rut": "222",
+        "nombre": "Maria Soto",
+        "edad": 45,
+        "sexo": "F",
+        "prevision": "ISAPRE",
+        "clasificacion_riesgo": "G1",
+        "riesgo_cardiovascular": "Bajo",
+        "estado_pscv": "Activo",
+        "cesfam": "CESFAM Norte",
+        "inscrito": True
+             }
+},
         interconsultas={
-            "ic1": {
-                "id": "ic1",
-                "rut_paciente": "111",
-                "estado": "validada"
+    "ic1": {
+        "id": "ic1",
+        "rut_paciente": "111",
+        "especialidad_destino": "Oftalmologia",
+        "criterio_derivacion": "Control fondo de ojo",
+        "fecha_creacion": "2026-05-24",
+        "estado": "validada"
             }
-        },
+
+},
         registros_clinicos={},
         bloques_agenda={}
     )
