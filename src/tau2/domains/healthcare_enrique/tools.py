@@ -1,4 +1,4 @@
-from tau2.environment.toolkit import ToolKitBase
+from tau2.environment.toolkit import ToolKitBase, is_tool, ToolType
 from .data_model import HealthcareDB, BloqueAgenda
 from typing import List
 
@@ -11,18 +11,18 @@ class HealthcareToolkit(ToolKitBase):
     # -------------------------
     # CONSULTAS
     # -------------------------
-
+    @is_tool(ToolType.READ) 
     def get_paciente(self, rut: str):
         """Obtiene un paciente por RUT"""
         return self.db.pacientes.get(rut)
-
+    @is_tool(ToolType.READ)
     def get_interconsultas(self, rut: str):
         """Lista interconsultas de un paciente"""
         return [
             ic for ic in self.db.interconsultas.values()
             if ic.rut_paciente == rut
         ]
-
+    @is_tool(ToolType.READ)
     def get_registros_clinicos(self, rut: str):
         """Obtiene registros clínicos del paciente"""
         return [
@@ -33,7 +33,7 @@ class HealthcareToolkit(ToolKitBase):
     # -------------------------
     # VALIDACIONES
     # -------------------------
-
+    @is_tool(ToolType.READ)
     def validar_prevision(self, rut: str):
         """Verifica si el paciente es FONASA"""
         paciente = self.db.pacientes.get(rut)
@@ -41,6 +41,7 @@ class HealthcareToolkit(ToolKitBase):
             return False
         return paciente.prevision == "FONASA"
 
+    @is_tool(ToolType.READ)
     def validar_inscripcion(self, rut: str):
         """Verifica si el paciente está inscrito en CESFAM"""
         paciente = self.db.pacientes.get(rut)
@@ -48,6 +49,7 @@ class HealthcareToolkit(ToolKitBase):
             return False
         return paciente.inscrito
 
+    @is_tool(ToolType.READ)
     def validar_interconsulta(self, rut: str):
         """Verifica si el paciente tiene interconsulta válida"""
         for ic in self.db.interconsultas.values():
@@ -58,7 +60,7 @@ class HealthcareToolkit(ToolKitBase):
     # -------------------------
     # ACCIONES
     # -------------------------
-
+    @is_tool(ToolType.WRITE)
     def agendar_bloque(self, bloque_id: str, tipo: str, profesionales: List[str]):
         """Agenda un bloque multiprofesional"""
 
@@ -73,6 +75,7 @@ class HealthcareToolkit(ToolKitBase):
         self.db.bloques_agenda[bloque_id] = nuevo_bloque
         return nuevo_bloque
 
+    @is_tool(ToolType.WRITE)
     def cancelar_bloque(self, bloque_id: str):
         """Cancela un bloque existente"""
         bloque = self.db.bloques_agenda.get(bloque_id)
