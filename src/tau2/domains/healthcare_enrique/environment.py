@@ -10,7 +10,7 @@ from .utils import get_data_path
 # CARGAR ENTORNO
 # -------------------------
 
-def get_environment():
+def get_environment(solo_mode=False):
 
     # cargar base de datos
     db_path = get_data_path("db.json")
