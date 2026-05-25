@@ -1,5 +1,7 @@
 """Toolkit for the CLC validation system."""
 
+import random
+import string
 from typing import Any, List, Optional
 
 from tau2.domains.ConvalidacionCLCs_Coronado.data_model import (
@@ -23,6 +25,7 @@ class ConvalidacionCLCTools(ToolKitBase):
 
     def __init__(self, db: ConvalidacionCLCDB) -> None:
         super().__init__(db)
+        self._sms_codes: dict[str, str] = {}
 
     def _get_new_request_id(self) -> str:
         """Generate a deterministic unique Request ID."""
@@ -294,3 +297,27 @@ class ConvalidacionCLCTools(ToolKitBase):
     def transfer_to_human_agent(self, summary: str) -> str:
         """Transferir el caso a un agente humano."""
         return CONVALIDACION_TRANSFER_MESSAGE
+
+    @is_tool(ToolType.WRITE)
+    def send_sms_verification(self, user_id: str) -> str:
+        """Enviar un codigo de verificacion SMS de 6 digitos al usuario identificado por user_id.
+        El usuario debe proporcionar el codigo recibido antes de continuar con la operacion.
+        Este codigo solo es valido para verificar la identidad del rol 'user'.
+        """
+        code = "".join(random.choices(string.digits, k=6))
+        self._sms_codes[user_id] = code
+        return (
+            f"Codigo SMS de verificacion enviado al usuario {user_id}. "
+            "Por favor, solicite al usuario que proporcione el codigo que recibio."
+        )
+
+    @is_tool(ToolType.READ)
+    def verify_sms_code(self, user_id: str, code: str) -> bool:
+        """Verificar si el codigo SMS proporcionado por el usuario coincide con el codigo enviado.
+        Retorna True si el codigo es correcto, False en caso contrario.
+        Si retorna False, no debe procederse con la operacion solicitada.
+        """
+        expected = self._sms_codes.get(user_id)
+        if expected is None:
+            return False
+        return expected == code

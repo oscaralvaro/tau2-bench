@@ -348,3 +348,89 @@ def test_transfer_to_human_agent(environment: Environment, transfer_call: ToolCa
     response = environment.get_response(transfer_call)
     assert not response.error
     assert response.content == "YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE WAIT."
+
+
+# ──────────────────────────────────────────────
+# SMS verification tools
+# ──────────────────────────────────────────────
+
+
+@pytest.fixture
+def send_sms_call() -> ToolCall:
+    return ToolCall(
+        id="sms-1",
+        name="send_sms_verification",
+        arguments={"user_id": "2020112233"},
+    )
+
+
+def test_send_sms_verification(environment: Environment, send_sms_call: ToolCall):
+    response = environment.get_response(send_sms_call)
+    assert not response.error
+    # A code must have been stored for this user
+    assert "2020112233" in environment.tools._sms_codes
+    stored_code = environment.tools._sms_codes["2020112233"]
+    assert len(stored_code) == 6
+    assert stored_code.isdigit()
+
+
+def test_verify_sms_code_correct(environment: Environment):
+    # Send code first
+    environment.tools.send_sms_verification("2020112233")
+    correct_code = environment.tools._sms_codes["2020112233"]
+
+    call = ToolCall(
+        id="sms-2",
+        name="verify_sms_code",
+        arguments={"user_id": "2020112233", "code": correct_code},
+    )
+    response = environment.get_response(call)
+    assert not response.error
+    assert json.loads(response.content) == "True"
+
+
+def test_verify_sms_code_incorrect(environment: Environment):
+    # Send code first so a valid code exists
+    environment.tools.send_sms_verification("2020112233")
+
+    call = ToolCall(
+        id="sms-3",
+        name="verify_sms_code",
+        arguments={"user_id": "2020112233", "code": "000000"},
+    )
+    response = environment.get_response(call)
+    assert not response.error
+    # "000000" is almost certainly not the randomly generated code
+    assert json.loads(response.content) == "False"
+
+
+def test_verify_sms_code_no_prior_send(environment: Environment):
+    # No SMS was sent for this user — must return False, not error
+    call = ToolCall(
+        id="sms-4",
+        name="verify_sms_code",
+        arguments={"user_id": "9999999999", "code": "123456"},
+    )
+    response = environment.get_response(call)
+    assert not response.error
+    assert json.loads(response.content) == "False"
+
+
+def test_receive_sms_code(environment: Environment):
+    from tau2.domains.ConvalidacionCLCs_Coronado.user_tools import (
+        ConvalidacionCLCUserTools,
+    )
+
+    # Before any SMS is sent, user tools should return an informative message
+    user_tools = ConvalidacionCLCUserTools(environment.tools._sms_codes)
+    result_before = user_tools.receive_sms_code()
+    assert "No hay codigo" in result_before
+
+    # Agent sends SMS — shared dict reference means user_tools sees the code immediately
+    environment.tools.send_sms_verification("2020112233")
+    stored_code = environment.tools._sms_codes["2020112233"]
+
+    result_after = user_tools.receive_sms_code()
+    assert result_after == stored_code
+    assert len(result_after) == 6
+    assert result_after.isdigit()
