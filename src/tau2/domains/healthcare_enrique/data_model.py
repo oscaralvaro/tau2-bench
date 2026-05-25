@@ -91,3 +91,4 @@ class HealthcareDB(DB):
     registros_clinicos: Dict[str, RegistroClinico] = {}
     interconsultas: Dict[str, Interconsulta] = {}
     bloques_agenda: Dict[str, BloqueAgenda] = {}
+    users: Dict[str, dict] = {}
