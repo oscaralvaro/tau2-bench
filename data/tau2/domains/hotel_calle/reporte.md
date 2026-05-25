@@ -7,13 +7,13 @@
 - Modelo usuario: gemini/gemma-4-26b-a4b-it
 - Evaluador NL: gemini/gemma-4-26b-a4b-it para tareas con `NL_ASSERTION`
 - Metrica final: pass^5 por tarea, segun comunicado del curso que redujo la exigencia a 5 repeticiones.
-- Archivo consolidado de simulaciones: `data/simulations/hotel_calle_final_pass5.json`
-- Copia versionada dentro del dominio: `simulations_pass5_consolidated.json`
+- Archivo consolidado de simulaciones: `simulations/sim_final_all_pass5.json`
+- Copia adicional dentro del dominio: `simulations_pass5_consolidated.json`
 - Nota: las 5 corridas fueron ejecutadas antes del cambio sugerido a `gemini/gemma-4-26b-a4b-it` para ambos roles. El profesor indico que, si ya se tenian 5 ejecuciones por tarea, no habia problema siempre que estuvieran consolidadas en un mismo archivo de simulacion.
 
 ## Estado parcial de corridas
 
-Se organiza la evidencia en 5 corridas. Cada corrida cubre las 20 tareas una vez. Por inestabilidad de la API de Google/Gemma, algunas corridas se completaron por partes y se documentan en manifest. Las simulaciones validas de las 5 corridas estan reunidas en `data/simulations/hotel_calle_final_pass5.json`.
+Se organiza la evidencia en 5 corridas. Cada corrida cubre las 20 tareas una vez. Por inestabilidad de la API de Google/Gemma, algunas corridas se completaron por partes y se documentan en manifest. Las simulaciones validas de las 5 corridas estan reunidas en `simulations/sim_final_all_pass5.json`.
 
 - Manifest parcial Corrida 1: `simulations_manifest_round_01.csv`
 - Cobertura actual Corrida 1: 20/20 tareas completas
