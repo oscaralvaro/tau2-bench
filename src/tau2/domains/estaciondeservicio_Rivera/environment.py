@@ -21,12 +21,33 @@ from tau2.domains.estaciondeservicio_Rivera.utils import (
     ESTACIONDESERVICIO_RIVERA_USER_DB_PATH,
 )
 from tau2.environment.environment import Environment
-from tau2.utils import load_file
+from tau2.utils import get_dict_hash, load_file
 
 
 class EstacionDeServicioRiveraEnvironment(Environment):
     tools: EstacionDeServicioRiveraTools
     user_tools: EstacionDeServicioRiveraUserTools
+
+    @staticmethod
+    def _remove_sms_reason_from_hash(db_dump: dict) -> dict:
+        """Keep SMS reason user-facing, but do not make DB reward depend on it."""
+        for verification in db_dump.get("sms_verifications", {}).values():
+            verification["reason"] = None
+        for message in db_dump.get("sms_inbox", {}).values():
+            message["reason"] = None
+        return db_dump
+
+    def get_db_hash(self) -> Optional[str]:
+        if self.tools is None:
+            return None
+        db_dump = self.tools.db.model_dump()
+        return get_dict_hash(self._remove_sms_reason_from_hash(db_dump))
+
+    def get_user_db_hash(self) -> Optional[str]:
+        if self.user_tools is None:
+            return None
+        db_dump = self.user_tools.db.model_dump()
+        return get_dict_hash(self._remove_sms_reason_from_hash(db_dump))
 
     def sync_tools(self):
         if self.user_tools is None:
