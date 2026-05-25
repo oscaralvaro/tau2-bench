@@ -1,6 +1,7 @@
 """Herramientas disponibles para el usuario simulado en el dominio ConvalidacionCLCs."""
 
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.utils import get_dict_hash
 
 
 class ConvalidacionCLCUserTools(ToolKitBase):
@@ -15,6 +16,10 @@ class ConvalidacionCLCUserTools(ToolKitBase):
     def __init__(self, sms_codes: dict) -> None:
         super().__init__(None)
         self._sms_codes = sms_codes
+
+    def get_db_hash(self) -> str:
+        """Retorna un hash del estado actual de codigos SMS activos."""
+        return get_dict_hash(self._sms_codes)
 
     @is_tool(ToolType.READ)
     def receive_sms_code(self) -> str:
