@@ -29,6 +29,7 @@ In each turn you can either:
 You cannot do both at the same time.
 
 Try to be helpful and always follow the policy. Always make sure you generate valid JSON only.
+Never return an empty reply. If you are unsure, ask one brief clarifying question instead of leaving the message blank.
 """.strip()
 
 SYSTEM_PROMPT = """
@@ -39,6 +40,11 @@ SYSTEM_PROMPT = """
 {domain_policy}
 </policy>
 """.strip()
+
+FALLBACK_AGENT_MESSAGE = (
+    "Lo siento, tuve un problema interno al procesar este turno. "
+    "Por favor repite el dato clave o confirma si quieres que continúe con la acción anterior."
+)
 
 
 class LLMAgentState(BaseModel):
@@ -105,12 +111,22 @@ class LLMAgent(LocalAgent[LLMAgentState]):
         else:
             state.messages.append(message)
         messages = state.system_messages + state.messages
-        assistant_message = generate(
-            model=self.llm,
-            tools=self.tools,
-            messages=messages,
-            **self.llm_args,
-        )
+        try:
+            assistant_message = generate(
+                model=self.llm,
+                tools=self.tools,
+                messages=messages,
+                **self.llm_args,
+            )
+            assistant_message.validate()
+        except Exception as exc:
+            logger.warning(f"LLMAgent fallback activated after generation failure: {exc}")
+            assistant_message = AssistantMessage(
+                role="assistant",
+                content=FALLBACK_AGENT_MESSAGE,
+                cost=0.0,
+                raw_data={"fallback_reason": str(exc)},
+            )
         state.messages.append(assistant_message)
         return assistant_message, state
 
@@ -137,6 +153,7 @@ In each turn you can either:
 You cannot do both at the same time.
 
 Try to be helpful and always follow the policy. Always make sure you generate valid JSON only.
+Never return an empty reply. If you are unsure, ask one brief clarifying question instead of leaving the message blank.
 """.strip()
 
 SYSTEM_PROMPT_GT = """
@@ -233,12 +250,24 @@ class LLMGTAgent(LocalAgent[LLMAgentState]):
         else:
             state.messages.append(message)
         messages = state.system_messages + state.messages
-        assistant_message = generate(
-            model=self.llm,
-            tools=self.tools,
-            messages=messages,
-            **self.llm_args,
-        )
+        try:
+            assistant_message = generate(
+                model=self.llm,
+                tools=self.tools,
+                messages=messages,
+                **self.llm_args,
+            )
+            assistant_message.validate()
+        except Exception as exc:
+            logger.warning(
+                f"LLMGTAgent fallback activated after generation failure: {exc}"
+            )
+            assistant_message = AssistantMessage(
+                role="assistant",
+                content=FALLBACK_AGENT_MESSAGE,
+                cost=0.0,
+                raw_data={"fallback_reason": str(exc)},
+            )
         state.messages.append(assistant_message)
         return assistant_message, state
 
@@ -295,6 +324,7 @@ Stop when you consider that you have solved the ticket.
 To do so, send a message containing a single tool call to the `{stop_function_name}` tool. Do not include any other tool calls in this last message.
 
 Always follow the policy. Always make sure you generate valid JSON only.
+Never return an empty reply. If you are unsure, make the safest valid tool call available instead of returning blank output.
 """.strip()
 
 SYSTEM_PROMPT_SOLO = """

@@ -5,6 +5,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
+from copy import deepcopy
 from datetime import datetime
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
@@ -111,6 +112,25 @@ DEFAULT_RATE_LIMIT_429_BACKOFF_INITIAL_SECONDS = 2.0
 DEFAULT_RATE_LIMIT_429_BACKOFF_MAX_SECONDS = 30.0
 DEFAULT_RATE_LIMIT_429_BACKOFF_MULTIPLIER = 2.0
 DEFAULT_RATE_LIMIT_429_BACKOFF_JITTER_SECONDS = 0.0
+TRANSIENT_ERROR_MAX_RETRIES = "transient_error_max_retries"
+TRANSIENT_ERROR_BACKOFF_INITIAL_SECONDS = "transient_error_backoff_initial_seconds"
+TRANSIENT_ERROR_BACKOFF_MAX_SECONDS = "transient_error_backoff_max_seconds"
+TRANSIENT_ERROR_BACKOFF_MULTIPLIER = "transient_error_backoff_multiplier"
+TRANSIENT_ERROR_BACKOFF_JITTER_SECONDS = "transient_error_backoff_jitter_seconds"
+EMPTY_MESSAGE_MAX_RETRIES = "empty_message_max_retries"
+EMPTY_MESSAGE_BACKOFF_INITIAL_SECONDS = "empty_message_backoff_initial_seconds"
+EMPTY_MESSAGE_BACKOFF_MAX_SECONDS = "empty_message_backoff_max_seconds"
+EMPTY_MESSAGE_BACKOFF_MULTIPLIER = "empty_message_backoff_multiplier"
+
+DEFAULT_TRANSIENT_ERROR_MAX_RETRIES = 2
+DEFAULT_TRANSIENT_ERROR_BACKOFF_INITIAL_SECONDS = 2.0
+DEFAULT_TRANSIENT_ERROR_BACKOFF_MAX_SECONDS = 20.0
+DEFAULT_TRANSIENT_ERROR_BACKOFF_MULTIPLIER = 2.0
+DEFAULT_TRANSIENT_ERROR_BACKOFF_JITTER_SECONDS = 0.0
+DEFAULT_EMPTY_MESSAGE_MAX_RETRIES = 2
+DEFAULT_EMPTY_MESSAGE_BACKOFF_INITIAL_SECONDS = 1.0
+DEFAULT_EMPTY_MESSAGE_BACKOFF_MAX_SECONDS = 4.0
+DEFAULT_EMPTY_MESSAGE_BACKOFF_MULTIPLIER = 2.0
 
 
 @dataclass
@@ -393,17 +413,65 @@ def _is_rate_limit_error(error: Exception) -> bool:
     return "429" in message or "rate limit" in message or "too many requests" in message
 
 
+def _is_transient_provider_error(error: Exception) -> bool:
+    status_code = getattr(error, "status_code", None)
+    if status_code in {500, 502, 503, 504}:
+        return True
+
+    response = getattr(error, "response", None)
+    if response is not None and getattr(response, "status_code", None) in {
+        500,
+        502,
+        503,
+        504,
+    }:
+        return True
+
+    message = str(error).lower()
+    transient_markers = (
+        "500",
+        "502",
+        "503",
+        "504",
+        "internal server error",
+        "internal error encountered",
+        "service unavailable",
+        "bad gateway",
+        "gateway timeout",
+        "temporarily unavailable",
+        "server error",
+        "connection reset",
+        "remote protocol error",
+        "read timeout",
+        "timed out",
+    )
+    return any(marker in message for marker in transient_markers)
+
+
+def _compute_backoff_seconds_from_values(
+    attempt: int,
+    *,
+    initial_seconds: float,
+    max_seconds: float,
+    multiplier: float,
+    jitter_seconds: float = 0.0,
+) -> float:
+    backoff = min(max_seconds, initial_seconds * (multiplier**attempt))
+    if jitter_seconds > 0:
+        backoff += random.uniform(0, jitter_seconds)
+    return backoff
+
+
 def _compute_backoff_seconds(
     attempt: int, rate_limit_config: _RateLimitConfig
 ) -> float:
-    backoff = min(
-        rate_limit_config.backoff_max_seconds,
-        rate_limit_config.backoff_initial_seconds
-        * (rate_limit_config.backoff_multiplier ** attempt),
+    return _compute_backoff_seconds_from_values(
+        attempt,
+        initial_seconds=rate_limit_config.backoff_initial_seconds,
+        max_seconds=rate_limit_config.backoff_max_seconds,
+        multiplier=rate_limit_config.backoff_multiplier,
+        jitter_seconds=rate_limit_config.backoff_jitter_seconds,
     )
-    if rate_limit_config.backoff_jitter_seconds > 0:
-        backoff += random.uniform(0, rate_limit_config.backoff_jitter_seconds)
-    return backoff
 
 
 def _should_count_completion_tokens_for_tpm(model: str) -> bool:
@@ -738,6 +806,55 @@ def generate(
     if kwargs.get("num_retries") is None:
         kwargs["num_retries"] = DEFAULT_MAX_RETRIES
 
+    transient_error_max_retries = int(
+        kwargs.pop(TRANSIENT_ERROR_MAX_RETRIES, DEFAULT_TRANSIENT_ERROR_MAX_RETRIES)
+    )
+    transient_error_backoff_initial_seconds = float(
+        kwargs.pop(
+            TRANSIENT_ERROR_BACKOFF_INITIAL_SECONDS,
+            DEFAULT_TRANSIENT_ERROR_BACKOFF_INITIAL_SECONDS,
+        )
+    )
+    transient_error_backoff_max_seconds = float(
+        kwargs.pop(
+            TRANSIENT_ERROR_BACKOFF_MAX_SECONDS,
+            DEFAULT_TRANSIENT_ERROR_BACKOFF_MAX_SECONDS,
+        )
+    )
+    transient_error_backoff_multiplier = float(
+        kwargs.pop(
+            TRANSIENT_ERROR_BACKOFF_MULTIPLIER,
+            DEFAULT_TRANSIENT_ERROR_BACKOFF_MULTIPLIER,
+        )
+    )
+    transient_error_backoff_jitter_seconds = float(
+        kwargs.pop(
+            TRANSIENT_ERROR_BACKOFF_JITTER_SECONDS,
+            DEFAULT_TRANSIENT_ERROR_BACKOFF_JITTER_SECONDS,
+        )
+    )
+    empty_message_max_retries = int(
+        kwargs.pop(EMPTY_MESSAGE_MAX_RETRIES, DEFAULT_EMPTY_MESSAGE_MAX_RETRIES)
+    )
+    empty_message_backoff_initial_seconds = float(
+        kwargs.pop(
+            EMPTY_MESSAGE_BACKOFF_INITIAL_SECONDS,
+            DEFAULT_EMPTY_MESSAGE_BACKOFF_INITIAL_SECONDS,
+        )
+    )
+    empty_message_backoff_max_seconds = float(
+        kwargs.pop(
+            EMPTY_MESSAGE_BACKOFF_MAX_SECONDS,
+            DEFAULT_EMPTY_MESSAGE_BACKOFF_MAX_SECONDS,
+        )
+    )
+    empty_message_backoff_multiplier = float(
+        kwargs.pop(
+            EMPTY_MESSAGE_BACKOFF_MULTIPLIER,
+            DEFAULT_EMPTY_MESSAGE_BACKOFF_MULTIPLIER,
+        )
+    )
+
     rate_limit_config = _extract_rate_limit_config(kwargs)
 
     if model.startswith("claude") and not ALLOW_SONNET_THINKING:
@@ -772,12 +889,9 @@ def generate(
                 tools=token_tools,
             ) + rate_limit_config.token_reserve
 
-        last_error = None
-        max_attempts = 1
-        if rate_limit_config is not None:
-            max_attempts += rate_limit_config.max_429_retries
-
-        for attempt in range(max_attempts):
+        transient_attempt = 0
+        rate_limit_attempt = 0
+        while True:
             limiter = None
             limiter_entry = None
             if rate_limit_config is not None:
@@ -794,128 +908,64 @@ def generate(
                 if limiter is not None and limiter_entry is not None:
                     limiter.finalize(limiter_entry, limiter_entry.token_count)
 
-                if (
-                    rate_limit_config is None
-                    or not _is_rate_limit_error(e)
-                    or attempt >= max_attempts - 1
+                if rate_limit_config is not None and _is_rate_limit_error(e):
+                    if rate_limit_attempt < rate_limit_config.max_429_retries:
+                        backoff_seconds = _compute_backoff_seconds(
+                            rate_limit_attempt, rate_limit_config
+                        )
+                        logger.warning(
+                            f"Received rate limit error from provider; retrying in {backoff_seconds:.2f}s "
+                            f"(attempt {rate_limit_attempt + 1}/{rate_limit_config.max_429_retries})"
+                        )
+                        rate_limit_attempt += 1
+                        time.sleep(backoff_seconds)
+                        continue
+
+                if _is_transient_provider_error(e) and (
+                    transient_attempt < transient_error_max_retries
                 ):
-                    logger.error(e)
-                    raise e
+                    backoff_seconds = _compute_backoff_seconds_from_values(
+                        transient_attempt,
+                        initial_seconds=transient_error_backoff_initial_seconds,
+                        max_seconds=transient_error_backoff_max_seconds,
+                        multiplier=transient_error_backoff_multiplier,
+                        jitter_seconds=transient_error_backoff_jitter_seconds,
+                    )
+                    logger.warning(
+                        f"Received transient provider error; retrying in {backoff_seconds:.2f}s "
+                        f"(attempt {transient_attempt + 1}/{transient_error_max_retries})"
+                    )
+                    transient_attempt += 1
+                    time.sleep(backoff_seconds)
+                    continue
 
-                backoff_seconds = _compute_backoff_seconds(attempt, rate_limit_config)
-                logger.warning(
-                    f"Received rate limit error from provider; retrying in {backoff_seconds:.2f}s "
-                    f"(attempt {attempt + 1}/{max_attempts - 1})"
+                logger.error(e)
+                raise e
+
+    def _build_assistant_message(response_choice, cost: float, usage: Optional[dict]):
+        content = response_choice.message.content
+
+        if use_gemma_format:
+            tool_calls = parse_gemma_tool_calls(content)
+            if tool_calls and content:
+                content = re.sub(
+                    r"```tool_code.*?```", "", content, flags=re.DOTALL
+                ).strip()
+                content = content if content else None
+        else:
+            tool_calls = response_choice.message.tool_calls or []
+            tool_calls = [
+                ToolCall(
+                    id=tool_call.id,
+                    name=tool_call.function.name,
+                    arguments=json.loads(tool_call.function.arguments),
                 )
-                time.sleep(backoff_seconds)
-                last_error = e
+                for tool_call in tool_calls
+            ]
+            tool_calls = tool_calls or None
 
-        assert last_error is not None
-        raise last_error
-
-    if use_gemma_format:
-        messages_copy = list(messages)
-        if openai_tools:
-            # For Gemma: convert tools to Python signatures and merge into the
-            # instruction content before folding it into the first user turn.
-            logger.info(f"Using Gemma function calling format for {model}")
-
-            system_msg_idx = None
-            for i, msg in enumerate(messages_copy):
-                if isinstance(msg, SystemMessage):
-                    system_msg_idx = i
-                    break
-
-            if system_msg_idx is not None:
-                original_content = messages_copy[system_msg_idx].content
-                enhanced_content = create_gemma_system_prompt_with_tools(
-                    original_content, openai_tools
-                )
-                messages_copy[system_msg_idx] = SystemMessage(
-                    role="system", content=enhanced_content
-                )
-            else:
-                tool_prompt = create_gemma_system_prompt_with_tools("", openai_tools)
-                messages_copy.insert(0, SystemMessage(role="system", content=tool_prompt))
-
-        litellm_messages = to_gemma_messages(messages_copy)
-        response, limiter, limiter_entry = _call_with_rate_limits(
-            litellm_messages=litellm_messages,
-            token_tools=None,
-            completion_kwargs=dict(
-                model=model,
-                messages=litellm_messages,
-                **kwargs,
-            ),
-        )
-    else:
-        # Standard OpenAI tool calling format
-        litellm_messages = to_litellm_messages(messages)
-        if openai_tools and tool_choice is None:
-            tool_choice = "auto"
-        response, limiter, limiter_entry = _call_with_rate_limits(
-            litellm_messages=litellm_messages,
-            token_tools=openai_tools,
-            completion_kwargs=dict(
-                model=model,
-                messages=litellm_messages,
-                tools=openai_tools,
-                tool_choice=tool_choice,
-                **kwargs,
-            ),
-        )
-    cost = get_response_cost(response)
-    usage = get_response_usage(response)
-    if limiter is not None and limiter_entry is not None:
-        total_tokens = None
-        if usage is not None:
-            total_tokens = usage["prompt_tokens"]
-            if _should_count_completion_tokens_for_tpm(model):
-                total_tokens += usage["completion_tokens"]
-        limiter.finalize(limiter_entry, total_tokens)
-    response = response.choices[0]
-    try:
-        finish_reason = response.finish_reason
-        if finish_reason == "length":
-            logger.warning("Output might be incomplete due to token limit!")
-    except Exception as e:
-        logger.error(e)
-        raise e
-    assert response.message.role == "assistant", (
-        "The response should be an assistant message"
-    )
-    content = response.message.content
-
-    # Parse tool calls based on model type
-    if use_gemma_format:
-        # For Gemma: parse tool calls from ```tool_code``` blocks in content
-        tool_calls = parse_gemma_tool_calls(content)
-
-        # Remove tool_code blocks from content if tool calls were found
-        if tool_calls and content:
-            import re
-            content = re.sub(r"```tool_code.*?```", "", content, flags=re.DOTALL).strip()
-            # If content is now empty, set to None
-            content = content if content else None
-    else:
-        # Standard OpenAI format: tool calls come from response.message.tool_calls
-        tool_calls = response.message.tool_calls or []
-        tool_calls = [
-            ToolCall(
-                id=tool_call.id,
-                name=tool_call.function.name,
-                arguments=json.loads(tool_call.function.arguments),
-            )
-            for tool_call in tool_calls
-        ]
-        tool_calls = tool_calls or None
-
-        # Gemma 4 (and other models with Gemini thinking) may return only
-        # reasoning tokens with no visible text or function calls. LiteLLM puts
-        # those in reasoning_content while leaving content=None. Surface the
-        # reasoning content so validate() doesn't see an empty message.
         if content is None and tool_calls is None:
-            reasoning = getattr(response.message, "reasoning_content", None)
+            reasoning = getattr(response_choice.message, "reasoning_content", None)
             if reasoning:
                 logger.warning(
                     f"Model {model} returned only reasoning tokens with no visible "
@@ -923,15 +973,123 @@ def generate(
                 )
                 content = reasoning
 
-    message = AssistantMessage(
-        role="assistant",
-        content=content,
-        tool_calls=tool_calls,
-        cost=cost,
-        usage=usage,
-        raw_data=response.to_dict(),
+        return AssistantMessage(
+            role="assistant",
+            content=content,
+            tool_calls=tool_calls,
+            cost=cost,
+            usage=usage,
+            raw_data=response_choice.to_dict(),
+        )
+
+    completion_kwargs_base = deepcopy(kwargs)
+    active_messages = list(messages)
+    empty_retry_prompt = SystemMessage(
+        role="system",
+        content=(
+            "Your previous reply was empty or malformed. "
+            "Reply again with exactly one valid non-empty assistant message. "
+            "Return either plain text content or tool calls, never both, and never an empty reply."
+        ),
     )
-    return message
+
+    for empty_attempt in range(empty_message_max_retries + 1):
+        if use_gemma_format:
+            messages_copy = list(active_messages)
+            if openai_tools:
+                # For Gemma: convert tools to Python signatures and merge into the
+                # instruction content before folding it into the first user turn.
+                logger.info(f"Using Gemma function calling format for {model}")
+
+                system_msg_idx = None
+                for i, msg in enumerate(messages_copy):
+                    if isinstance(msg, SystemMessage):
+                        system_msg_idx = i
+                        break
+
+                if system_msg_idx is not None:
+                    original_content = messages_copy[system_msg_idx].content
+                    enhanced_content = create_gemma_system_prompt_with_tools(
+                        original_content, openai_tools
+                    )
+                    messages_copy[system_msg_idx] = SystemMessage(
+                        role="system", content=enhanced_content
+                    )
+                else:
+                    tool_prompt = create_gemma_system_prompt_with_tools("", openai_tools)
+                    messages_copy.insert(
+                        0, SystemMessage(role="system", content=tool_prompt)
+                    )
+
+            litellm_messages = to_gemma_messages(messages_copy)
+            response, limiter, limiter_entry = _call_with_rate_limits(
+                litellm_messages=litellm_messages,
+                token_tools=None,
+                completion_kwargs=dict(
+                    model=model,
+                    messages=litellm_messages,
+                    **completion_kwargs_base,
+                ),
+            )
+        else:
+            litellm_messages = to_litellm_messages(active_messages)
+            if openai_tools and tool_choice is None:
+                tool_choice = "auto"
+            response, limiter, limiter_entry = _call_with_rate_limits(
+                litellm_messages=litellm_messages,
+                token_tools=openai_tools,
+                completion_kwargs=dict(
+                    model=model,
+                    messages=litellm_messages,
+                    tools=openai_tools,
+                    tool_choice=tool_choice,
+                    **completion_kwargs_base,
+                ),
+            )
+        cost = get_response_cost(response)
+        usage = get_response_usage(response)
+        if limiter is not None and limiter_entry is not None:
+            total_tokens = None
+            if usage is not None:
+                total_tokens = usage["prompt_tokens"]
+                if _should_count_completion_tokens_for_tpm(model):
+                    total_tokens += usage["completion_tokens"]
+            limiter.finalize(limiter_entry, total_tokens)
+        response_choice = response.choices[0]
+        try:
+            finish_reason = response_choice.finish_reason
+            if finish_reason == "length":
+                logger.warning("Output might be incomplete due to token limit!")
+        except Exception as e:
+            logger.error(e)
+            raise e
+        assert response_choice.message.role == "assistant", (
+            "The response should be an assistant message"
+        )
+        message = _build_assistant_message(response_choice, cost, usage)
+        if message.has_text_content() or message.is_tool_call():
+            return message
+
+        if empty_attempt >= empty_message_max_retries:
+            logger.warning(
+                "Model returned an empty assistant message after all local retries."
+            )
+            return message
+
+        backoff_seconds = _compute_backoff_seconds_from_values(
+            empty_attempt,
+            initial_seconds=empty_message_backoff_initial_seconds,
+            max_seconds=empty_message_backoff_max_seconds,
+            multiplier=empty_message_backoff_multiplier,
+        )
+        logger.warning(
+            f"Model returned an empty assistant message; retrying in {backoff_seconds:.2f}s "
+            f"(attempt {empty_attempt + 1}/{empty_message_max_retries})"
+        )
+        time.sleep(backoff_seconds)
+        active_messages = list(messages) + [empty_retry_prompt]
+
+    raise RuntimeError("Unreachable empty message retry state")
 
 
 def get_cost(messages: list[Message]) -> tuple[float, float] | None:
