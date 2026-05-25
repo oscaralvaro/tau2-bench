@@ -1,5 +1,3 @@
-import unicodedata
-
 from tau2.data_model.message import AssistantMessage, Message
 from tau2.data_model.simulation import CommunicateCheck, RewardInfo
 from tau2.data_model.tasks import RewardType, Task
@@ -63,14 +61,14 @@ class CommunicateEvaluator(EvaluatorBase):
         outputs = []
         for info_str in communicate_info:
             found = False
-            normalized_info = cls._normalize_text(info_str)
             for message in full_trajectory:
                 if not isinstance(message, AssistantMessage):
                     continue
                 if not message.has_text_content():
                     continue
-                normalized_content = cls._normalize_text(message.content)
-                if normalized_info in normalized_content:
+                if info_str.lower() in message.content.lower().replace(
+                    ",", ""
+                ):  # TODO: This could be improved!
                     found = True
                     break
             if found:
@@ -87,9 +85,3 @@ class CommunicateEvaluator(EvaluatorBase):
                 )
             )
         return outputs
-
-    @staticmethod
-    def _normalize_text(text: str) -> str:
-        text = unicodedata.normalize("NFKD", text)
-        text = "".join(char for char in text if not unicodedata.combining(char))
-        return text.lower().replace(",", "")

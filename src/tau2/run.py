@@ -106,12 +106,7 @@ def make_run_name(config: RunConfig) -> str:
     clean_llm_user_name = [x for x in config.llm_user.split("/") if x][-1]
     user_name = f"{config.user}_{clean_llm_user_name}"
 
-    raw_name = f"{get_now()}_{config.domain}_{agent_name}_{user_name}"
-    return (
-        raw_name.replace(":", "-")
-        .replace("/", "-")
-        .replace("\\", "-")
-    )
+    return f"{get_now()}_{config.domain}_{agent_name}_{user_name}"
 
 
 def run_domain(config: RunConfig) -> Results:

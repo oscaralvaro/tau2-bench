@@ -7,7 +7,7 @@ from tau2.data_model.message import AssistantMessage, UserMessage
 @pytest.fixture
 def agent(get_environment) -> LLMAgent:
     return LLMAgent(
-        llm="gemini/gemma-3-27b-it",
+        llm="gpt-4o-mini",
         tools=get_environment().get_tools(),
         domain_policy=get_environment().get_policy(),
     )
@@ -16,7 +16,7 @@ def agent(get_environment) -> LLMAgent:
 @pytest.fixture
 def solo_agent(get_environment, base_task) -> LLMSoloAgent:
     return LLMSoloAgent(
-        llm="gemini/gemma-3-27b-it",
+        llm="gpt-4o-mini",
         tools=get_environment().get_tools(),
         domain_policy=get_environment().get_policy(),
         task=base_task,

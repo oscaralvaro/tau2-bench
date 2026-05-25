@@ -1,5 +1,4 @@
 import json
-import re
 
 from tau2.config import DEFAULT_LLM_NL_ASSERTIONS, DEFAULT_LLM_NL_ASSERTIONS_ARGS
 from tau2.data_model.message import Message, SystemMessage, UserMessage
@@ -83,7 +82,6 @@ class NLAssertionsEvaluator:
         - Grade each expected outcome individually.
 
         FORMAT
-        - Return only a valid JSON object. Do not include markdown fences, prose, or explanations outside the JSON.
         - Your response should be a JSON object with the following fields:
         - `reasoning`: a short explanation for your classification
         - `metExpectation`: `true` if the agent satisfies the expected outcomes, `false` otherwise
@@ -119,7 +117,7 @@ class NLAssertionsEvaluator:
             messages=messages,
             **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
         )
-        result_data = cls._parse_json_response(assistant_message.content)
+        result_data = json.loads(assistant_message.content)
         return [
             NLAssertionCheck(
                 nl_assertion=result["expectedOutcome"],
@@ -128,17 +126,3 @@ class NLAssertionsEvaluator:
             )
             for result in result_data.get("results", [])
         ]
-
-    @staticmethod
-    def _parse_json_response(content: str) -> dict:
-        content = content.strip()
-        if content.startswith("```"):
-            content = re.sub(r"^```(?:json)?\s*", "", content, flags=re.IGNORECASE)
-            content = re.sub(r"\s*```$", "", content)
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError:
-            match = re.search(r"\{.*\}", content, flags=re.DOTALL)
-            if match:
-                return json.loads(match.group(0))
-            raise
