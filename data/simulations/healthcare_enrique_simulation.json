@@ -1,0 +1,791 @@
+{
+  "timestamp": "2026-05-25T00:46:25.525408",
+  "info": {
+    "git_commit": "8aaa08d6a78263718caa1e709511ff277b404d88",
+    "num_trials": 1,
+    "max_steps": 200,
+    "max_errors": 10,
+    "user_info": {
+      "implementation": "user_simulator",
+      "llm": "gemini/gemini-2.0-flash-lite",
+      "llm_args": {
+        "temperature": 0.0,
+        "rate_limit_requests_per_minute": 15,
+        "rate_limit_requests_per_day": 14000,
+        "rate_limit_tokens_per_minute": 8000,
+        "rate_limit_bucket": "google-free-tier-12b",
+        "rate_limit_token_reserve": 500
+      },
+      "global_simulation_guidelines": "# User Simulation Guidelines\nYou are playing the role of a customer contacting a customer service representative. \nYour goal is to simulate realistic customer interactions while following specific scenario instructions.\n\n## Core Principles\n- Generate one message at a time, maintaining natural conversation flow.\n- Strictly follow the scenario instructions you have received.\n- Never make up or hallucinate information not provided in the scenario instructions. Information that is not provided in the scenario instructions should be considered unknown or unavailable.\n- Avoid repeating the exact instructions verbatim. Use paraphrasing and natural language to convey the same information\n- Disclose information progressively. Wait for the agent to ask for specific information before providing it.\n\n## Task Completion\n- The goal is to continue the conversation until the task is complete.\n- If the instruction goal is satisified, generate the '###STOP###' token to end the conversation.\n- If you are transferred to another agent, generate the '###TRANSFER###' token to indicate the transfer.\n- If you find yourself in a situation in which the scenario does not provide enough information for you to continue the conversation, generate the '###OUT-OF-SCOPE###' token to end the conversation.\n\nRemember: The goal is to create realistic, natural conversations while strictly adhering to the provided instructions and maintaining character consistency."
+    },
+    "agent_info": {
+      "implementation": "llm_agent",
+      "llm": "gemini/gemini-2.0-flash-lite",
+      "llm_args": {
+        "temperature": 0.0,
+        "rate_limit_requests_per_minute": 15,
+        "rate_limit_requests_per_day": 14000,
+        "rate_limit_tokens_per_minute": 8000,
+        "rate_limit_bucket": "google-free-tier-27b",
+        "rate_limit_token_reserve": 500
+      }
+    },
+    "environment_info": {
+      "domain_name": "healthcare_enrique",
+      "policy": "# 🏥 POLICY - Healthcare ECICEP (Chile)\n\n## 🎯 Rol del agente\nEres un asistente de atención en salud primaria (CESFAM) dentro del modelo ECICEP en Chile.\n\nTu función es:\n- Validar pacientes\n- Revisar interconsultas\n- Coordinar agendas multiprofesionales\n- Aplicar reglas clínicas y administrativas\n\n---\n\n## 👤 Entidades\n\n### Paciente\n- RUT\n- Edad\n- Previsión (FONASA / ISAPRE)\n- Inscripción CESFAM (True/False)\n- Riesgo (G1, G2, G3)\n- Riesgo Cardiovascular (Bajo, Medio, Alto, Muy Alto)\n\n### Interconsulta\n- ID\n- Especialidad\n- Estado: borrador, validada, pendiente_examenes, enviada\n\n### Bloque de Agenda\n- ID\n- Tipo prestación\n- Profesionales\n- Estado: disponible, reservado, confirmado\n\n---\n\n## ✅ Reglas para AGENDAR\n\nEl agente SOLO puede agendar si:\n\n1. Paciente está inscrito en CESFAM  \n2. Paciente pertenece a FONASA  \n3. Existe interconsulta válida  \n4. Interconsulta no está en borrador  \n5. Interconsulta no está pendiente de categorización  \n\n---\n\n## ❌ Reglas de BLOQUEO\n\nEl agente NO debe agendar si:\n\n- Paciente es ISAPRE  \n- Paciente no está inscrito  \n- No tiene interconsulta  \n- Interconsulta inválida o vencida  \n- Datos incompletos  \n\n---\n\n## 🏥 Reglas por Especialidad\n\n### 👁️ Oftalmología\n- GES solo si edad ≥ 65  \n- Si < 65 → derivar a UAPO  \n- Cataratas → sí puede derivar  \n\n---\n\n### 👂 Otorrinolaringología\n- Si pérdida súbita de audición → URGENCIA  \n- No agendar → escalar  \n\n---\n\n### 🦴 Traumatología\n- Jóvenes con dolor crónico → primero kinesiología  \n- No derivar directamente  \n\n---\n\n## ⚠️ Manejo de Excepciones\n\nSi no hay disponibilidad:\n\n- Validar datos del paciente  \n- Preguntar por empeoramiento de síntomas  \n- Si hay empeoramiento → escalar a humano  \n\n---\n\n## 📢 Escalamiento a humano\n\nEscalar cuando:\n\n- Urgencia clínica  \n- Información insuficiente  \n- Conflictos administrativos  \n- Solicitudes fuera de política  \n\n---\n\n## 💬 Comunicación\n\nEl agente debe:\n\n- Explicar claramente decisiones  \n- Justificar rechazos  \n- Confirmar acciones realizadas  \n- Usar lenguaje claro y empático  ",
+      "tool_defs": null
+    },
+    "seed": 300
+  },
+  "tasks": [
+    {
+      "id": "0",
+      "description": {
+        "purpose": "Agendar correctamente paciente válido",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Quiero agendar atención",
+          "known_info": "rut: 11111111-1",
+          "unknown_info": null,
+          "task_instructions": "Paciente cumple todo"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "0_0",
+            "requestor": "assistant",
+            "name": "agendar_bloque",
+            "arguments": {
+              "bloque_id": "b2",
+              "tipo": "Control Integral",
+              "profesionales": [
+                "p1",
+                "p2"
+              ]
+            },
+            "info": null,
+            "compare_args": [
+              "bloque_id"
+            ]
+          }
+        ],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe confirmar agendamiento"
+        ],
+        "reward_basis": [
+          "DB",
+          "COMMUNICATE"
+        ]
+      }
+    },
+    {
+      "id": "1",
+      "description": {
+        "purpose": "Rechazo por ISAPRE",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Agendar",
+          "known_info": "rut: 33333333-3",
+          "unknown_info": null,
+          "task_instructions": "Paciente ISAPRE"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe rechazar por previsión"
+        ],
+        "reward_basis": [
+          "COMMUNICATE"
+        ]
+      }
+    },
+    {
+      "id": "2",
+      "description": {
+        "purpose": "Rechazo por no inscrito",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Agendar",
+          "known_info": "rut: 44444444-4",
+          "unknown_info": null,
+          "task_instructions": "No inscrito"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe indicar falta de inscripción"
+        ],
+        "reward_basis": [
+          "COMMUNICATE"
+        ]
+      }
+    },
+    {
+      "id": "3",
+      "description": {
+        "purpose": "Paciente sin interconsulta",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Agendar",
+          "known_info": "rut: 55555555-5",
+          "unknown_info": null,
+          "task_instructions": "No tiene interconsulta"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe rechazar por falta de interconsulta"
+        ],
+        "reward_basis": [
+          "COMMUNICATE"
+        ]
+      }
+    },
+    {
+      "id": "4",
+      "description": {
+        "purpose": "Interconsulta pendiente",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Agendar",
+          "known_info": "rut: 22222222-2",
+          "unknown_info": null,
+          "task_instructions": "Interconsulta incompleta"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe indicar exámenes pendientes"
+        ],
+        "reward_basis": [
+          "COMMUNICATE"
+        ]
+      }
+    },
+    {
+      "id": "5",
+      "description": {
+        "purpose": "Consulta de paciente",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Consultar datos",
+          "known_info": "rut: 11111111-1",
+          "unknown_info": null,
+          "task_instructions": "Consultar paciente"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "5_0",
+            "requestor": "assistant",
+            "name": "get_paciente",
+            "arguments": {
+              "rut": "11111111-1"
+            },
+            "info": null,
+            "compare_args": [
+              "rut"
+            ]
+          }
+        ],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe mostrar datos"
+        ],
+        "reward_basis": [
+          "DB"
+        ]
+      }
+    },
+    {
+      "id": "6",
+      "description": {
+        "purpose": "Consulta interconsultas",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Ver interconsultas",
+          "known_info": "rut: 11111111-1",
+          "unknown_info": null,
+          "task_instructions": "Listar IC"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "6_0",
+            "requestor": "assistant",
+            "name": "get_interconsultas",
+            "arguments": {
+              "rut": "11111111-1"
+            },
+            "info": null,
+            "compare_args": [
+              "rut"
+            ]
+          }
+        ],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe listar IC"
+        ],
+        "reward_basis": [
+          "DB"
+        ]
+      }
+    },
+    {
+      "id": "7",
+      "description": {
+        "purpose": "Consulta registros clínicos",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Ver exámenes",
+          "known_info": "rut: 11111111-1",
+          "unknown_info": null,
+          "task_instructions": "Ver registros"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "7_0",
+            "requestor": "assistant",
+            "name": "get_registros_clinicos",
+            "arguments": {
+              "rut": "11111111-1"
+            },
+            "info": null,
+            "compare_args": [
+              "rut"
+            ]
+          }
+        ],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe mostrar registros"
+        ],
+        "reward_basis": [
+          "DB"
+        ]
+      }
+    },
+    {
+      "id": "8",
+      "description": {
+        "purpose": "Validar FONASA",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Validar paciente",
+          "known_info": "rut: 11111111-1",
+          "unknown_info": null,
+          "task_instructions": "Validar previsión"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "8_0",
+            "requestor": "assistant",
+            "name": "validar_prevision",
+            "arguments": {
+              "rut": "11111111-1"
+            },
+            "info": null,
+            "compare_args": [
+              "rut"
+            ]
+          }
+        ],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe indicar que es válido"
+        ],
+        "reward_basis": [
+          "DB"
+        ]
+      }
+    },
+    {
+      "id": "9",
+      "description": {
+        "purpose": "Validar inscripción",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Validar inscripción",
+          "known_info": "rut: 44444444-4",
+          "unknown_info": null,
+          "task_instructions": "No inscrito"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "9_0",
+            "requestor": "assistant",
+            "name": "validar_inscripcion",
+            "arguments": {
+              "rut": "44444444-4"
+            },
+            "info": null,
+            "compare_args": [
+              "rut"
+            ]
+          }
+        ],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe indicar que no está inscrito"
+        ],
+        "reward_basis": [
+          "DB"
+        ]
+      }
+    },
+    {
+      "id": "10",
+      "description": {
+        "purpose": "Validar interconsulta",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Validar IC",
+          "known_info": "rut: 11111111-1",
+          "unknown_info": null,
+          "task_instructions": "Debe validar IC"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "10_0",
+            "requestor": "assistant",
+            "name": "validar_interconsulta",
+            "arguments": {
+              "rut": "11111111-1"
+            },
+            "info": null,
+            "compare_args": [
+              "rut"
+            ]
+          }
+        ],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe indicar que existe IC"
+        ],
+        "reward_basis": [
+          "DB"
+        ]
+      }
+    },
+    {
+      "id": "11",
+      "description": {
+        "purpose": "Agendar bloque",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Agendar bloque",
+          "known_info": "rut: 11111111-1",
+          "unknown_info": null,
+          "task_instructions": "Crear bloque"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "11_0",
+            "requestor": "assistant",
+            "name": "agendar_bloque",
+            "arguments": {
+              "bloque_id": "b3",
+              "tipo": "Control Integral",
+              "profesionales": [
+                "p1",
+                "p2"
+              ]
+            },
+            "info": null,
+            "compare_args": [
+              "bloque_id"
+            ]
+          }
+        ],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe agendar"
+        ],
+        "reward_basis": [
+          "DB"
+        ]
+      }
+    },
+    {
+      "id": "12",
+      "description": {
+        "purpose": "Cancelar bloque",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Cancelar bloque",
+          "known_info": "bloque_id: b1",
+          "unknown_info": null,
+          "task_instructions": "Cancelar"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "12_0",
+            "requestor": "assistant",
+            "name": "cancelar_bloque",
+            "arguments": {
+              "bloque_id": "b1"
+            },
+            "info": null,
+            "compare_args": [
+              "bloque_id"
+            ]
+          }
+        ],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe cancelar"
+        ],
+        "reward_basis": [
+          "DB"
+        ]
+      }
+    },
+    {
+      "id": "13",
+      "description": {
+        "purpose": "Caso edge: datos incompletos",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Agendar",
+          "known_info": null,
+          "unknown_info": "rut desconocido",
+          "task_instructions": "Debe pedir datos"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe pedir información"
+        ],
+        "reward_basis": [
+          "COMMUNICATE"
+        ]
+      }
+    },
+    {
+      "id": "14",
+      "description": {
+        "purpose": "Caso edge: usuario confuso",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "No sabe qué hacer",
+          "known_info": "rut: 11111111-1",
+          "unknown_info": null,
+          "task_instructions": "Debe guiar"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe orientar al usuario"
+        ],
+        "reward_basis": [
+          "COMMUNICATE"
+        ]
+      }
+    },
+    {
+      "id": "15",
+      "description": {
+        "purpose": "Caso urgencia ORL",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Perdí audición súbita",
+          "known_info": "rut: 22222222-2",
+          "unknown_info": null,
+          "task_instructions": "Debe escalar"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe indicar urgencia"
+        ],
+        "reward_basis": [
+          "COMMUNICATE"
+        ]
+      }
+    },
+    {
+      "id": "16",
+      "description": {
+        "purpose": "Caso oftalmología <65",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Necesito lentes",
+          "known_info": "rut: 22222222-2",
+          "unknown_info": null,
+          "task_instructions": "Debe derivar a UAPO"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe derivar a UAPO"
+        ],
+        "reward_basis": [
+          "COMMUNICATE"
+        ]
+      }
+    },
+    {
+      "id": "17",
+      "description": {
+        "purpose": "Caso traumatología joven",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Dolor rodilla",
+          "known_info": "rut: 22222222-2",
+          "unknown_info": null,
+          "task_instructions": "Debe sugerir kinesiología"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe sugerir kinesiología"
+        ],
+        "reward_basis": [
+          "COMMUNICATE"
+        ]
+      }
+    },
+    {
+      "id": "18",
+      "description": {
+        "purpose": "Caso sin disponibilidad",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "No hay hora",
+          "known_info": "rut: 11111111-1",
+          "unknown_info": null,
+          "task_instructions": "Debe manejar lista de espera"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe validar datos y gestionar espera"
+        ],
+        "reward_basis": [
+          "COMMUNICATE"
+        ]
+      }
+    },
+    {
+      "id": "19",
+      "description": {
+        "purpose": "Caso confirmación final",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "healthcare_enrique",
+          "reason_for_call": "Confirmar cita",
+          "known_info": "rut: 11111111-1",
+          "unknown_info": null,
+          "task_instructions": "Debe confirmar"
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": null,
+        "communicate_info": null,
+        "nl_assertions": [
+          "Debe confirmar claramente"
+        ],
+        "reward_basis": [
+          "COMMUNICATE"
+        ]
+      }
+    }
+  ],
+  "simulations": []
+}
