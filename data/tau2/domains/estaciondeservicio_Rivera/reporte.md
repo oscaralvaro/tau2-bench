@@ -1,0 +1,139 @@
+# Reporte del dominio estaciondeservicio_Rivera
+
+Nombre: Diego Eduardo Rivera Rodriguez
+
+## 1. Resumen del dominio
+
+El dominio `estaciondeservicio_Rivera` simula un bot de atencion al cliente B2B para una estacion de servicio que recibe y procesa solicitudes de delivery de combustible para empresas. El agente atiende consultas de stock, registro de clientes, pedidos de combustible y lubricantes, cambios de metodo de pago, pagos, facturacion virtual, reclamos, cancelaciones y escalamiento a asesores humanos.
+
+Entidades principales:
+
+- Cliente: empresa con RUC, contacto, telefono, correo, direccion fiscal, direcciones de entrega y correo de facturacion.
+- Item: producto disponible, como combustible o lubricante, con precio, unidad de medida y stock.
+- Orden: pedido de delivery con cliente, producto, cantidad, fecha programada, metodo de pago y estados de pedido/pago.
+- Metodo de pago: efectivo, transferencia bancaria o linea de credito.
+- Pago: transaccion registrada contra una orden.
+- Factura virtual: estado de emision y correo de envio.
+- Reclamo: caso asociado a un cliente y, opcionalmente, una orden.
+- Verificacion SMS: codigo de validacion para operaciones sensibles.
+
+Resumen de policy:
+
+- Los pedidos de combustible deben respetar stock, minimo de galones y anticipacion.
+- Las acciones de escritura requieren confirmacion explicita del usuario.
+- Las operaciones sensibles configuradas con SMS requieren enviar codigo, leerlo con la herramienta del usuario y verificarlo antes de continuar.
+- Si el codigo SMS es incorrecto, no se ejecuta la operacion sensible ni se reintenta salvo pedido explicito del usuario.
+- Los pagos deben realizarse en una sola transaccion completa y con el metodo seleccionado para la orden.
+- Las cancelaciones solo proceden sobre ordenes pendientes y dentro de las reglas del dominio.
+- Si la politica no permite resolver el caso o el usuario pide atencion humana, se transfiere a un asesor.
+
+## 2. Archivos de simulacion usados
+
+- Corrida total inicial: `data/simulations/simulacion_estaciondeservicio_Rivera_pass9.json`
+- Corrida parcial corregida: `data/simulations/rivera_tasks_corregidas_pass5_v2.json`
+
+Nota importante: la corrida total `pass9` quedo incompleta respecto al objetivo original de pass^10. Por estabilidad, limites de Gemma/Google AI Studio y tiempo de ejecucion, no todas las tareas llegaron al mismo K: algunas tienen 6 intentos y otras 5. Aun asi, esta corrida sirve como diagnostico porque cubre todas las tareas 0-21 e identifica claramente los casos con peor reward. La corrida parcial `pass5_v2` se ejecuto despues sobre las tareas que tuvieron reward 0 en esa corrida inicial.
+
+## 3. Resultados de la corrida total incompleta
+
+Archivo: `simulacion_estaciondeservicio_Rivera_pass9.json`
+
+Resumen: 120 simulaciones, 83 exitosas, 37 fallidas.
+
+Esta corrida debe leerse como una corrida diagnostica incompleta, no como una medicion pass^10 final uniforme. La tabla separa primero las tareas que fallaron para que sea mas facil ver que casos se corrigieron despues.
+
+### 3.1 Tareas con falla en la corrida total
+
+| Tarea | Descripcion breve | pass^K observado | % de falla |
+|---|---|---:|---:|
+| 1 | Evaluar un registro exitoso de un nuevo cliente. | 0/6 | 100.0% |
+| 6 | Evaluar un flujo exitoso de pago donde el metodo de pago cambia antes del pago y luego la orden se paga en una sola transaccion completa. | 0/6 | 100.0% |
+| 12 | Evaluar un pago total exitoso usando efectivo. | 0/5 | 100.0% |
+| 16 | Evaluar una actualizacion exitosa de datos del cliente. | 0/5 | 100.0% |
+| 18 | Evaluar un registro exitoso de reclamo. | 0/5 | 100.0% |
+| 20 | Evaluar una cancelacion exitosa de orden sensible usando verificacion por codigo SMS. | 0/5 | 100.0% |
+| 21 | Evaluar el rechazo de una actualizacion sensible cuando el usuario proporciona un codigo SMS incorrecto. | 0/5 | 100.0% |
+
+### 3.2 Tareas que pasaron en la corrida total
+
+| Tarea | Descripcion breve | pass^K observado | % de falla |
+|---|---|---:|---:|
+| 0 | Evaluar una consulta informativa exitosa sobre combustibles disponibles y stock. | 6/6 | 0.0% |
+| 2 | Evaluar una orden exitosa despues de agregar una nueva direccion de entrega autorizada. | 6/6 | 0.0% |
+| 3 | Evaluar una consulta exitosa y sencilla sobre el estado de una orden. | 6/6 | 0.0% |
+| 4 | Evaluar un pedido exitoso de lubricante vinculado a una orden valida de combustible. | 6/6 | 0.0% |
+| 5 | Evaluar una cancelacion exitosa de una orden pendiente dentro de la ventana permitida. | 6/6 | 0.0% |
+| 7 | Evaluar el rechazo de una orden de combustible por estar debajo del minimo permitido y confirmar que el minimo se comunica claramente. | 6/6 | 0.0% |
+| 8 | Evaluar el rechazo de un intento de pago parcial porque cada orden debe pagarse en una sola transaccion completa. | 6/6 | 0.0% |
+| 9 | Evaluar el manejo de informacion incompleta antes de ejecutar una accion. | 6/6 | 0.0% |
+| 10 | Evaluar el escalamiento a un agente humano cuando el usuario pide una excepcion y solicita atencion humana explicitamente. | 5/5 | 0.0% |
+| 11 | Evaluar un caso limite donde el usuario intenta reprogramar demasiado tarde y la solicitud debe rechazarse. | 5/5 | 0.0% |
+| 13 | Evaluar un registro exitoso de metodo de pago y la creacion valida de una orden de combustible para un cliente ya registrado. | 5/5 | 0.0% |
+| 14 | Evaluar una consulta directa y exitosa de stock para un producto especifico. | 5/5 | 0.0% |
+| 15 | Evaluar una busqueda exitosa de cliente por RUC. | 5/5 | 0.0% |
+| 17 | Evaluar una emision exitosa de factura virtual para una orden existente. | 5/5 | 0.0% |
+| 19 | Evaluar el rechazo cuando el usuario intenta pagar con un metodo distinto al seleccionado en la orden. | 5/5 | 0.0% |
+
+## 4. Resultados de la corrida parcial pass5
+
+Archivo: `rivera_tasks_corregidas_pass5_v2.json`
+
+Resumen: 35 simulaciones, 35 exitosas, 0 fallidas.
+
+Esta corrida se hizo solo sobre las tareas que fallaron en la corrida total incompleta. El objetivo fue comprobar si los ajustes de tareas, policy, tools y evaluacion corregian esos casos dificiles.
+
+| Tarea | Descripcion breve | pass^5 | % de falla |
+|---|---|---:|---:|
+| 1 | Evaluar un registro exitoso de un nuevo cliente. | 5/5 | 0.0% |
+| 6 | Evaluar un flujo exitoso de pago donde el metodo de pago cambia antes del pago y luego la orden se paga en una sola transaccion completa. | 5/5 | 0.0% |
+| 12 | Evaluar un pago total exitoso usando efectivo. | 5/5 | 0.0% |
+| 16 | Evaluar una actualizacion exitosa de datos del cliente. | 5/5 | 0.0% |
+| 18 | Evaluar un registro exitoso de reclamo. | 5/5 | 0.0% |
+| 20 | Evaluar una cancelacion exitosa de orden sensible usando verificacion por codigo SMS. | 5/5 | 0.0% |
+| 21 | Evaluar el rechazo de una actualizacion sensible cuando el usuario proporciona un codigo SMS incorrecto. | 5/5 | 0.0% |
+
+## 5. Analisis de peores casos y mejoras
+
+Las tareas con peor rendimiento en la corrida total inicial fueron 1, 6, 12, 16, 18, 20 y 21, todas con 0% de exito en esa corrida. La corrida parcial `pass5_v2` se centro en esas tareas y obtuvo 5/5 en cada una.
+
+Tarea 6: cambio de metodo de pago y pago completo.
+
+Falla observada: el flujo era sensible porque el cambio de metodo de pago podia requerir verificacion adicional y luego debia continuar con el pago total y la consulta de estado. Si el agente omitia parte del flujo, el DB check no coincidia.
+
+Mejora aplicada: se hizo explicito el flujo de SMS, se agregaron datos de cliente/RUC en la tarea y se ajustaron los expected actions para incluir `send_sms_verification_code`, `revisar_sms_de_verificacion`, `verify_sms_code`, `update_order_payment_method`, `make_payment` y `get_payment_status`.
+
+Resultado: paso de 0/6 en la corrida total inicial a 5/5 en la corrida parcial.
+
+Tarea 16: actualizacion sensible de datos del cliente.
+
+Falla observada: la actualizacion de telefono y correo de facturacion es una accion sensible. El modelo podia ejecutar la actualizacion sin representar completamente el flujo de SMS o podia generar variaciones en el motivo del SMS que afectaban la comparacion de DB.
+
+Mejora aplicada: se configuro la politica SMS en el estado inicial, se agrego sesion de usuario para recibir el codigo, se hizo explicito el flujo de lectura del SMS y se robustecio la comparacion para que el texto interno `reason` del SMS no afecte el reward cuando el flujo de negocio es correcto.
+
+Resultado: paso de 0/5 en la corrida total inicial a 5/5 en la corrida parcial.
+
+Tarea 21: codigo SMS incorrecto.
+
+Falla observada: el caso es adversarial porque el usuario entrega un codigo incorrecto. El agente debia rechazar la operacion y no actualizar datos. Si reintentaba automaticamente o seguia con la escritura, fallaba la politica y el DB check.
+
+Mejora aplicada: se agrego una regla explicita al policy para no reintentar en la misma conversacion salvo pedido del usuario, se ajustaron instrucciones del usuario para no corregir el codigo y se modifico la tool para marcar el challenge como expirado cuando el codigo es invalido.
+
+Resultado: paso de 0/5 en la corrida total inicial a 5/5 en la corrida parcial.
+
+## 6. Tecnicas de mejora utilizadas
+
+| Tecnica | Aplicacion en el dominio | Evidencia |
+|---|---|---|
+| Claridad y especificidad | Se reescribieron instrucciones ambiguas para incluir identificadores, RUC, monto exacto, acciones esperadas y confirmaciones necesarias. | Tareas 1, 6, 12, 16, 18, 20 y 21 pasaron a 5/5 en `pass5_v2`. |
+| Estructura de flujo antes de actuar | Los flujos sensibles se ordenaron como secuencias: enviar SMS, usuario lee SMS, verificar codigo y recien ejecutar la accion. | Tareas 6, 16, 20 y 21. |
+| Duplicacion de reglas criticas | La regla de codigo SMS invalido se reforzo en policy y en las instrucciones de la tarea. | Tarea 21 paso a 5/5 sin ejecutar actualizaciones indebidas. |
+| Robustez ante variaciones del modelo | Se normalizaron fechas, motivos de reclamo/cancelacion y razones de SMS para evitar fallos por diferencias textuales no sustantivas. | Tareas 18, 20 y flujos SMS. |
+| Alineacion de evaluacion con herramientas | El evaluador sincroniza tools despues de acciones esperadas, igual que ocurre en una conversacion real. | Los DB checks de flujos SMS dejaron de fallar por diferencias artificiales entre ambiente real y gold. |
+
+## 7. Conclusion
+
+Gemma fue capaz de resolver bien la mayoria de tareas simples desde la corrida total inicial, especialmente consultas, rechazos por politica, busquedas y operaciones directas. Las fallas se concentraron en tareas con multiples pasos, verificacion SMS, cambios sensibles y comparaciones estrictas de DB.
+
+La mejora mas efectiva fue reducir ambiguedad: especificar identificadores, ordenar los pasos de operaciones sensibles y reforzar reglas criticas en el policy. Tambien fue importante hacer robustas las herramientas frente a variaciones normales del modelo, porque en algunos casos el agente cumplia la intencion del negocio pero el reward fallaba por diferencias de formato o metadatos.
+
+Con los cambios finales, la corrida parcial sobre las tareas problematicas obtuvo 35/35 rewards correctos, lo que muestra que los principales puntos de falla identificados en la corrida total inicial fueron corregidos.
