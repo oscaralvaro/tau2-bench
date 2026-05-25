@@ -1,6 +1,7 @@
 import pytest
 
 from tau2.data_model.message import AssistantMessage, UserMessage
+from tau2.user import user_simulator as user_simulator_module
 from tau2.user.user_simulator import UserSimulator
 from tau2.utils import llm_utils
 
@@ -124,3 +125,21 @@ def test_user_simulator_gemma_folds_system_after_role_flip(
     assert captured["messages"][0]["role"] == "user"
     assert user_instructions in captured["messages"][0]["content"]
     assert first_agent_message.content in captured["messages"][0]["content"]
+
+
+def test_user_simulator_falls_back_to_safe_text(
+    monkeypatch, user_simulator: UserSimulator, first_agent_message: AssistantMessage
+):
+    monkeypatch.setattr(
+        user_simulator_module,
+        "generate",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            ValueError("empty assistant message")
+        ),
+    )
+
+    user_state = user_simulator.get_init_state()
+    user_msg, _ = user_simulator.generate_next_message(first_agent_message, user_state)
+
+    assert isinstance(user_msg, UserMessage)
+    assert user_msg.content == "No entendí el último paso. ¿Puedes repetirlo brevemente, por favor?"
