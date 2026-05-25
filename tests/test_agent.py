@@ -1,5 +1,6 @@
 import pytest
 
+from tau2.agent import llm_agent as llm_agent_module
 from tau2.agent.llm_agent import LLMAgent, LLMSoloAgent
 from tau2.data_model.message import AssistantMessage, UserMessage
 
@@ -64,3 +65,21 @@ def test_solo_agent(solo_agent: LLMSoloAgent):
     assert isinstance(agent_msg, AssistantMessage)
     assert agent_state is not None
     assert len(agent_state.messages) == 1
+
+
+def test_agent_falls_back_to_safe_text(
+    monkeypatch, agent: LLMAgent, first_user_message: UserMessage
+):
+    monkeypatch.setattr(
+        llm_agent_module,
+        "generate",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            ValueError("empty assistant message")
+        ),
+    )
+
+    agent_state = agent.get_init_state()
+    agent_msg, _ = agent.generate_next_message(first_user_message, agent_state)
+
+    assert isinstance(agent_msg, AssistantMessage)
+    assert "problema interno" in agent_msg.content

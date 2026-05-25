@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 from loguru import logger
 
 from tau2.data_model.message import (
+    AssistantMessage,
     Message,
     MultiToolMessage,
     SystemMessage,
@@ -57,10 +58,20 @@ def get_global_user_sim_guidelines(use_tools: bool = False) -> str:
 SYSTEM_PROMPT = """
 {global_user_sim_guidelines}
 
+<important>
+- Never return an empty reply.
+- Stay in character and ask one brief clarification question if you cannot progress.
+- Return either plain text or user tool calls, never both at the same time.
+</important>
+
 <scenario>
 {instructions}
 </scenario>
 """.strip()
+
+FALLBACK_USER_MESSAGE = (
+    "No entendí el último paso. ¿Puedes repetirlo brevemente, por favor?"
+)
 
 
 class UserSimulator(BaseUser):
@@ -155,12 +166,24 @@ class UserSimulator(BaseUser):
         messages = state.system_messages + state.flip_roles()
 
         # Generate response
-        assistant_message = generate(
-            model=self.llm,
-            messages=messages,
-            tools=self.tools,
-            **self.llm_args,
-        )
+        try:
+            assistant_message = generate(
+                model=self.llm,
+                messages=messages,
+                tools=self.tools,
+                **self.llm_args,
+            )
+            assistant_message.validate()
+        except Exception as exc:
+            logger.warning(
+                f"UserSimulator fallback activated after generation failure: {exc}"
+            )
+            assistant_message = AssistantMessage(
+                role="assistant",
+                content=FALLBACK_USER_MESSAGE,
+                cost=0.0,
+                raw_data={"fallback_reason": str(exc)},
+            )
 
         user_response = assistant_message.content
         logger.debug(f"Response: {user_response}")
