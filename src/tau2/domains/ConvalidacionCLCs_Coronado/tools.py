@@ -1,7 +1,6 @@
 """Toolkit for the CLC validation system."""
 
-import random
-import string
+import hashlib
 from typing import Any, List, Optional
 
 from tau2.domains.ConvalidacionCLCs_Coronado.data_model import (
@@ -26,6 +25,7 @@ class ConvalidacionCLCTools(ToolKitBase):
     def __init__(self, db: ConvalidacionCLCDB) -> None:
         super().__init__(db)
         self._sms_codes: dict[str, str] = {}
+        self._sms_counters: dict[str, int] = {}
 
     def _get_new_request_id(self) -> str:
         """Generate a deterministic unique Request ID."""
@@ -298,13 +298,21 @@ class ConvalidacionCLCTools(ToolKitBase):
         """Transferir el caso a un agente humano."""
         return CONVALIDACION_TRANSFER_MESSAGE
 
+    def _generate_sms_code(self, user_id: str) -> str:
+        """Genera un codigo SMS de 6 digitos determinista basado en user_id y un contador."""
+        count = self._sms_counters.get(user_id, 0)
+        seed = f"{user_id}:{count}"
+        digest = hashlib.sha256(seed.encode()).hexdigest()
+        return str(int(digest, 16) % 1_000_000).zfill(6)
+
     @is_tool(ToolType.WRITE)
     def send_sms_verification(self, user_id: str) -> str:
         """Enviar un codigo de verificacion SMS de 6 digitos al usuario identificado por user_id.
         El usuario debe proporcionar el codigo recibido antes de continuar con la operacion.
         Este codigo solo es valido para verificar la identidad del rol 'user'.
         """
-        code = "".join(random.choices(string.digits, k=6))
+        self._sms_counters[user_id] = self._sms_counters.get(user_id, 0) + 1
+        code = self._generate_sms_code(user_id)
         self._sms_codes[user_id] = code
         return (
             f"Codigo SMS de verificacion enviado al usuario {user_id}. "
