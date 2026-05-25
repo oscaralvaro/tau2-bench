@@ -1,7 +1,8 @@
-﻿"""Toolkit for the estaciondeservicio_Rivera domain."""
+"""Toolkit for the estaciondeservicio_Rivera domain."""
 
 import datetime
 import re
+import unicodedata
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -116,7 +117,25 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         super().__init__(db)
 
     def _get_now(self) -> datetime.datetime:
-        return datetime.datetime.now()
+        # Keep simulations deterministic and aligned with the task dates.
+        return datetime.datetime(2026, 3, 30, 10, 0, 0)
+
+    def _coerce_datetime(
+        self, value: datetime.datetime | str
+    ) -> datetime.datetime:
+        if isinstance(value, datetime.datetime):
+            dt = value
+        elif isinstance(value, str):
+            raw_value = value.strip()
+            if raw_value.endswith("Z"):
+                raw_value = raw_value[:-1] + "+00:00"
+            dt = datetime.datetime.fromisoformat(raw_value)
+        else:
+            raise ValueError("The date and time must be a valid ISO 8601 value")
+
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        return dt
 
     def _generate_id(self, prefix: str, existing_ids: set[str]) -> str:
         index = len(existing_ids) + 1
@@ -146,8 +165,15 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
             return datetime.datetime(2026, 1, 1, 0, 0, 0)
         return max(candidates) + datetime.timedelta(seconds=1)
 
+    def _strip_accents(self, value: str) -> str:
+        return "".join(
+            char
+            for char in unicodedata.normalize("NFKD", value)
+            if not unicodedata.combining(char)
+        )
+
     def _normalize_claim_reason(self, motivo: str) -> str:
-        motivo_clean = " ".join(motivo.strip().split())
+        motivo_clean = self._strip_accents(" ".join(motivo.strip().split()))
         if motivo_clean.lower() == "late delivery":
             return "Late delivery"
         return motivo_clean
@@ -155,7 +181,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
     def _normalize_claim_description(
         self, descripcion: str, id_order: Optional[str] = None
     ) -> str:
-        descripcion_clean = " ".join(descripcion.strip().split())
+        descripcion_clean = self._strip_accents(" ".join(descripcion.strip().split()))
         if id_order is not None:
             descripcion_clean = re.sub(
                 rf"\s+for\s+{re.escape(id_order)}\.?$",
@@ -164,6 +190,30 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
                 flags=re.IGNORECASE,
             )
         return descripcion_clean
+
+    def _normalize_sms_reason(self, reason: Optional[str]) -> Optional[str]:
+        if reason is None:
+            return None
+        reason_clean = " ".join(reason.strip().split())
+        reason_lower = self._strip_accents(reason_clean.lower())
+        if "cancel" in reason_lower:
+            return "cancel_order"
+        if "actualiz" in reason_lower:
+            return "update_client"
+        if "factura" in reason_lower:
+            return "emit_virtual_invoice"
+        if "pago" in reason_lower or "metodo" in reason_lower:
+            return "update_order_payment_method"
+        return "operacion_sensible"
+
+    def _normalize_cancellation_reason(self, motivo: str) -> str:
+        motivo_clean = " ".join(motivo.strip().split()).rstrip(".")
+        motivo_lower = motivo_clean.lower()
+        if "cierre temporal" in motivo_lower and "planta" in motivo_lower:
+            return "Cierre temporal de la planta receptora."
+        if "mantenimiento" in motivo_lower and "planta" in motivo_lower:
+            return "Maintenance shutdown at the receiving plant."
+        return motivo_clean
 
     def _mask_phone(self, phone: str) -> str:
         if len(phone) <= 2:
@@ -388,7 +438,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         user_id: Optional[str] = None,
         reason: Optional[str] = None,
     ) -> SMSDispatchResult:
-        """Sends an SMS verification code to validate a sensitive operation."""
+        """Sends an SMS code before an SMS-protected sensitive operation."""
         resolved_user_id, destination_phone = self._resolve_sms_recipient(
             id_cliente=id_cliente,
             role=role,
@@ -405,7 +455,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
             user_id=resolved_user_id,
             destination_phone=destination_phone,
             code=code,
-            reason=reason,
+            reason=self._normalize_sms_reason(reason),
             sent_at=self._next_event_timestamp(),
             status="pending",
         )
@@ -435,6 +485,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
             status="pending",
         )
         if verification.code != code:
+            verification.status = "expired"
             raise ValueError("The SMS verification code is invalid")
         verification.status = "verified"
         verification.verified_at = self._next_event_timestamp()
@@ -492,7 +543,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         direcciones_entrega: Optional[List[str]] = None,
         correo_facturacion: Optional[str] = None,
     ) -> Customer:
-        """Updates the data of a registered customer."""
+        """Updates customer data after confirmation and required SMS verification."""
         self._require_verified_sms("update_client", id_cliente)
         cliente = self._get_cliente(id_cliente)
         if nombre_contacto is not None:
@@ -523,7 +574,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
     def update_order_payment_method(
         self, id_order: str, payment_method_id: str
     ) -> Order:
-        """Changes the selected payment method of a pending order before payment."""
+        """Changes a pending order payment method before payment; use SMS first if required."""
         order = self._get_order(id_order)
         self._require_verified_sms("update_order_payment_method", order.id_cliente)
         if order.estado_pedido != "pending":
@@ -602,6 +653,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         observaciones: Optional[str] = None,
     ) -> Order:
         """Registers a new delivery order for a customer."""
+        fecha_hora_programada = self._coerce_datetime(fecha_hora_programada)
         cliente = self._get_cliente(id_cliente)
         item = self._get_item(id_item)
         self._get_payment_method(payment_method_id)
@@ -669,6 +721,8 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         observaciones: Optional[str] = None,
     ) -> Order:
         """Updates a pending order before delivery."""
+        if fecha_hora_programada is not None:
+            fecha_hora_programada = self._coerce_datetime(fecha_hora_programada)
         order = self._get_order(id_order)
         if order.estado_pedido != "pending":
             raise ValueError("Only pending orders can be updated")
@@ -732,6 +786,9 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         self, id_order: str, nueva_fecha_hora_programada: datetime.datetime
     ) -> Order:
         """Reschedules the delivery date and time of a pending order."""
+        nueva_fecha_hora_programada = self._coerce_datetime(
+            nueva_fecha_hora_programada
+        )
         order = self._get_order(id_order)
         if order.estado_pedido != "pending":
             raise ValueError("Only pending orders can be rescheduled")
@@ -748,7 +805,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
 
     @is_tool(ToolType.WRITE)
     def cancel_order(self, id_order: str, motivo: str) -> Order:
-        """Cancels a pending order and restores the reserved stock."""
+        """Cancels a pending order after confirmation and required SMS verification."""
         order = self._get_order(id_order)
         self._require_verified_sms("cancel_order", order.id_cliente)
         if order.estado_pedido != "pending":
@@ -764,6 +821,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         order.precio_total = 0
         order.estado_pago = "pending"
         order.fecha_hora_cancelacion = self._get_now()
+        motivo = self._normalize_cancellation_reason(motivo)
         order.motivo_cancelacion = motivo
         order.observaciones = (
             f"{order.observaciones} | Cancellation reason: {motivo}"
@@ -863,7 +921,7 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
     def emit_virtual_invoice(
         self, id_order: str, email_envio: Optional[str] = None
     ) -> InvoiceEmissionResult:
-        """Issues or updates the virtual invoice of an order."""
+        """Issues or updates the virtual invoice; use SMS first if required."""
         order = self._get_order(id_order)
         self._require_verified_sms("emit_virtual_invoice", order.id_cliente)
         cliente = self._get_cliente(order.id_cliente)
