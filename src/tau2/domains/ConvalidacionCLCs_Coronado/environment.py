@@ -8,6 +8,7 @@ from tau2.domains.ConvalidacionCLCs_Coronado.data_model import (
     get_db,
 )
 from tau2.domains.ConvalidacionCLCs_Coronado.tools import ConvalidacionCLCTools
+from tau2.domains.ConvalidacionCLCs_Coronado.user_tools import ConvalidacionCLCUserTools
 from tau2.domains.ConvalidacionCLCs_Coronado.utils import (
     CONVALIDACION_DOMAIN_NAME,
     CONVALIDACION_POLICY_PATH,
@@ -30,6 +31,7 @@ def get_environment(
         db = get_db()
 
     tools = ConvalidacionCLCTools(db)
+    user_tools = ConvalidacionCLCUserTools(tools._sms_codes)
     with open(CONVALIDACION_POLICY_PATH, "r", encoding="utf-8") as fp:
         policy = fp.read()
 
@@ -37,6 +39,7 @@ def get_environment(
         domain_name=CONVALIDACION_DOMAIN_NAME,
         policy=policy,
         tools=tools,
+        user_tools=user_tools,
     )
 
 
