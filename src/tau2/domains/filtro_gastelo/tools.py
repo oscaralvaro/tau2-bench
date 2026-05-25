@@ -216,23 +216,15 @@ class FiltrosTools(ToolKitBase):
         }
     @is_tool(ToolType.WRITE)
     def enviar_codigo_sms(self, phone_number: str, user_role: str) -> dict:
-        """
-        Herramienta del AGENTE. 
-        Genera un código de 6 dígitos de forma aleatoria, realiza el 'role validation'
-        exigido por la rúbrica y simula el envío al teléfono del usuario.
-        """
-        # Validación de Rol exigida por el Eje 1 (punto d)
+
         roles_validos = ["user", "employee", "admin", "client"]
         if user_role not in roles_validos:
             return {"error": f"Validación de rol fallida. El rol '{user_role}' no tiene permitido recibir tokens sensibles."}
         
-        # Generar token aleatorio de 6 dígitos
         codigo_verificacion = str(random.randint(100000, 999999))
         
-        # Asegurar que el directorio de almacenamiento exista
         os.makedirs(os.path.dirname(SMS_STORAGE_PATH), exist_ok=True)
         
-        # Leer base de datos temporal de SMS existente o crear una nueva
         database = {}
         if os.path.exists(SMS_STORAGE_PATH):
             try:
@@ -241,7 +233,6 @@ class FiltrosTools(ToolKitBase):
             except:
                 database = {}
                 
-        # Registrar el nuevo SMS enviado
         database[phone_number] = codigo_verificacion
         
         with open(SMS_STORAGE_PATH, "w", encoding="utf-8") as f:
@@ -252,10 +243,6 @@ class FiltrosTools(ToolKitBase):
 
     @is_tool(ToolType.WRITE)
     def verificar_codigo_sms(self, phone_number: str, codigo_ingresado: str) -> dict:
-        """
-        Herramienta del AGENTE.
-        Compara el código dictado por el usuario con el código almacenado en el sistema.
-        """
         if not os.path.exists(SMS_STORAGE_PATH):
             return {"error": "No se registran códigos emitidos en el sistema."}
             
