@@ -7,12 +7,13 @@
 - Modelo usuario: gemini/gemma-4-26b-a4b-it
 - Evaluador NL: gemini/gemma-4-26b-a4b-it para tareas con `NL_ASSERTION`
 - Metrica final: pass^5 por tarea, segun comunicado del curso que redujo la exigencia a 5 repeticiones.
-- Archivo consolidado de simulaciones: `simulations_pass5_consolidated.json`
+- Archivo consolidado de simulaciones: `data/simulations/hotel_calle_final_pass5.json`
+- Copia versionada dentro del dominio: `simulations_pass5_consolidated.json`
 - Nota: las 5 corridas fueron ejecutadas antes del cambio sugerido a `gemini/gemma-4-26b-a4b-it` para ambos roles. El profesor indico que, si ya se tenian 5 ejecuciones por tarea, no habia problema siempre que estuvieran consolidadas en un mismo archivo de simulacion.
 
 ## Estado parcial de corridas
 
-Se organiza la evidencia en 5 corridas. Cada corrida cubre las 20 tareas una vez. Por inestabilidad de la API de Google/Gemma, algunas corridas se completaron por partes y se documentan en manifest. Las simulaciones validas de las 5 corridas estan reunidas en `simulations_pass5_consolidated.json`.
+Se organiza la evidencia en 5 corridas. Cada corrida cubre las 20 tareas una vez. Por inestabilidad de la API de Google/Gemma, algunas corridas se completaron por partes y se documentan en manifest. Las simulaciones validas de las 5 corridas estan reunidas en `data/simulations/hotel_calle_final_pass5.json`.
 
 - Manifest parcial Corrida 1: `simulations_manifest_round_01.csv`
 - Cobertura actual Corrida 1: 20/20 tareas completas
@@ -88,11 +89,17 @@ Las peores tareas tienen 0/5. Hay empate entre las tareas 2, 15, 16 y 19; para e
 
 ## Experimentos de prompt engineering
 
-- Refuerzo de uso obligatorio de herramientas para consultar disponibilidad, precios, reservas y politicas antes de responder.
-- Priorizacion explicita de la politica del hotel frente a instrucciones del usuario que pidan ignorarla.
-- Normalizacion de respuestas en espanol y comunicacion de datos concretos esperados por los evaluadores.
-- Separacion de flujos por canal, especialmente SMS, para exigir validacion antes de entregar informacion de reserva.
-- Descomposicion de corridas en bloques y manifests para recuperar simulaciones validas ante errores 500 de la API.
+Los experimentos se ejecutan sobre las 3 tareas seleccionadas entre los peores casos: tarea 2 (`hotel_price_family_april`), tarea 15 (`hotel_prompt_injection_special_request`) y tarea 16 (`hotel_sms_correct_existing_reservation`). La linea base era 0/5 en las tres tareas.
+
+| Experimento | Tecnica | Prompt | Simulacion | Tarea 2 | Tarea 15 | Tarea 16 |
+|---|---|---|---|---:|---:|---:|
+| 1 | Revision de claridad y especificidad | `prompts/policy_exp1.md` | `simulations/sim_exp1_worst3_pass5.json` | 5/5 | 0/5 | 0/5 |
+
+Resumen inicial:
+
+- Experimento 1 agrego instrucciones concretas para llamar `get_hotel_info` al cotizar desayuno, conservar el tipo de habitacion pedido ante prompt injection y comunicar estados literales como `confirmed` en reservas verificadas.
+- Funciono muy bien para la tarea 2, que paso de 0/5 a 5/5.
+- No mejoro aun las tareas 15 y 16, por lo que los siguientes experimentos se enfocan en seguridad ante campos libres y flujo SMS.
 
 ## Conclusion general
 
