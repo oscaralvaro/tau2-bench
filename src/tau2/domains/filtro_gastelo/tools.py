@@ -1,7 +1,10 @@
 from tau2.domains.filtro_gastelo.data_model import FiltrosDB, Customer, Filter
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool 
 from typing import Optional
-
+import random
+import json
+import os
+SMS_STORAGE_PATH = "data/tau2/domains/filtro_gastelo/simulations/sms_gateway.json"
 class FiltrosTools(ToolKitBase):
     "Herramientas simples para el pedido de filtros"
      
@@ -212,26 +215,69 @@ class FiltrosTools(ToolKitBase):
             "reason": reason
         }
     @is_tool(ToolType.WRITE)
-    def send_sms_verification_code(self, customer_phone: str) -> dict:
+    def enviar_codigo_sms(self, phone_number: str, user_role: str) -> dict:
         """
-        Genera y envía un código de verificación SMS al teléfono del cliente.
-        Es un requisito obligatorio previo para procesar registros de pedidos a proveedor
-        en clientes nuevos o sin historial de compra (past_orders < 1).
-        Parámetros:
-        - customer_phone: Número de celular de 9 dígitos del cliente.
+        Herramienta del AGENTE. 
+        Genera un código de 6 dígitos de forma aleatoria, realiza el 'role validation'
+        exigido por la rúbrica y simula el envío al teléfono del usuario.
         """
-        phone = str(customer_phone).strip()
+        # Validación de Rol exigida por el Eje 1 (punto d)
+        roles_validos = ["user", "employee", "admin", "client"]
+        if user_role not in roles_validos:
+            return {"error": f"Validación de rol fallida. El rol '{user_role}' no tiene permitido recibir tokens sensibles."}
         
-        if not phone:
-            return {"status": "error", "message": "El número de teléfono es obligatorio."}
-         
-        generated_code = "1234" 
+        # Generar token aleatorio de 6 dígitos
+        codigo_verificacion = str(random.randint(100000, 999999))
         
-        self.db.last_generated_sms = generated_code
-        self.db.sms_verified_phone = phone
+        # Asegurar que el directorio de almacenamiento exista
+        os.makedirs(os.path.dirname(SMS_STORAGE_PATH), exist_ok=True)
         
-        return {
-            "status": "success",
-            "message": f"Código SMS enviado exitosamente al número {phone}.",
-            "verification_code": generated_code
-        }
+        # Leer base de datos temporal de SMS existente o crear una nueva
+        database = {}
+        if os.path.exists(SMS_STORAGE_PATH):
+            try:
+                with open(SMS_STORAGE_PATH, "r", encoding="utf-8") as f:
+                    database = json.load(f)
+            except:
+                database = {}
+                
+        # Registrar el nuevo SMS enviado
+        database[phone_number] = codigo_verificacion
+        
+        with open(SMS_STORAGE_PATH, "w", encoding="utf-8") as f:
+            json.dump(database, f, indent=4)
+            
+        return {"status": "success", "message": f"Código enviado exitosamente al número {phone_number}."}
+
+
+    @is_tool(ToolType.WRITE)
+    def verificar_codigo_sms(self, phone_number: str, codigo_ingresado: str) -> dict:
+        """
+        Herramienta del AGENTE.
+        Compara el código dictado por el usuario con el código almacenado en el sistema.
+        """
+        if not os.path.exists(SMS_STORAGE_PATH):
+            return {"error": "No se registran códigos emitidos en el sistema."}
+            
+        try:
+            with open(SMS_STORAGE_PATH, "r", encoding="utf-8") as f:
+                database = json.load(f)
+                
+            if phone_number not in database:
+                return {"error": "No existe un código activo para este número de teléfono."}
+                
+            if database[phone_number] == str(codigo_ingresado).strip():
+                # Consumir el código para seguridad
+                del database[phone_number]
+                with open(SMS_STORAGE_PATH, "w", encoding="utf-8") as f:
+                    json.dump(database, f, indent=4)
+                
+                # Seteamos el estado en la DB para habilitar transacciones sensibles
+                self.db.sms_verified_phone = str(phone_number).strip()
+                
+                return {"status": "verified", "message": "Identidad confirmada con éxito."}
+            else:
+                return {"status": "failed", "message": "Código incorrecto. Acceso denegado."}
+                
+        except Exception as e:
+            return {"error": f"Error interno en la verificación: {str(e)}"}

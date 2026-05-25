@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from pathlib import Path
 from tau2.environment.db import DB
 from typing import Dict, Any, Optional
+from dataclasses import dataclass, field
 filtro_DB_PATH = Path(__file__).parent / "filtros.json" 
 
 OrderStatus = Literal['Confirmed']
