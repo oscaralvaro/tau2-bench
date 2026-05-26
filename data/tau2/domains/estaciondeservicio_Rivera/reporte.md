@@ -31,6 +31,8 @@ Resumen de policy:
 
 - Corrida total inicial incompleta: `data/simulations/simulacion_estaciondeservicio_Rivera_pass9_Incompleta.json`
 - Corrida parcial corregida: `data/simulations/rivera_tasks_corregidas_pass5_v2.json`
+- Prompt experimental 1: `data/tau2/domains/estaciondeservicio_Rivera/prompts/policy_exp1.md`
+- Prompt experimental 2: `data/tau2/domains/estaciondeservicio_Rivera/prompts/policy_exp2.md`
 
 Nota importante: la corrida total `pass9` quedo incompleta respecto al objetivo original de pass^10. Por estabilidad, limites de Gemma/Google AI Studio y tiempo de ejecucion, no todas las tareas llegaron al mismo K: algunas tienen 6 intentos y otras 5. Aun asi, esta corrida sirve como diagnostico porque cubre todas las tareas 0-21 e identifica claramente los casos con peor reward. La corrida parcial `pass5_v2` se ejecuto despues sobre las tareas que tuvieron reward 0 en esa corrida inicial.
 
@@ -126,8 +128,8 @@ La mejora se trabajo como una serie de experimentos sobre las tareas con peor re
 
 | Experimento | Tecnica | Donde se aplico | Resultado observado |
 |---|---|---|---|
-| 1 | Revision de claridad y especificidad | Se reescribieron instrucciones ambiguas para incluir identificadores, RUC, monto exacto, metodo de pago y confirmaciones esperadas en `tasks.json`. | Las tareas 1, 6, 12, 16, 18, 20 y 21 pasaron de 0% en la corrida incompleta a 5/5 en `pass5_v2`. |
-| 2 | Estructura de flujo antes de actuar | Los casos sensibles se redactaron como secuencias obligatorias: enviar SMS, leer SMS con user tool, verificar codigo y recien ejecutar la accion sensible. | Las tareas 6, 16, 20 y 21 pasaron a 5/5. |
+| 1 | Revision de claridad y especificidad | Se probo en `prompts/policy_exp1.md` y luego se traslado a `tasks.json`: identificadores, RUC, monto exacto, metodo de pago y confirmaciones esperadas. | Las tareas 1, 6, 12, 16, 18, 20 y 21 pasaron de 0% en la corrida incompleta a 5/5 en `pass5_v2`. |
+| 2 | Estructura de flujo antes de actuar | Se probo en `prompts/policy_exp2.md`: enviar SMS, leer SMS con user tool, verificar codigo y recien ejecutar la accion sensible. | Las tareas 6, 16, 20 y 21 pasaron a 5/5. |
 | 3 | Duplicacion de reglas criticas | La regla de codigo SMS invalido se reforzo en `policy.md` y en la instruccion especifica de la task 21. | La task 21 paso a 5/5 sin actualizar datos cuando el codigo fue incorrecto. |
 | 4 | Prompting defensivo contra acciones indebidas | Se hicieron explicitas las condiciones de no actuar: no pagar con metodo distinto, no pago parcial, no reintentar SMS invalido y no modificar DB sin datos suficientes. | Las tareas de rechazo y seguridad mantuvieron reward completo; la task 21 quedo corregida. |
 | 5 | Normalizacion y tolerancia a variaciones del modelo | Se normalizaron fechas, motivos de reclamo/cancelacion y razones de SMS para que diferencias textuales no sustantivas no rompan el reward. | Las tareas 18, 20 y los flujos SMS dejaron de fallar por formato/metadatos. |
