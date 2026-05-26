@@ -87,6 +87,15 @@ from tau2.domains.burger.environment import (
 
 
 # START DOMAIN IMPORT: Joaquin Matias Garbich Rabinovich
+from tau2.domains.fishtrader_garbich.environment import (
+    get_environment as fishtrader_garbich_get_environment,
+)
+from tau2.domains.fishtrader_garbich.environment import (
+    get_tasks as fishtrader_garbich_get_tasks,
+)
+from tau2.domains.fishtrader_garbich.environment import (
+    get_tasks_split as fishtrader_garbich_get_tasks_split,
+)
 
 # END DOMAIN IMPORT: Joaquin Matias Garbich Rabinovich
 
@@ -403,6 +412,14 @@ try:
 
 
     # START DOMAIN REGISTRATION: Joaquin Matias Garbich Rabinovich
+    registry.register_domain(
+        fishtrader_garbich_get_environment, "fishtrader_garbich"
+    )
+    registry.register_tasks(
+        fishtrader_garbich_get_tasks,
+        "fishtrader_garbich",
+        get_task_splits=fishtrader_garbich_get_tasks_split,
+    )
 
     # END DOMAIN REGISTRATION: Joaquin Matias Garbich Rabinovich
 
