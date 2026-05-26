@@ -685,3 +685,95 @@ def test_make_payment(environment: Environment):
             amount=1000.0,
             payment_method="bank_transfer",
         )
+
+
+# ---------------------------------------------------------------------------
+# SMS verification tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def env_with_employees(fishtrader_db: FishTraderDB) -> Environment:
+    from tau2.domains.fishtrader_garbich.data_model import Employee
+
+    fishtrader_db.employees = {
+        "EMP-001": Employee(
+            employee_id="EMP-001",
+            full_name="Carlos Mendoza",
+            phone="+51-900-000-101",
+            department="Operations",
+        )
+    }
+    return get_environment(fishtrader_db)
+
+
+def test_send_verification_code_user(env_with_employees: Environment):
+    result = env_with_employees.tools.send_verification_code("CUST-001")
+    assert "CUST-001" in result
+    assert env_with_employees.tools._pending_verification is not None
+    assert env_with_employees.tools._pending_verification["role"] == "user"
+    assert len(env_with_employees.tools._pending_verification["code"]) == 6
+
+
+def test_send_verification_code_employee(env_with_employees: Environment):
+    result = env_with_employees.tools.send_verification_code("EMP-001")
+    assert "EMP-001" in result
+    assert env_with_employees.tools._pending_verification["role"] == "employee"
+
+
+def test_send_verification_code_invalid(env_with_employees: Environment):
+    with pytest.raises(ValueError):
+        env_with_employees.tools.send_verification_code("NONEXISTENT")
+
+
+def test_verify_code_correct(env_with_employees: Environment):
+    env_with_employees.tools.send_verification_code("CUST-001")
+    code = env_with_employees.tools._pending_verification["code"]
+    result = env_with_employees.tools.verify_code(code)
+    assert "verified" in result.lower()
+    assert env_with_employees.tools._verified is not None
+    assert env_with_employees.tools._pending_verification is None
+
+
+def test_verify_code_incorrect(env_with_employees: Environment):
+    env_with_employees.tools.send_verification_code("CUST-001")
+    result = env_with_employees.tools.verify_code("000000")
+    assert "failed" in result.lower() or "incorrect" in result.lower()
+    assert env_with_employees.tools._verified is None
+    assert env_with_employees.tools._pending_verification is None
+
+
+def test_verify_code_no_pending(env_with_employees: Environment):
+    result = env_with_employees.tools.verify_code("123456")
+    assert "no verification code" in result.lower()
+
+
+def test_assert_identity_verified(env_with_employees: Environment):
+    assert env_with_employees.tools.assert_identity_verified() is False
+    env_with_employees.tools.send_verification_code("CUST-001")
+    code = env_with_employees.tools._pending_verification["code"]
+    env_with_employees.tools.verify_code(code)
+    assert env_with_employees.tools.assert_identity_verified() is True
+
+
+def test_assert_verified_role(env_with_employees: Environment):
+    env_with_employees.tools.send_verification_code("EMP-001")
+    code = env_with_employees.tools._pending_verification["code"]
+    env_with_employees.tools.verify_code(code)
+    assert env_with_employees.tools.assert_verified_role("employee") is True
+    assert env_with_employees.tools.assert_verified_role("user") is False
+
+
+def test_check_sms_after_sync(env_with_employees: Environment):
+    from tau2.domains.fishtrader_garbich.environment import FishTraderEnvironment
+
+    assert isinstance(env_with_employees, FishTraderEnvironment)
+    assert env_with_employees.user_tools.check_sms() == "No verification code has been received yet."
+
+    env_with_employees.tools.send_verification_code("CUST-001")
+    env_with_employees.sync_tools()
+    sms_result = env_with_employees.user_tools.check_sms()
+    assert "SMS verification code" in sms_result
+
+    code = env_with_employees.tools._pending_verification["code"]
+    assert code in sms_result

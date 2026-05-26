@@ -1,8 +1,11 @@
 import datetime
+import random
+import string
 from copy import deepcopy
 from typing import Any, List, Optional
 
 from tau2.domains.fishtrader_garbich.data_model import (
+    ActorRole,
     Address,
     Claim,
     CompanyCustomer,
@@ -32,6 +35,8 @@ class FishTraderTools(ToolKitBase):
 
     def __init__(self, db: FishTraderDB) -> None:
         super().__init__(db)
+        self._pending_verification: Optional[dict] = None
+        self._verified: Optional[dict] = None
 
     def _now(self) -> datetime.datetime:
         return self.CURRENT_TIME
@@ -665,3 +670,74 @@ class FishTraderTools(ToolKitBase):
         else:
             invoice.status = InvoiceStatus.PARTIALLY_PAID
         return invoice
+
+    # ------------------------------------------------------------------
+    # Identity verification (SMS code)
+    # ------------------------------------------------------------------
+
+    def _generate_code(self) -> str:
+        return "".join(random.choices(string.digits, k=6))
+
+    @is_tool(ToolType.WRITE)
+    def send_verification_code(self, recipient_id: str) -> str:
+        """
+        Send a one-time SMS verification code to the caller identified by recipient_id.
+        recipient_id must be a valid customer_id (role: user) or employee_id (role: employee).
+        The caller must provide this code back to complete identity verification.
+        """
+        if recipient_id in self.db.users:
+            role = ActorRole.USER
+        elif recipient_id in self.db.employees:
+            role = ActorRole.EMPLOYEE
+        else:
+            raise ValueError(
+                f"Recipient '{recipient_id}' not found. "
+                "Provide a valid customer_id or employee_id."
+            )
+        code = self._generate_code()
+        self._pending_verification = {
+            "recipient_id": recipient_id,
+            "code": code,
+            "role": role.value,
+        }
+        self._verified = None
+        return (
+            f"A 6-digit verification code has been sent via SMS to the phone "
+            f"number registered for '{recipient_id}' (role: {role.value}). "
+            "Please ask the caller to provide the code."
+        )
+
+    @is_tool(ToolType.WRITE)
+    def verify_code(self, code: str) -> str:
+        """
+        Verify the SMS code provided by the caller.
+        Must be called after send_verification_code. Returns the verified role on success.
+        """
+        if self._pending_verification is None:
+            return "No verification code has been sent. Call send_verification_code first."
+        if code == self._pending_verification["code"]:
+            self._verified = {
+                "recipient_id": self._pending_verification["recipient_id"],
+                "role": self._pending_verification["role"],
+            }
+            self._pending_verification = None
+            return (
+                f"Identity verified successfully. "
+                f"Caller is authenticated as '{self._verified['recipient_id']}' "
+                f"with role '{self._verified['role']}'."
+            )
+        self._pending_verification = None
+        self._verified = None
+        return "Verification failed: incorrect code. Identity not verified."
+
+    # ------------------------------------------------------------------
+    # Assertion helpers for ENV_ASSERTION evaluation
+    # ------------------------------------------------------------------
+
+    def assert_identity_verified(self) -> bool:
+        """Returns True if the caller's identity has been successfully verified."""
+        return self._verified is not None
+
+    def assert_verified_role(self, role: str) -> bool:
+        """Returns True if the caller is verified and has the given role ('user' or 'employee')."""
+        return self._verified is not None and self._verified.get("role") == role
