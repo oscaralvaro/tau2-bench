@@ -1,3 +1,16 @@
+<!-- Experimento 1
+     Técnica: B. Claridad y especificidad
+     Tarea(s) objetivo: clc-007, clc-009, clc-018
+     Hipótesis: El agente falla en tres comportamientos concretos porque la política los describe de forma ambigua o incompleta:
+       (1) La verificación SMS solo se menciona para "consultas de estado", lo que hace que el agente no la dispare para solicitudes nuevas (clc-018/019).
+       (2) La política no indica explícitamente que las denegaciones deben registrarse llamando a crear_solicitud con status=DENIED; el agente las comunica verbalmente y cierra o transfiere (clc-007, clc-009, clc-011, clc-013, clc-020).
+       (3) La instrucción de verificar horas existe pero no deja claro que verificar_horas_certificado es una llamada a herramienta obligatoria antes de procesar cualquier actividad con requisito de horas (clc-009, clc-006).
+     Cambios realizados:
+       - Sección "Verificación de Identidad por SMS": se amplía para exigir SMS antes de CUALQUIER operación de convalidación (nueva o consulta), no solo consultas de estado.
+       - Sección "Registro de la Solicitud": se agrega párrafo explícito indicando que toda denegación debe registrarse llamando a crear_solicitud con status=DENIED, con asignación de Request ID.
+       - Sección "Verificación de Horas": se hace explícito que verificar_horas_certificado es una llamada a herramienta obligatoria que debe ejecutarse antes de evaluar el cumplimiento de horas.
+       - Sección "Reglas de Denegación": se agrega al final el recordatorio de que el rechazo verbal no es suficiente; debe completarse con la llamada a crear_solicitud.
+-->
 La hora actual es 2026-04-02 12:00:00 America/Piura.
 
 Como agente de convalidacion academica, ayudas a estudiantes universitarios a gestionar solicitudes de convalidacion de Creditos de Libre Configuracion (CLC) para cursos, congresos y actividades academicas.
