@@ -46,33 +46,33 @@ Esta corrida debe leerse como una corrida diagnostica incompleta, no como una me
 
 | Tarea | Descripcion breve | pass^K observado | % de falla |
 |---|---|---:|---:|
-| 1 | Evaluar un registro exitoso de un nuevo cliente. | 0/6 | 100.0% |
-| 6 | Evaluar un flujo exitoso de pago donde el metodo de pago cambia antes del pago y luego la orden se paga en una sola transaccion completa. | 0/6 | 100.0% |
-| 12 | Evaluar un pago total exitoso usando efectivo. | 0/5 | 100.0% |
-| 16 | Evaluar una actualizacion exitosa de datos del cliente. | 0/5 | 100.0% |
-| 18 | Evaluar un registro exitoso de reclamo. | 0/5 | 100.0% |
-| 20 | Evaluar una cancelacion exitosa de orden sensible usando verificacion por codigo SMS. | 0/5 | 100.0% |
-| 21 | Evaluar el rechazo de una actualizacion sensible cuando el usuario proporciona un codigo SMS incorrecto. | 0/5 | 100.0% |
+| 1 | Registro de cliente nuevo. | 0/6 | 100.0% |
+| 6 | Cambio de metodo de pago y pago total. | 0/6 | 100.0% |
+| 12 | Pago total en efectivo. | 0/5 | 100.0% |
+| 16 | Actualizacion de datos de cliente. | 0/5 | 100.0% |
+| 18 | Registro de reclamo. | 0/5 | 100.0% |
+| 20 | Cancelacion con verificacion SMS. | 0/5 | 100.0% |
+| 21 | Rechazo por codigo SMS incorrecto. | 0/5 | 100.0% |
 
 ### 3.2 Tareas que pasaron en la corrida total
 
 | Tarea | Descripcion breve | pass^K observado | % de falla |
 |---|---|---:|---:|
-| 0 | Evaluar una consulta informativa exitosa sobre combustibles disponibles y stock. | 6/6 | 0.0% |
-| 2 | Evaluar una orden exitosa despues de agregar una nueva direccion de entrega autorizada. | 6/6 | 0.0% |
-| 3 | Evaluar una consulta exitosa y sencilla sobre el estado de una orden. | 6/6 | 0.0% |
-| 4 | Evaluar un pedido exitoso de lubricante vinculado a una orden valida de combustible. | 6/6 | 0.0% |
-| 5 | Evaluar una cancelacion exitosa de una orden pendiente dentro de la ventana permitida. | 6/6 | 0.0% |
-| 7 | Evaluar el rechazo de una orden de combustible por estar debajo del minimo permitido y confirmar que el minimo se comunica claramente. | 6/6 | 0.0% |
-| 8 | Evaluar el rechazo de un intento de pago parcial porque cada orden debe pagarse en una sola transaccion completa. | 6/6 | 0.0% |
-| 9 | Evaluar el manejo de informacion incompleta antes de ejecutar una accion. | 6/6 | 0.0% |
-| 10 | Evaluar el escalamiento a un agente humano cuando el usuario pide una excepcion y solicita atencion humana explicitamente. | 5/5 | 0.0% |
-| 11 | Evaluar un caso limite donde el usuario intenta reprogramar demasiado tarde y la solicitud debe rechazarse. | 5/5 | 0.0% |
-| 13 | Evaluar un registro exitoso de metodo de pago y la creacion valida de una orden de combustible para un cliente ya registrado. | 5/5 | 0.0% |
-| 14 | Evaluar una consulta directa y exitosa de stock para un producto especifico. | 5/5 | 0.0% |
-| 15 | Evaluar una busqueda exitosa de cliente por RUC. | 5/5 | 0.0% |
-| 17 | Evaluar una emision exitosa de factura virtual para una orden existente. | 5/5 | 0.0% |
-| 19 | Evaluar el rechazo cuando el usuario intenta pagar con un metodo distinto al seleccionado en la orden. | 5/5 | 0.0% |
+| 0 | Consulta de combustibles y stock. | 6/6 | 0.0% |
+| 2 | Orden con nueva direccion autorizada. | 6/6 | 0.0% |
+| 3 | Consulta de estado de orden. | 6/6 | 0.0% |
+| 4 | Pedido de lubricante asociado. | 6/6 | 0.0% |
+| 5 | Cancelacion dentro de ventana permitida. | 6/6 | 0.0% |
+| 7 | Rechazo por minimo de galones. | 6/6 | 0.0% |
+| 8 | Rechazo de pago parcial. | 6/6 | 0.0% |
+| 9 | Solicitud con informacion incompleta. | 6/6 | 0.0% |
+| 10 | Escalamiento a asesor humano. | 5/5 | 0.0% |
+| 11 | Reprogramacion demasiado tarde. | 5/5 | 0.0% |
+| 13 | Registro de pago y orden valida. | 5/5 | 0.0% |
+| 14 | Consulta directa de stock. | 5/5 | 0.0% |
+| 15 | Busqueda de cliente por RUC. | 5/5 | 0.0% |
+| 17 | Emision de factura virtual. | 5/5 | 0.0% |
+| 19 | Rechazo por metodo de pago distinto. | 5/5 | 0.0% |
 
 ## 4. Resultados de la corrida parcial pass5
 
@@ -84,13 +84,13 @@ Esta corrida se hizo solo sobre las tareas que fallaron en la corrida total inco
 
 | Tarea | Descripcion breve | pass^5 | % de falla |
 |---|---|---:|---:|
-| 1 | Evaluar un registro exitoso de un nuevo cliente. | 5/5 | 0.0% |
-| 6 | Evaluar un flujo exitoso de pago donde el metodo de pago cambia antes del pago y luego la orden se paga en una sola transaccion completa. | 5/5 | 0.0% |
-| 12 | Evaluar un pago total exitoso usando efectivo. | 5/5 | 0.0% |
-| 16 | Evaluar una actualizacion exitosa de datos del cliente. | 5/5 | 0.0% |
-| 18 | Evaluar un registro exitoso de reclamo. | 5/5 | 0.0% |
-| 20 | Evaluar una cancelacion exitosa de orden sensible usando verificacion por codigo SMS. | 5/5 | 0.0% |
-| 21 | Evaluar el rechazo de una actualizacion sensible cuando el usuario proporciona un codigo SMS incorrecto. | 5/5 | 0.0% |
+| 1 | Registro de cliente nuevo. | 5/5 | 0.0% |
+| 6 | Cambio de metodo de pago y pago total. | 5/5 | 0.0% |
+| 12 | Pago total en efectivo. | 5/5 | 0.0% |
+| 16 | Actualizacion de datos de cliente. | 5/5 | 0.0% |
+| 18 | Registro de reclamo. | 5/5 | 0.0% |
+| 20 | Cancelacion con verificacion SMS. | 5/5 | 0.0% |
+| 21 | Rechazo por codigo SMS incorrecto. | 5/5 | 0.0% |
 
 ## 5. Analisis de peores casos y mejoras
 
