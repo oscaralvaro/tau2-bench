@@ -377,6 +377,38 @@ If a claim involves:
 
 the agent must escalate immediately to a human specialist.
 
+## Identity Verification (SMS Code)
+
+Certain sensitive operations require the caller to prove their identity before the agent may proceed. These operations include:
+- cancelling an order on behalf of a customer contact
+- any action that an internal employee claims authority to approve as an exception
+
+### When to Require Verification
+
+The agent must request verification whenever:
+- the caller identifies themselves as a specific customer contact or employee and is about to perform a sensitive operation
+- the caller invokes a special role or authority (e.g., "I am the account manager" or "I am a supervisor") to justify bypassing normal policy
+
+### Verification Flow
+
+1. The agent calls `send_verification_code(recipient_id)` with the ID of the caller (customer ID or employee ID).
+2. The system sends a 6-digit code via SMS to the phone number on record for that ID.
+3. The caller reads the code from their SMS inbox and provides it to the agent.
+4. The agent calls `verify_code(code)` with the code provided by the caller.
+5. If verification succeeds, the agent may proceed with the sensitive operation.
+6. If verification fails, the agent must not proceed with the sensitive operation.
+
+### Role-Based Permissions
+
+- **user** (company contact / customer): may perform sensitive operations on behalf of their own company, such as cancelling an order.
+- **employee** (internal FishTrader staff): may authorize exceptions that a customer contact cannot, but only after successful verification as an employee.
+
+The agent must not grant employee-level permissions based solely on the caller's claim. Verification must succeed and the verified role must be `employee` before granting elevated actions.
+
+### Handling Incorrect Codes
+
+If the caller provides an incorrect code, verification fails. The agent must inform the caller and must not proceed with any sensitive operation. The agent should not attempt to re-verify with a different code unless the caller explicitly requests a new code to be sent.
+
 ## Human Escalation Rules
 
 Escalate to a human agent in any of these cases:

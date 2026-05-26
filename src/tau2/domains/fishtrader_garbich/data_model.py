@@ -392,6 +392,18 @@ class Shipment(BaseModelNoExtra):
     )
 
 
+class ActorRole(str, Enum):
+    USER = "user"
+    EMPLOYEE = "employee"
+
+
+class Employee(BaseModelNoExtra):
+    employee_id: str = Field(description="Unique identifier for the internal employee")
+    full_name: str = Field(description="Full name of the employee")
+    phone: str = Field(description="Phone number used for SMS verification")
+    department: Optional[str] = Field(None, description="Department of the employee")
+
+
 class FishTraderDB(DB):
     """Database for the fish trading domain."""
 
@@ -420,6 +432,9 @@ class FishTraderDB(DB):
     )
     shipments: Dict[str, Shipment] = Field(
         default_factory=dict, description="Shipments indexed by shipment id"
+    )
+    employees: Dict[str, Employee] = Field(
+        default_factory=dict, description="Internal FishTrader employees indexed by employee id"
     )
 
     @model_validator(mode="before")
@@ -450,6 +465,7 @@ class FishTraderDB(DB):
             "num_invoices": len(self.invoices),
             "num_claims": len(self.claims),
             "num_shipments": len(self.shipments),
+            "num_employees": len(self.employees),
         }
 
 
