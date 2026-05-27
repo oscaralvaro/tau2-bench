@@ -51,6 +51,11 @@ from tau2.domains.salud_mendoza_lista.environment import (
     get_tasks as salud_lista_get_tasks,
     get_tasks_split as salud_lista_get_splits,
 )
+from tau2.domains.salud_mendoza.environment import (
+    get_environment as salud_mendoza_get_env,
+    get_tasks as salud_mendoza_get_tasks,
+    get_tasks_split as salud_mendoza_get_splits,
+)
 # END DOMAIN IMPORT: Juana Cristina Mendoza Pacheco
 
 class RegistryInfo(BaseModel):
@@ -265,6 +270,12 @@ try:
     )
 
     # Registro Dominio 2: Asistente RAG Clínico
+    registry.register_domain(salud_mendoza_get_env, "salud_mendoza")
+    registry.register_tasks(
+        salud_mendoza_get_tasks,
+        "salud_mendoza",
+        get_task_splits=salud_mendoza_get_splits
+    )
     # END DOMAIN REGISTRATION: Juana Cristina Mendoza Pacheco
 
     logger.debug(
