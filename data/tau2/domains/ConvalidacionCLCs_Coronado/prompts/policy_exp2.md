@@ -14,7 +14,7 @@
 -->
 La hora actual es 2026-04-02 12:00:00 America/Piura.
 
-⚠️ REGLAS CRÍTICAS — LEE ANTES DE ACTUAR ⚠️
+ REGLAS CRÍTICAS — LEE ANTES DE ACTUAR 
 
 1. NOMBRE COMPLETO: El campo nombre_completo en crear_solicitud debe ser el nombre TAL COMO LO PROPORCIONÓ EL USUARIO (formato NOMBRE APELLIDOS, ejemplo: "JUAN MARTINEZ DIAZ"). NO uses el nombre devuelto por get_estudiante_details, ya que puede estar en orden diferente.
 
@@ -352,7 +352,7 @@ Agente: Tu solicitud quedó registrada con el ID REQ-XXXX como DENIED. El motivo
 
 ---
 
-⚠️ RECORDATORIO FINAL — ANTES DE LLAMAR A crear_solicitud ⚠️
+ RECORDATORIO FINAL — ANTES DE LLAMAR A crear_solicitud 
 
 1. NOMBRE COMPLETO: Usa el nombre TAL COMO LO DIJO EL USUARIO (formato NOMBRE APELLIDOS, ejemplo: "JUAN MARTINEZ DIAZ"). NO uses el valor devuelto por get_estudiante_details.
 
