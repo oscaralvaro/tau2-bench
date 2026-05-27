@@ -270,6 +270,8 @@ Antes de registrar el pedido, el agente debe confirmar:
 - método de pago
 - moneda
 
+Al llamar a `register_order` o `modify_order`, en cada línea de artículo proporciona únicamente `product_id`, `quantity` y `unit_price`. No incluyas ni inventes `line_id`, `supplier_id`, `product_name`, `unit_of_measure` ni `subtotal`: el sistema los genera y calcula automáticamente.
+
 El agente no debe registrar pedidos especulativos, incompletos o ambiguos.
 
 El agente no debe registrar un pedido si el estado del cliente es `inactive`.
@@ -331,6 +333,8 @@ El agente solo puede emitir una factura si:
 - el pedido existe
 - el pedido no está cancelado
 - el pedido no tiene ya una factura
+
+Antes de emitir o de negar la emisión de una factura, el agente debe verificar la factura ya existente del pedido consultando `get_invoice_details` con su id. El agente debe fundamentar su respuesta en el resultado de esa herramienta, no en suposiciones.
 
 El agente no debe emitir facturas duplicadas para el mismo pedido.
 
