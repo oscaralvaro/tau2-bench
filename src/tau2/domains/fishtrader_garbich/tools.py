@@ -1,6 +1,5 @@
 import datetime
-import random
-import string
+import hashlib
 from copy import deepcopy
 from typing import Any, List, Optional
 
@@ -675,8 +674,9 @@ class FishTraderTools(ToolKitBase):
     # Identity verification (SMS code)
     # ------------------------------------------------------------------
 
-    def _generate_code(self) -> str:
-        return "".join(random.choices(string.digits, k=6))
+    def _generate_code(self, recipient_id: str) -> str:
+        digest = hashlib.sha256(recipient_id.encode()).hexdigest()
+        return str(int(digest[:8], 16) % 1000000).zfill(6)
 
     @is_tool(ToolType.WRITE)
     def send_verification_code(self, recipient_id: str) -> str:
@@ -694,7 +694,7 @@ class FishTraderTools(ToolKitBase):
                 f"Recipient '{recipient_id}' not found. "
                 "Provide a valid customer_id or employee_id."
             )
-        code = self._generate_code()
+        code = self._generate_code(recipient_id)
         self._pending_verification = {
             "recipient_id": recipient_id,
             "code": code,
