@@ -54,6 +54,26 @@ def test_search_courses_success(tools):
     all_results = tools.search_courses("")
     assert len(all_results) == 3
 
+
+def test_search_courses_exposes_end_date():
+    """El catalogo real debe exponer la fecha de fin usada por tareas con plazo."""
+    environment = get_environment()
+    courses = environment.tools.search_courses("SIS201")
+
+    assert courses[0].end_date == "2026-05-15"
+
+
+def test_real_db_uses_one_enrollment_per_course():
+    """Las matriculas activas no deben compactar varios cursos en un course_id."""
+    environment = get_environment()
+    details = environment.tools.get_student_details("u2024002")
+    active_course_ids = {
+        enrollment["course_id"] for enrollment in details["active_enrollments"]
+    }
+
+    assert {"IND301", "SIS201", "MAT101"}.issubset(active_course_ids)
+    assert all("," not in course_id for course_id in active_course_ids)
+
 # ==========================================
 # 3. Tests para create_enrollment
 # ==========================================
@@ -137,3 +157,17 @@ def test_user_tools_can_read_agent_sms_code(tools):
     verification_result = tools.verify_sms_code("u2024001", code)
     assert "exitosa" in verification_result
     assert "proceder" in verification_result
+
+
+def test_sms_verification_rejects_wrong_role(tools):
+    tools.send_verification_sms("u2024001")
+    code = tools.db.students["u2024001"].current_sms_code
+
+    verification_result = tools.verify_sms_code(
+        "u2024001",
+        code,
+        required_role="employee",
+    )
+
+    assert "Autorizaci" in verification_result
+    assert tools.db.students["u2024001"].current_sms_code == code

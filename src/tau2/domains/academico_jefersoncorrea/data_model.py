@@ -24,6 +24,10 @@ class Course(BaseModel):
     prerequisites: List[str] = Field(description="Lista de IDs de cursos requeridos previos")
     schedule: str = Field(description="Día y hora del curso")
     available_seats: int = Field(description="Vacantes disponibles actualmente")
+    end_date: Optional[str] = Field(
+        default=None,
+        description="Fecha de finalización del curso en formato YYYY-MM-DD",
+    )
 
 class Enrollment(BaseModel):
     enrollment_id: str = Field(description="Identificador único de la matrícula")
