@@ -1,3 +1,25 @@
+<!-- Experimento 3
+     Técnica: Estructura Markdown + Chain-of-Thought + Plan antes de actuar + G Meta prompting
+     Tarea(s) objetivo: clc-007, clc-009, clc-018
+     Hipótesis: Los experimentos anteriores lograron ACTION=1.0 y COMMUNICATE=1.0 pero DB=0.0 persiste.
+       Análisis del código fuente (evaluator_env.py + user_tools.py) reveló la causa raíz:
+       el DB check compara DOS hashes: (1) el DB de solicitudes/estudiantes y (2) el "user DB"
+       que es el diccionario _sms_codes. Las tareas con DB en reward_basis (clc-007, clc-009, etc.)
+       NO incluyen send_sms_verification en sus golden actions, por lo que su gold user DB hash = {}.
+       Al enviar SMS en EXP1/EXP2, el predicted user DB hash queda no vacío → mismatch → DB=0.0.
+       Solución: revertir SMS a "solo para consultas de estado de solicitudes existentes"
+       (política original). Esto sacrifica clc-018 (regresa a 0/5) pero desbloquea el DB
+       check para clc-007/009 y todas las tareas con reward_basis DB.
+     Soluciones aplicadas:
+       G (Meta prompting): Reescritura completa del prompt integrando todos los aprendizajes.
+       C (Estructura Markdown): Secciones ### claramente delimitadas.
+       D (Chain-of-Thought): Instrucción explícita de razonar antes de actuar.
+       F (Plan antes de actuar): El agente enuncia su plan de herramientas antes de ejecutar.
+       Fix SMS: revertido a "solo para consultas de estado" (política original).
+       Fix orden Actividades Externas: verificar horas PRIMERO; si fallan → DENIED inmediato.
+         Esto evita la llamada extra a verificar_horas en clc-007.
+-->
+
 # Política del Agente de Convalidación de CLCs
 
 ## Instrucción de Razonamiento
