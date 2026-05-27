@@ -9,6 +9,8 @@
 - Fuente de simulaciones: `data/tau2/domains/academico_jefersoncorrea/simulations/`
 - Idioma: prompts, politicas y tareas redactadas en espanol.
 
+Nota metodologica: aunque la consigna menciona pass^10 como metrica ideal de reporte, en esta entrega se reporta pass^5 para la linea base y pass^3 para los experimentos de prompt engineering. Por limitaciones de tiempo, costo de ejecucion y algunas fallas practicas durante las simulaciones (por ejemplo, errores de consola/encoding y reintentos de ejecucion), se opto por reducir el numero de corridas manteniendo evidencia numerica reproducible y archivos JSON de resultados para cada experimento.
+
 ## Resultados pass^5 por tarea
 
 Ordenado de mayor a menor tasa de falla segun las simulaciones disponibles.
