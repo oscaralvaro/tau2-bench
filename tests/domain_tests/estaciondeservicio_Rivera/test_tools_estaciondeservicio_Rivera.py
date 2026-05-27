@@ -671,7 +671,7 @@ def test_register_claim_normalizes_text(tools: EstacionDeServicioRiveraTools):
         descripcion="The truck arrived several hours later than the confirmed delivery time for order_delivered_0001.",
         id_order="order_delivered_0001",
     )
-    assert claim.motivo == "Late delivery"
+    assert claim.motivo == "Entrega tardia"
     assert (
         claim.descripcion
         == "The truck arrived several hours later than the confirmed delivery time"
