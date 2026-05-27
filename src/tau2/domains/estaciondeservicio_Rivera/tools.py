@@ -174,8 +174,15 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
 
     def _normalize_claim_reason(self, motivo: str) -> str:
         motivo_clean = self._strip_accents(" ".join(motivo.strip().split()))
-        if motivo_clean.lower() == "late delivery":
-            return "Late delivery"
+        motivo_lower = motivo_clean.lower()
+        if (
+            motivo_lower == "late delivery"
+            or "entrega tardia" in motivo_lower
+            or "llego mas tarde" in motivo_lower
+            or "llego tarde" in motivo_lower
+            or "retras" in motivo_lower
+        ):
+            return "Entrega tardia"
         return motivo_clean
 
     def _normalize_claim_description(
@@ -189,6 +196,13 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
                 descripcion_clean,
                 flags=re.IGNORECASE,
             )
+        descripcion_lower = descripcion_clean.lower()
+        if (
+            "camion llego" in descripcion_lower
+            and "varias horas" in descripcion_lower
+            and "hora confirmada" in descripcion_lower
+        ):
+            return "El camion llego varias horas despues de la hora confirmada."
         return descripcion_clean
 
     def _normalize_sms_reason(self, reason: Optional[str]) -> Optional[str]:
