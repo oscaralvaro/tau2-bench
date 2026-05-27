@@ -1,3 +1,17 @@
+<!-- Experimento 2
+     Técnica: E (Duplicación de instrucciones críticas) + A (Few-shot)
+     Tarea(s) objetivo: clc-007, clc-009, clc-018
+     Hipótesis: El agente sigue fallando en clc-007 y clc-009 por dos causas concretas observadas en los transcripts:
+       (1) nombre_completo: usa el valor devuelto por get_estudiante_details (orden APELLIDOS NOMBRE) en lugar del nombre proporcionado por el usuario (orden NOMBRE APELLIDOS).
+       (2) Flujo DENIED: en clc-009 llama a crear_solicitud antes de recibir confirmación del usuario.
+     La Técnica E coloca las reglas violadas al inicio Y al final del prompt para maximizar su presencia en el contexto del modelo.
+     La Técnica A agrega ejemplos de diálogo correcto que muestran exactamente el flujo esperado: verificación de horas → resumen → confirmación → crear_solicitud DENIED con nombre en formato correcto.
+     Cambios realizados:
+       - Bloque REGLAS CRÍTICAS al inicio con las 2 reglas más violadas (nombre_completo y confirmación).
+       - Sección de ejemplos few-shot con 2 diálogos: uno para flujo DENIED por horas insuficientes y otro para flujo DENIED por falta de pago.
+       - Bloque RECORDATORIO FINAL al cierre del prompt repitiendo las mismas 2 reglas.
+       - Se mantienen todos los cambios del Experimento 1.
+-->
 La hora actual es 2026-04-02 12:00:00 America/Piura.
 
 ⚠️ REGLAS CRÍTICAS — LEE ANTES DE ACTUAR ⚠️
