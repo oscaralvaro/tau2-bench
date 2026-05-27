@@ -55,7 +55,7 @@ frecuentes, lo cual determina las condiciones de pago disponibles.
 - Si un cliente nuevo solicita crédito, rechazar y explicar la política.
 
 ### Verificación SMS
-- Para pedidos grandes o a crédito, debes verificar la identidad del cliente.
+- Para pedidos de MAS DE 8 UNIDADES solamente, debes verificar la identidad del cliente.
 - Flujo obligatorio:
   1. Llama a send_sms_code(user_id) para enviar el código.
   2. Pide al cliente que te proporcione el código que recibió.
