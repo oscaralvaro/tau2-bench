@@ -240,13 +240,18 @@ class ArrozToolKit(ToolKitBase):
         operaciones sensibles. Debe llamarse antes de ejecutar acciones
         que requieran verificacion de identidad.
         Retorna el codigo enviado (en simulacion se expone para pruebas).
+        El codigo es determinístico basado en el user_id para verificación.
         """
-        import random
+        import hashlib
         user = self.db.users.get(user_id)
         if not user:
             return {"error": f"Usuario '{user_id}' no encontrado."}
 
-        codigo = str(random.randint(100000, 999999))
+        # Generar código determinístico basado en hash del user_id
+        hash_obj = hashlib.sha256(user_id.encode())
+        hash_hex = hash_obj.hexdigest()
+        codigo = str(int(hash_hex[:6], 16) % 1000000).zfill(6)
+        
         from tau2.domains.sanita_irigoin.user_tools import _sms_codes
         _sms_codes[user_id] = codigo
 
