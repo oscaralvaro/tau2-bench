@@ -3,6 +3,7 @@ from typing import Optional
 from tau2.data_model.tasks import Task
 from tau2.domains.salud_mendoza_lista.data_model import SaludDB
 from tau2.domains.salud_mendoza_lista.tools import SaludToolkit
+from tau2.domains.salud_mendoza_lista.user_tools import SaludUserToolkit
 from tau2.domains.salud_mendoza_lista.utils import DATA_DIR
 from tau2.environment.environment import Environment
 from tau2.utils import load_file
@@ -23,6 +24,7 @@ def get_environment(solo_mode: bool = False) -> Environment:
         domain_name="salud_mendoza_lista",
         policy=policy,
         tools=SaludToolkit(db),
+        user_tools=SaludUserToolkit(db),
     )
 
 

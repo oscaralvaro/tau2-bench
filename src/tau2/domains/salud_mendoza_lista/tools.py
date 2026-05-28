@@ -1,10 +1,6 @@
-import random
-import string
+import hashlib
 
-from tau2.domains.salud_mendoza_lista.data_model import (
-    PrioridadInterconsulta,
-    SaludDB,
-)
+from tau2.domains.salud_mendoza_lista.data_model import SaludDB
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
 
 
@@ -99,10 +95,11 @@ class SaludToolkit(ToolKitBase):
 
     @is_tool(ToolType.WRITE)
     def update_priority(
-        self, id_interconsulta: str, nueva_prioridad: PrioridadInterconsulta
+        self, id_interconsulta: str, nueva_prioridad: str
     ) -> str:
         """
         Actualiza la prioridad administrativa de una interconsulta.
+        Valores validos: Normal, Alta, Urgente.
         """
         if id_interconsulta not in self.db.interconsultas:
             return "ERROR: No se encontro la interconsulta para actualizar prioridad."
@@ -177,7 +174,8 @@ class SaludToolkit(ToolKitBase):
         if paciente is None:
             return f"ERROR: No se encontro un paciente con RUT {rut}."
 
-        codigo = "".join(random.choices(string.digits, k=6))
+        # Codigo deterministico basado en el RUT (reproducible para testing)
+        codigo = hashlib.md5(rut.encode()).hexdigest()[:6].upper()
         self.db.sms_verification_codes[rut] = codigo
 
         telefono = paciente.telefono or ""
@@ -204,7 +202,7 @@ class SaludToolkit(ToolKitBase):
                 "Utilice send_sms_verification_code primero."
             )
 
-        if codigo.strip() == codigo_esperado:
+        if codigo.strip().upper() == codigo_esperado:
             del self.db.sms_verification_codes[rut]
             return "VERIFICACION EXITOSA: Codigo correcto. Puede proceder con la operacion."
         else:
@@ -258,7 +256,6 @@ class SaludToolkit(ToolKitBase):
                     f"Notas: {protocolo.notas_adicionales or 'Ninguna'}"
                 )
 
-        # Busqueda solo por condicion si no hay match combinado
         for protocolo in self.db.protocolos_derivacion.values():
             if condicion_lower in protocolo.condicion.lower():
                 examenes = "\n  - ".join(protocolo.examenes_requeridos)
@@ -298,22 +295,22 @@ class SaludToolkit(ToolKitBase):
             return f"ERROR: Medico {codigo_medico} no encontrado en el sistema."
 
         nuevo_id = f"IC-{len(self.db.interconsultas) + 1:03d}"
-        nueva_ic = {
-            "id": nuevo_id,
-            "rut_paciente": rut_paciente_referido,
-            "codigo_medico_derivador": codigo_medico,
-            "cesfam_origen": medico.cesfam,
-            "problema_salud": condicion,
-            "especialidad_destino": especialidad_destino,
-            "examenes_adjuntos": examenes_adjuntos,
-            "notas_clinicas": notas_clinicas,
-            "es_ges": True,
-            "dias_espera": 0,
-            "estado": "Enviada",
-            "prioridad": "Normal",
-        }
         from tau2.domains.salud_mendoza_lista.data_model import Interconsulta
-        self.db.interconsultas[nuevo_id] = Interconsulta(**nueva_ic)
+        nueva_ic = Interconsulta(
+            id=nuevo_id,
+            rut_paciente=rut_paciente_referido,
+            codigo_medico_derivador=codigo_medico,
+            cesfam_origen=medico.cesfam,
+            problema_salud=condicion,
+            especialidad_destino=especialidad_destino,
+            examenes_adjuntos=examenes_adjuntos,
+            notas_clinicas=notas_clinicas,
+            es_ges=True,
+            dias_espera=0,
+            estado="Enviada",
+            prioridad="Normal",
+        )
+        self.db.interconsultas[nuevo_id] = nueva_ic
 
         return (
             f"INTERCONSULTA CREADA: ID {nuevo_id} enviada exitosamente. "
