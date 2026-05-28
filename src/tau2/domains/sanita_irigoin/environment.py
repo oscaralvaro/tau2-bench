@@ -4,6 +4,7 @@ from typing import Optional
 from tau2.data_model.tasks import Task
 from tau2.domains.sanita_irigoin.data_model import ArrozDB
 from tau2.domains.sanita_irigoin.tools import ArrozToolKit
+from tau2.domains.sanita_irigoin.user_tools import ArrozUserToolKit
 from tau2.domains.sanita_irigoin.utils import (
     DB_PATH,
     POLICY_PATH,
@@ -23,12 +24,14 @@ def get_environment(
     if db is None:
         db = ArrozDB.load(DB_PATH)
     tools = ArrozToolKit(db)
+    user_tools = ArrozUserToolKit(db)
     with open(POLICY_PATH, "r", encoding="utf-8") as fp:
         policy = fp.read()
     return Environment(
         domain_name="sanita_irigoin",
         policy=policy,
         tools=tools,
+        user_tools=user_tools,
     )
 
 
