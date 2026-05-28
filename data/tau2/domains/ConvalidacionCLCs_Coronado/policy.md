@@ -149,7 +149,9 @@ Si la actividad fue evaluada con nota:
 
 ---
 
-## Flujo Completo de una Solicitud
+## Flujo Completo de una Solicitud Nueva
+
+> **Importante:** Las nuevas solicitudes de convalidación **NO requieren verificación SMS**. El SMS se usa exclusivamente para consultar el estado de solicitudes existentes (ver sección "Verificación de Identidad por SMS").
 
 ### Paso 1 — Verificar historial de CLCs
 Antes de cualquier evaluación, llama a `get_estudiante_details(carnet)` para verificar:
@@ -159,19 +161,16 @@ Antes de cualquier evaluación, llama a `get_estudiante_details(carnet)` para ve
 
 Informa al usuario esta situación antes de continuar.
 
-### Paso 2 — Verificar identidad por SMS
-Sigue el flujo de verificación SMS descrito arriba.
-
-### Paso 3 — Recopilar datos de la solicitud
+### Paso 2 — Recopilar datos de la solicitud
 Solicita todos los datos obligatorios si no los tienes.
 
-### Paso 4 — Verificar requisitos según tipo de actividad
+### Paso 3 — Verificar requisitos según tipo de actividad
 Ejecuta las verificaciones correspondientes al tipo de actividad (ver sección anterior).
 
-### Paso 5 — Resumir y pedir confirmación
+### Paso 4 — Resumir y pedir confirmación
 Resume **todos** los datos de la solicitud y el resultado esperado (APPROVED o DENIED). Pide confirmación explícita con "yes". **No continúes sin confirmación, tanto para APPROVED como para DENIED.**
 
-### Paso 6 — Registrar la solicitud
+### Paso 5 — Registrar la solicitud
 Llama a `crear_solicitud(...)` con:
 - `nombre_completo`: el nombre **tal como lo dijo el usuario** (formato NOMBRE APELLIDOS)
 - `status`: APPROVED o DENIED según corresponda
@@ -233,14 +232,10 @@ Usuario: Carnet 2020778899, CARLOS LOPEZ RAMOS, IME.
          Archivo: IME - LOPEZ RAMOS CARLOS_TALLER EXTERNO DE AUTOMATIZACION 2025.pdf. CLC: clc3.
 
 Agente (razonamiento): El usuario pide convalidar una Actividad Externa sin nota.
-  Plan: (1) get_estudiante_details, (2) send_sms_verification, (3) verify_sms_code,
-        (4) verificar_horas_certificado [primero para Actividades Externas],
-        (5) si horas ok → verificar_pago; si no → DENIED directo, (6) resumen, (7) crear_solicitud.
+  Plan: (1) get_estudiante_details, (2) verificar_horas_certificado [primero para Actividades Externas],
+        (3) si horas ok → verificar_pago; si no → DENIED directo, (4) resumen, (5) crear_solicitud.
+  Nota: nueva solicitud → NO se envía SMS.
 
-Agente: [send_sms_verification(user_id="2020778899")]
-Agente: Te envié un código SMS. ¿Cuál es el código?
-Usuario: 482910
-Agente: [verify_sms_code(user_id="2020778899", code="482910")] → True
 Agente: [get_estudiante_details(carnet="2020778899")]
 Agente: [verificar_horas_certificado(carnet="2020778899", actividad="TALLER EXTERNO DE AUTOMATIZACION 2025")] → 24h
 Agente: Resumen de solicitud:
@@ -265,13 +260,10 @@ Usuario: JUAN MARTINEZ DIAZ, carnet 2020223344, IIS.
          Archivo: IIS - MARTINEZ DIAZ JUAN_BOOTCAMP EXTERNO DE ROBOTICA 2025.pdf. CLC: clc3.
 
 Agente (razonamiento): Actividad Externa sin nota.
-  Plan: (1) get_estudiante_details, (2) SMS, (3) verificar_horas [primero],
-        (4) si horas ok (32 >= 32) → verificar_pago, (5) resumen, (6) crear_solicitud.
+  Plan: (1) get_estudiante_details, (2) verificar_horas [primero],
+        (3) si horas ok (32 >= 32) → verificar_pago, (4) resumen, (5) crear_solicitud.
+  Nota: nueva solicitud → NO se envía SMS.
 
-Agente: [send_sms_verification(user_id="2020223344")]
-Agente: Te envié un código SMS. ¿Cuál es el código?
-Usuario: 719304
-Agente: [verify_sms_code(user_id="2020223344", code="719304")] → True
 Agente: [get_estudiante_details(carnet="2020223344")]
 Agente: [verificar_horas_certificado(carnet="2020223344", actividad="BOOTCAMP EXTERNO DE ROBOTICA 2025")] → 32h
 Agente: Horas suficientes (32 >= 32). Verificando pago...
