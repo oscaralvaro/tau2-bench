@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, Optional, TypeAlias
+from typing import Any, Dict, List, Literal, Optional, TypeAlias, Union
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -116,9 +116,22 @@ class Solicitud(BaseModel):
         return self
 
 
+class UsuarioCLC(BaseModel):
+    """Representa un usuario autenticado del sistema de convalidacion."""
+
+    user_id: str = Field(description="Numero de carnet del usuario (identificador unico)")
+    nombre_completo: str = Field(description="Nombre completo del usuario")
+    programa: ProgramaAcademico = Field(description="Programa academico al que pertenece")
+    email: str = Field(description="Correo electronico institucional del usuario")
+
+
 class ConvalidacionCLCDB(DB):
     """Base de datos para el dominio de convalidacion de CLCs."""
 
+    users: Dict[str, UsuarioCLC] = Field(
+        description="Diccionario de usuarios registrados, indexado por carnet",
+        default_factory=dict,
+    )
     estudiantes: List[Estudiante] = Field(description="Lista de estudiantes")
     congresos_preaprobados: Dict[str, List[str]] = Field(
         description="Congresos preaprobados por programa"
