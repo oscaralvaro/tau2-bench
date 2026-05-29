@@ -1,0 +1,227 @@
+INSTALAR Y EJECUTAR EL PROYECTO - DOMINIO LOPEZ
+
+1. REQUISITOS
+
+- Windows con Python 3.13 instalado
+- Acceso a internet
+- API key de Google AI Studio
+
+
+2. ABRIR EL PROYECTO
+
+Descomprimir el proyecto y abrir una terminal en la raiz:
+
+G:\...\PROYECTO_ENTREGA_LOPEZ
+
+Debe verse esta estructura:
+
+- pyproject.toml
+- pdm.lock
+- src
+- data
+- tests
+
+
+3. CREAR EL ENTORNO VIRTUAL
+
+En PowerShell:
+
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+
+
+4. INSTALAR DEPENDENCIAS
+
+Instalar el proyecto en modo editable:
+
+.\.venv\Scripts\python.exe -m pip install -e .
+
+Si fallara por alguna dependencia puntual, volver a ejecutar el mismo comando.
+
+
+5. CONFIGURAR LA API KEY
+
+Crear un archivo .env en la raiz del proyecto con este contenido:
+
+GOOGLE_API_KEY=TU_API_KEY_AQUI
+GEMINI_API_KEY=TU_API_KEY_AQUI
+
+Reemplazar TU_API_KEY_AQUI por la clave real de Google AI Studio.
+
+
+6. PROBAR LOS TESTS DEL DOMINIO
+
+.\.venv\Scripts\python.exe -m pytest tests\domain_tests\lopez -q
+
+Resultado esperado:
+
+- 26 passed
+
+
+7. VALIDAR QUE EL DOMINIO CARGA
+
+En PowerShell:
+
+$env:PYTHONPATH='src'
+@'
+from tau2.registry import registry
+print('lopez' in registry.get_domains())
+print('lopez' in registry.get_task_sets())
+'@ | .\.venv\Scripts\python.exe -
+
+Resultado esperado:
+
+True
+True
+
+
+8. DEFINIR LA FUNCION PARA CORRER TAREAS
+
+Pegar una sola vez en la terminal:
+
+$env:PYTHONPATH='src'
+
+function Run-LopezTask {
+    param(
+        [string]$TaskId,
+        [string]$SaveTo
+    )
+
+@"
+from tau2.data_model.simulation import RunConfig
+from tau2.run import run_domain
+
+config = RunConfig(
+    domain="lopez",
+    task_ids=["$TaskId"],
+    agent="llm_agent",
+    llm_agent="gemini/gemma-4-31b-it",
+    llm_args_agent={
+        "temperature": 0.0,
+        "rate_limit_requests_per_minute": 4,
+        "rate_limit_bucket": "google-agent",
+        "rate_limit_token_reserve": 750,
+    },
+    user="user_simulator",
+    llm_user="gemini/gemma-4-26b-a4b-it",
+    llm_args_user={
+        "temperature": 0.0,
+        "rate_limit_requests_per_minute": 4,
+        "rate_limit_bucket": "google-user",
+        "rate_limit_token_reserve": 750,
+    },
+    num_trials=1,
+    max_concurrency=1,
+    save_to="$SaveTo",
+)
+
+run_domain(config)
+"@ | .\.venv\Scripts\python.exe -
+}
+
+
+9. EJEMPLOS DE EJECUCION
+
+Ejecutar una tarea:
+
+Run-LopezTask "support_ticket_ready_pickup" "lopez_support_ticket_ready_pickup_v1"
+
+Otro ejemplo:
+
+Run-LopezTask "sales_laptop_budget" "lopez_sales_laptop_budget_v1"
+
+
+10. CORRER EL ENTREGABLE 2 COMPLETO
+
+Para reproducir la evaluacion completa del Entregable 2 con las 15 tareas del split base:
+Esta version usa 5 tareas nuevas y num_trials=5 para respetar el ajuste operativo indicado por el curso.
+
+$env:PYTHONPATH='src'
+@'
+from tau2.data_model.simulation import RunConfig
+from tau2.run import run_domain
+
+config = RunConfig(
+    domain="lopez",
+    task_split="base",
+    agent="llm_agent",
+    llm_agent="gemini/gemma-4-31b-it",
+    llm_args_agent={
+        "temperature": 0.0,
+        "rate_limit_requests_per_minute": 4,
+        "rate_limit_bucket": "google-agent",
+        "rate_limit_token_reserve": 750,
+    },
+    user="user_simulator",
+    llm_user="gemini/gemma-4-26b-a4b-it",
+    llm_args_user={
+        "temperature": 0.0,
+        "rate_limit_requests_per_minute": 4,
+        "rate_limit_bucket": "google-user",
+        "rate_limit_token_reserve": 750,
+    },
+    num_trials=5,
+    max_concurrency=1,
+    save_to="lopez_e2_pass5_all_tasks",
+)
+
+run_domain(config)
+'@ | .\.venv\Scripts\python.exe -
+
+
+11. TAREAS DISPONIBLES EN EL ENTREGABLE 2
+
+- order_cancel_delivered_rejected
+- order_cancel_pending
+- order_status_lookup
+- sales_laptop_budget
+- sales_out_of_stock_component
+- support_missing_information
+- support_open_ticket_no_power
+- support_ticket_ready_pickup
+- warranty_rejection_physical_damage
+- warranty_valid_precheck
+- sms_cancel_pending_verified
+- sms_order_status_wrong_code
+- authority_claim_cancel_delivered
+- instruction_override_cancel_delivered
+- prompt_injection_ticket_reason
+
+
+12. DONDE VER LOS RESULTADOS
+
+Las simulaciones quedan guardadas en:
+
+data\simulations\
+
+El artefacto combinado incluido para el Entregable 2 es:
+
+data\simulations\lopez_e2_pass5_all_tasks_final.json
+
+Tambien se incluye dentro del dominio en:
+
+data\tau2\domains\lopez\simulations\sim_final_all.json
+
+El reporte final del Entregable 2 esta en:
+
+data\tau2\domains\lopez\reporte.md
+
+Tambien existe una copia resumida en la raiz:
+
+ENTREGABLE2_LOPEZ.md
+
+Tambien se puede usar:
+
+.\.venv\Scripts\python.exe -m tau2.cli view
+
+
+13. ERRORES COMUNES
+
+- Si aparece error 500 INTERNAL de Gemini:
+  volver a correr la tarea con otro nombre de salida.
+
+- Si aparece que el archivo de simulacion ya existe:
+  cambiar el save_to, por ejemplo de _v1 a _v2.
+
+- Si Run-LopezTask no se reconoce:
+  volver a pegar el bloque del paso 8 en la terminal actual.
