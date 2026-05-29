@@ -1,6 +1,7 @@
 import pytest
 
-from tau2.data_model.message import AssistantMessage, UserMessage
+from tau2.data_model.message import AssistantMessage, ToolMessage, UserMessage
+from tau2.environment.tool import as_tool
 from tau2.user.user_simulator import UserSimulator
 from tau2.utils import llm_utils
 
@@ -124,3 +125,59 @@ def test_user_simulator_gemma_folds_system_after_role_flip(
     assert captured["messages"][0]["role"] == "user"
     assert user_instructions in captured["messages"][0]["content"]
     assert first_agent_message.content in captured["messages"][0]["content"]
+
+
+def test_user_simulator_calls_sms_tool_when_agent_requests_code():
+    def check_verification_sms(student_id: str) -> str:
+        return f"Tu código de verificación de la Universidad es 123456 para {student_id}"
+
+    user_simulator = UserSimulator(
+        tools=[as_tool(check_verification_sms)],
+        instructions="Known info: ID: u2024002 (Ana Silva).",
+    )
+    user_state = user_simulator.get_init_state()
+
+    user_msg, _ = user_simulator.generate_next_message(
+        AssistantMessage(
+            role="assistant",
+            content="Se ha enviado un código de verificación. Dígame el código de 6 dígitos.",
+        ),
+        user_state,
+    )
+
+    assert user_msg.content is None
+    assert user_msg.tool_calls is not None
+    assert user_msg.tool_calls[0].name == "check_verification_sms"
+    assert user_msg.tool_calls[0].arguments == {"student_id": "u2024002"}
+    assert user_msg.tool_calls[0].requestor == "user"
+
+
+def test_user_simulator_answers_sms_code_from_user_tool_result():
+    def check_verification_sms(student_id: str) -> str:
+        return f"Tu código de verificación de la Universidad es 123456 para {student_id}"
+
+    user_simulator = UserSimulator(
+        tools=[as_tool(check_verification_sms)],
+        instructions="Known info: ID: u2024002 (Ana Silva).",
+    )
+    user_state = user_simulator.get_init_state()
+    tool_call_msg, user_state = user_simulator.generate_next_message(
+        AssistantMessage(
+            role="assistant",
+            content="Por favor, dígame el código SMS de verificación.",
+        ),
+        user_state,
+    )
+
+    user_msg, _ = user_simulator.generate_next_message(
+        ToolMessage(
+            id=tool_call_msg.tool_calls[0].id,
+            role="tool",
+            requestor="user",
+            content="Tienes un nuevo mensaje SMS: 'Tu código de verificación de la Universidad es 123456'.",
+        ),
+        user_state,
+    )
+
+    assert user_msg.content == "El código de verificación que recibí es 123456."
+    assert user_msg.tool_calls is None
