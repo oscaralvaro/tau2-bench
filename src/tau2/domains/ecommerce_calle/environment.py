@@ -4,6 +4,7 @@ from typing import Optional
 from tau2.data_model.tasks import Task
 from tau2.domains.ecommerce_calle.data_model import EcommerceDB
 from tau2.domains.ecommerce_calle.tools import EcommerceToolKit
+from tau2.domains.ecommerce_calle.user_tools import EcommerceUserToolKit
 from tau2.domains.ecommerce_calle.utils import (
     ECOMMERCE_DB_PATH,
     ECOMMERCE_POLICY_PATH,
@@ -22,12 +23,14 @@ def get_environment(
     if db is None:
         db = EcommerceDB.load(ECOMMERCE_DB_PATH)
     tools = EcommerceToolKit(db)
+    user_tools = EcommerceUserToolKit(db)
     with open(ECOMMERCE_POLICY_PATH, "r") as fp:
         policy = fp.read()
     return Environment(
         domain_name="ecommerce_calle",
         policy=policy,
         tools=tools,
+        user_tools=user_tools,
     )
 
 
