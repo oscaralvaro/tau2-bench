@@ -16,6 +16,7 @@ Se implemento y valido:
 - tests unitarios del dominio actualizados
 
 Nota de alcance: se mantiene la version ajustada de la entrega con 5 tareas nuevas y pass^5, segun la indicacion de reducir la carga de simulacion.
+La configuracion recomendada para plan gratuito usa `gemini/gemma-4-26b-a4b-it` tanto para agente como para usuario. La rama fue rebased sobre `main`, incorporando el fix de Gemma 4 del commit `309bb3b75c81b5577c19e93384229ea6c07320cd`.
 
 ## Validacion local
 

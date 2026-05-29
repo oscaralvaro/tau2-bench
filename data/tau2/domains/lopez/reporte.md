@@ -15,10 +15,11 @@ Validacion local ejecutada:
 
 - `pytest tests/domain_tests/lopez -q`: 26 passed.
 - `len(get_tasks("base"))`: 15.
-- Modelo de agente: `gemini/gemma-4-31b-it`.
+- Modelo de agente: `gemini/gemma-4-26b-a4b-it`.
 - Modelo de usuario: `gemini/gemma-4-26b-a4b-it`.
 - Corridas finales: `--num-trials 5`.
 - Artefacto final combinado: `simulations/sim_final_all.json`.
+- Rama actualizada con el fix de Gemma 4 para respuestas de solo razonamiento incluido en `main` a partir del commit `309bb3b75c81b5577c19e93384229ea6c07320cd`.
 
 ## 1. Resultados pass^5 por tarea
 
