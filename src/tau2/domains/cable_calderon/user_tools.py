@@ -15,7 +15,7 @@ Esto simula de forma controlada el flujo de autenticación de dos factores (2FA)
 """
 
 from tau2.environment.toolkit import ToolKitBase, is_tool
-from tau2.domains.cable_calderon.data_model import CableDB
+from tau2.domains.cable_calderon.data_model import CableCalderonDB
 
 
 class CableUserToolKit(ToolKitBase):
@@ -24,7 +24,7 @@ class CableUserToolKit(ToolKitBase):
     El usuario tiene acceso limitado: solo puede leer su propio estado (teléfono simulado).
     """
 
-    db: CableDB
+    db: CableCalderonDB
 
     @is_tool
     def get_sms_code(self) -> str:
