@@ -84,3 +84,27 @@ class HealthcareToolkit(ToolKitBase):
 
         bloque.estado_cupo = "disponible"
         return bloque
+    
+    @is_tool(ToolType.WRITE)
+    def enviar_codigo_sms(self, rut: str):
+        """Genera un código SMS determinístico para verificación"""
+        paciente = self.db.pacientes.get(rut)
+
+        if not paciente:
+            return None
+
+        codigo = rut.split("-")[0][:4]
+
+        return {
+            "rut": rut,
+            "codigo_generado": codigo,
+            "mensaje": f"SMS enviado al paciente {rut}"
+        }
+    
+    @is_tool(ToolType.READ)
+    def verificar_codigo_sms(self, rut: str, codigo: str):
+        """Verifica código SMS determinístico"""
+
+        codigo_correcto = rut.split("-")[0][:4]
+
+        return codigo == codigo_correcto
