@@ -58,7 +58,7 @@ CableHogar es una empresa que instala y da soporte a servicios de cable e intern
 
 ---
 
-## Tareas (15 en total)
+## Tareas (25 en total)
 
 | ID | Tipo | Descripción |
 |---|---|---|
