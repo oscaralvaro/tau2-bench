@@ -1,7 +1,7 @@
 from typing import Optional
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
 from tau2.domains.cable_calderon.data_model import CableCalderonDB
-import random
+
 
 
 
@@ -290,7 +290,7 @@ class CableCalderonToolKit(ToolKitBase):
             return f"Error: no se encontró el cliente '{cliente_id}'."
  
         # Generar código de 6 dígitos
-        codigo = str(random.randint(100000, 999999))
+        codigo = str(100000 + sum(ord(c) for c in cliente_id) % 900000)
  
         # Guardar en la DB para que el user_tools pueda leerlo
         self.db.pending_sms_code = codigo
