@@ -1,7 +1,7 @@
 from datetime import datetime, date
 from tau2.domains.ecommerce_calle.data_model import EcommerceDB, OrderStatus, Return, SMSCode
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
-import random
+import hashlib
 
 class EcommerceToolKit(ToolKitBase):
     """Tools for an e-commerce customer support domain."""
@@ -142,9 +142,11 @@ class EcommerceToolKit(ToolKitBase):
         if not user:
             return {"error": f"Usuario {user_id} no encontrado."}
 
-        # Generamos un código de 4 dígitos y lo guardamos en la DB
-        # El agente NO debe ver este código directamente
-        code = str(random.randint(1000, 9999))
+        # Generamos un código de 4 dígitos de forma determinística a partir del user_id
+        # para que el flujo SMS sea reproducible en tests y simulaciones.
+        # Fórmula: usar los primeros 4 hex de MD5(user_id), convertir a int, mapear a rango 1000-9999
+        digest = hashlib.md5(user_id.encode()).hexdigest()[:4]
+        code = str(int(digest, 16) % 9000 + 1000)
         self.db.sms_codes[user_id] = SMSCode(user_id=user_id, code=code)
 
         return {

@@ -219,6 +219,12 @@ class UserSimulator(BaseUser):
             return None
 
         if self._should_fetch_sms_code(message):
+            user_id = self._get_known_user_id(state)
+            if user_id is None:
+                logger.warning(
+                    "Could not determine user_id for deterministic SMS flow; falling back to normal user simulator response."
+                )
+                return None
             user_message = UserMessage(
                 role="user",
                 content=None,
@@ -226,7 +232,7 @@ class UserSimulator(BaseUser):
                     ToolCall(
                         id="user_receive_sms_code",
                         name="receive_sms_code",
-                        arguments={"user_id": self._get_known_user_id()},
+                        arguments={"user_id": user_id},
                         requestor="user",
                     )
                 ],
@@ -280,13 +286,44 @@ class UserSimulator(BaseUser):
             return None
         return code.strip()
 
-    def _get_known_user_id(self) -> str:
+    def _get_known_user_id(self, state: Optional[UserState] = None) -> Optional[str]:
         instructions = self.instructions
-        if hasattr(instructions, "known_info") and instructions.known_info is not None:
-            match = re.search(r"user_id:\s*([A-Za-z0-9_-]+)", instructions.known_info)
+
+        def extract_user_id(text: str) -> Optional[str]:
+            match = re.search(r"user_id:\s*([A-Za-z0-9_-]+)", text)
             if match:
                 return match.group(1)
-        raise ValueError("Could not determine user_id for deterministic SMS flow.")
+            match = re.search(r"user\s+id\s+is:?\s*['\"]?([A-Za-z0-9_-]+)['\"]?", text)
+            if match:
+                return match.group(1)
+            return None
+
+        if instructions is not None:
+            if hasattr(instructions, "known_info") and instructions.known_info is not None:
+                user_id = extract_user_id(instructions.known_info)
+                if user_id:
+                    return user_id
+            if isinstance(instructions, str):
+                user_id = extract_user_id(instructions)
+                if user_id:
+                    return user_id
+            try:
+                user_id = extract_user_id(str(instructions))
+                if user_id:
+                    return user_id
+            except Exception:
+                pass
+
+        if state is not None:
+            for msg in reversed(state.system_messages + state.messages):
+                content = getattr(msg, "content", None)
+                if not content:
+                    continue
+                user_id = extract_user_id(content)
+                if user_id:
+                    return user_id
+
+        return None
 
 
 class DummyUser(UserSimulator):
