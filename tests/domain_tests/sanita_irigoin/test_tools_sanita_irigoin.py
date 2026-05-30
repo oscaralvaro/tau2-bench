@@ -137,3 +137,60 @@ def test_get_order_details_no_existe(toolkit):
 def test_escalate_to_human(toolkit):
     r = toolkit.escalate_to_human("Cliente solicita atención humana")
     assert r["escalado"] is True
+
+# ─── Tests para verificación SMS ───────────────────────────────────────────────
+
+from tau2.domains.sanita_irigoin.user_tools import ArrozUserToolKit, _sms_codes
+
+
+@pytest.fixture
+def user_toolkit(db):
+    return ArrozUserToolKit(db=db)
+
+
+def test_send_sms_code_exitoso(toolkit):
+    r = toolkit.send_sms_code("U001")
+    assert "codigo_enviado" in r
+    assert len(r["codigo_enviado"]) == 6
+
+
+def test_send_sms_code_usuario_no_existe(toolkit):
+    assert "error" in toolkit.send_sms_code("U999")
+
+
+def test_send_sms_code_deterministico(toolkit):
+    r1 = toolkit.send_sms_code("U001")
+    r2 = toolkit.send_sms_code("U001")
+    assert r1["codigo_enviado"] == r2["codigo_enviado"]
+
+
+def test_verify_sms_code_correcto(toolkit):
+    toolkit.send_sms_code("U001")
+    codigo = _sms_codes["U001"]
+    r = toolkit.verify_sms_code("U001", codigo, rol="user")
+    assert r.get("verificado") is True
+
+
+def test_verify_sms_code_incorrecto(toolkit):
+    toolkit.send_sms_code("U001")
+    r = toolkit.verify_sms_code("U001", "000000", rol="user")
+    assert "error" in r
+
+
+def test_verify_sms_code_sin_envio_previo(toolkit):
+    _sms_codes.pop("U001", None)
+    r = toolkit.verify_sms_code("U001", "123456", rol="user")
+    assert "error" in r
+
+
+def test_get_sms_code_exitoso(toolkit, user_toolkit):
+    toolkit.send_sms_code("U001")
+    r = user_toolkit.get_sms_code("U001")
+    assert "codigo_sms" in r
+    assert len(r["codigo_sms"]) == 6
+
+
+def test_get_sms_code_sin_envio_previo(user_toolkit):
+    _sms_codes.pop("U001", None)
+    r = user_toolkit.get_sms_code("U001")
+    assert "error" in r
