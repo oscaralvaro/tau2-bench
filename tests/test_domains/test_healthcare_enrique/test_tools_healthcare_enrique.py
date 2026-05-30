@@ -92,3 +92,21 @@ def test_cancelar_bloque(toolkit):
 def test_paciente_no_existe(toolkit):
     paciente = toolkit.get_paciente("999")
     assert paciente is None
+
+# -------------------------
+# SMS DETERMINISTICO
+# -------------------------
+
+def test_enviar_codigo_sms(toolkit):
+    resultado = toolkit.enviar_codigo_sms("111")
+
+    assert resultado is not None
+    assert resultado["codigo_generado"] == "111"
+
+
+def test_verificar_codigo_sms_ok(toolkit):
+    assert toolkit.verificar_codigo_sms("111", "111") is True
+
+
+def test_verificar_codigo_sms_fail(toolkit):
+    assert toolkit.verificar_codigo_sms("111", "999") is False
