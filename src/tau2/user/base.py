@@ -63,16 +63,20 @@ class UserState(BaseModel):
                 )
             elif isinstance(message, AssistantMessage):
                 if not message.is_tool_call():
+                    # Only add non tool call messages
                     flipped_messages.append(
                         UserMessage(
                             role="user",
                             content=message.content,
                         )
                     )
-                # Si el agente hizo tool calls, se omite — el simulador
-                # no necesita reproducirlos, solo ver el tool_output después
+                else:
+                    raise ValueError(
+                        f"Tool calls are not supported in the flipped messages: {message}"
+                    )
             elif isinstance(message, ToolMessage):
                 if message.requestor == "user":
+                    # Only add tool messages for the user
                     flipped_messages.append(
                         ToolMessage(
                             id=message.id,
@@ -81,7 +85,9 @@ class UserState(BaseModel):
                         )
                     )
                 else:
-                   pass
+                    raise ValueError(
+                        f"Tool messages should be sent to the user in this message history: {message}"
+                    )
             else:
                 print(message, type(message))
                 raise ValueError(f"Unknown message role: {message.role}")
