@@ -1,5 +1,3 @@
-import json
-import re
 from typing import Optional, Tuple
 
 from loguru import logger
@@ -154,35 +152,15 @@ class UserSimulator(BaseUser):
             state.messages.extend(message.tool_messages)
         else:
             state.messages.append(message)
-
-        deterministic_response = self._handle_deterministic_user_action(message, state)
-        if deterministic_response is not None:
-            return deterministic_response
         messages = state.system_messages + state.flip_roles()
 
-        # Generate response. Some providers occasionally return an empty message;
-        # retry a few times before failing the whole simulation.
-        assistant_message = None
-        last_error = None
-        for attempt in range(3):
-            assistant_message = generate(
-                model=self.llm,
-                messages=messages,
-                tools=self.tools,
-                **self.llm_args,
-            )
-            if assistant_message.has_text_content() or assistant_message.is_tool_call():
-                break
-            last_error = ValueError(
-                "User simulator model returned an empty response without tool calls."
-            )
-            logger.warning(
-                "Empty user simulator response on attempt {} for model {}.",
-                attempt + 1,
-                self.llm,
-            )
-        else:
-            raise last_error
+        # Generate response
+        assistant_message = generate(
+            model=self.llm,
+            messages=messages,
+            tools=self.tools,
+            **self.llm_args,
+        )
 
         user_response = assistant_message.content
         logger.debug(f"Response: {user_response}")
@@ -211,119 +189,6 @@ class UserSimulator(BaseUser):
         # Updating state with response
         state.messages.append(user_message)
         return user_message, state
-
-    def _handle_deterministic_user_action(
-        self, message: ValidUserInputMessage, state: UserState
-    ) -> Optional[Tuple[UserMessage, UserState]]:
-        if isinstance(message, UserMessage):
-            return None
-
-        if self._should_fetch_sms_code(message):
-            user_id = self._get_known_user_id(state)
-            if user_id is None:
-                logger.warning(
-                    "Could not determine user_id for deterministic SMS flow; falling back to normal user simulator response."
-                )
-                return None
-            user_message = UserMessage(
-                role="user",
-                content=None,
-                tool_calls=[
-                    ToolCall(
-                        id="user_receive_sms_code",
-                        name="receive_sms_code",
-                        arguments={"user_id": user_id},
-                        requestor="user",
-                    )
-                ],
-            )
-            state.messages.append(user_message)
-            return user_message, state
-
-        sms_code = self._extract_sms_code_from_tool_message(message)
-        if sms_code is not None:
-            user_message = UserMessage(role="user", content=sms_code)
-            state.messages.append(user_message)
-            return user_message, state
-
-        return None
-
-    def _should_fetch_sms_code(self, message: ValidUserInputMessage) -> bool:
-        if self.tools is None or not any(tool.name == "receive_sms_code" for tool in self.tools):
-            return False
-        if not hasattr(message, "content") or message.content is None:
-            return False
-        content = message.content.lower()
-        has_sms = "sms" in content
-        has_code = "código" in content or "codigo" in content or "code" in content
-        asks_user = any(
-            phrase in content
-            for phrase in [
-                "proporcion",
-                "ingresa",
-                "indica",
-                "comparte",
-                "dime",
-                "enví",
-                "envi",
-            ]
-        )
-        return has_sms and has_code and asks_user
-
-    def _extract_sms_code_from_tool_message(
-        self, message: ValidUserInputMessage
-    ) -> Optional[str]:
-        if not hasattr(message, "requestor") or message.requestor != "user":
-            return None
-        if not hasattr(message, "content") or message.content is None:
-            return None
-        try:
-            payload = json.loads(message.content)
-        except (json.JSONDecodeError, TypeError):
-            return None
-        code = payload.get("code")
-        if not isinstance(code, str) or not code.strip():
-            return None
-        return code.strip()
-
-    def _get_known_user_id(self, state: Optional[UserState] = None) -> Optional[str]:
-        instructions = self.instructions
-
-        def extract_user_id(text: str) -> Optional[str]:
-            match = re.search(r"user_id:\s*([A-Za-z0-9_-]+)", text)
-            if match:
-                return match.group(1)
-            match = re.search(r"user\s+id\s+is:?\s*['\"]?([A-Za-z0-9_-]+)['\"]?", text)
-            if match:
-                return match.group(1)
-            return None
-
-        if instructions is not None:
-            if hasattr(instructions, "known_info") and instructions.known_info is not None:
-                user_id = extract_user_id(instructions.known_info)
-                if user_id:
-                    return user_id
-            if isinstance(instructions, str):
-                user_id = extract_user_id(instructions)
-                if user_id:
-                    return user_id
-            try:
-                user_id = extract_user_id(str(instructions))
-                if user_id:
-                    return user_id
-            except Exception:
-                pass
-
-        if state is not None:
-            for msg in reversed(state.system_messages + state.messages):
-                content = getattr(msg, "content", None)
-                if not content:
-                    continue
-                user_id = extract_user_id(content)
-                if user_id:
-                    return user_id
-
-        return None
 
 
 class DummyUser(UserSimulator):
