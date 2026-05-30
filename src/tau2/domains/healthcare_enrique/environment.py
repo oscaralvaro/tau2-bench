@@ -1,6 +1,8 @@
 import json
 from tau2.environment.environment import Environment
 
+from .user_data_model import HealthcareUserDB
+from .user_tools import HealthcareUserTools
 from .data_model import HealthcareDB
 from .tools import HealthcareToolkit
 from .utils import get_data_path
@@ -15,6 +17,8 @@ def get_environment(solo_mode=False):
     # cargar base de datos
     db_path = get_data_path("db.json")
     db = HealthcareDB.load(db_path)
+    user_db = HealthcareUserDB()
+    user_tools = HealthcareUserTools(user_db)
 
     # cargar policy
     policy_path = get_data_path("policy.md")
@@ -28,7 +32,9 @@ def get_environment(solo_mode=False):
     env = Environment(
     domain_name="healthcare_enrique",
     tools=toolkit,
-    policy=policy
+    user_tools=user_tools,
+    policy=policy,
+    solo_mode=solo_mode,
 )
 
     return env
