@@ -24,7 +24,7 @@ def get_environment(
         db = EcommerceDB.load(ECOMMERCE_DB_PATH)
     tools = EcommerceToolKit(db)
     user_tools = EcommerceUserToolKit(db)
-    with open(ECOMMERCE_POLICY_PATH, "r") as fp:
+    with open(ECOMMERCE_POLICY_PATH, "r", encoding="utf-8") as fp:
         policy = fp.read()
     return Environment(
         domain_name="ecommerce_calle",
