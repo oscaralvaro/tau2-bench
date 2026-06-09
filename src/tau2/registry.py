@@ -46,7 +46,13 @@ from tau2.domains.burger.environment import (
 
 
 # START DOMAIN IMPORT: Nicolás Calle Seminario
-
+from tau2.domains.ecommerce_calle.environment import (
+    get_environment as ecommerce_calle_domain_get_environment,
+)
+from tau2.domains.ecommerce_calle.environment import get_tasks as ecommerce_calle_domain_get_tasks
+from tau2.domains.ecommerce_calle.environment import (
+    get_tasks_split as ecommerce_calle_domain_get_tasks_split,
+)
 # END DOMAIN IMPORT: Nicolás Calle Seminario
 
 
@@ -362,7 +368,12 @@ try:
 
 
     # START DOMAIN REGISTRATION: Nicolás Calle Seminario
-
+    registry.register_domain(ecommerce_calle_domain_get_environment, "ecommerce_calle")
+    registry.register_tasks(
+        ecommerce_calle_domain_get_tasks,
+        "ecommerce_calle",
+        get_task_splits=ecommerce_calle_domain_get_tasks_split,
+    )
     # END DOMAIN REGISTRATION: Nicolás Calle Seminario
 
 
