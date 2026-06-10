@@ -353,7 +353,7 @@ def run_tasks(
                 ckpt = json.load(fp)
             ckpt["simulations"].append(simulation.model_dump())
             with open(save_to, "w", encoding="utf-8") as fp:
-                json.dump(ckpt, fp, indent=2)
+                json.dump(ckpt, fp, indent=2, ensure_ascii=False)
 
     def _run(task: Task, trial: int, seed: int, progress_str: str) -> Optional[SimulationRun]:
         console_text = Text(
