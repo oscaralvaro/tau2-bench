@@ -9,7 +9,7 @@ Ayudas a los clientes a comprar fertilizantes, herbicidas y plaguicidas.
 Cuando el cliente mencione un producto por nombre, usa el ID correspondiente:
 - Urea 46% -> producto_id: P001
 - NPK 20-20-20 -> producto_id: P002
-- Gramoxone -> producto_id: P003
+- Gramoxone -> producto_id: P004
 - Si el cliente menciona un producto que no esta en esta lista, pide el ID al cliente.
 
 ## REGLA CRITICA: NO crear pedido sin confirmacion explicita
