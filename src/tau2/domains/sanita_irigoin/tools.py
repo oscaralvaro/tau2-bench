@@ -24,9 +24,22 @@ class ArrozToolKit(ToolKitBase):
     @is_tool(ToolType.READ)
     def get_producto_details(self, producto_id: str) -> dict:
         """
-        Devuelve informacion completa de un producto dado su producto_id:
-        nombre, tipo, composicion, precio y stock actual.
-        Retorna error si el producto no existe.
+        Devuelve informacion completa de un producto usando su producto_id exacto.
+
+        Argumentos:
+        - producto_id: codigo interno del producto, por ejemplo "P001", "P002",
+          "P003". No usar el nombre comercial como "Urea 46%" o "NPK 20-20-20".
+
+        Uso correcto:
+        - get_producto_details(producto_id="P001") para consultar Urea 46%.
+        - get_producto_details(producto_id="P002") para consultar NPK 20-20-20.
+
+        Uso incorrecto:
+        - get_producto_details(producto_id="Urea 46%")
+        - get_producto_details(producto_id="NPK 20-20-20")
+
+        Retorna nombre, tipo, composicion, precio y stock actual.
+        Retorna error si el producto_id no existe.
         """
         producto = self.db.productos.get(producto_id)
         if not producto:
@@ -36,9 +49,26 @@ class ArrozToolKit(ToolKitBase):
     @is_tool(ToolType.READ)
     def check_stock(self, producto_id: str) -> dict:
         """
-        Verifica si un producto tiene stock disponible.
+        Verifica si un producto tiene stock disponible usando su producto_id exacto.
+
+        Argumentos:
+        - producto_id: codigo interno del producto, por ejemplo "P001", "P002",
+          "P003". No usar nombres de producto en este argumento.
+
+        Uso correcto:
+        - check_stock(producto_id="P001") para verificar stock de Urea 46%.
+        - check_stock(producto_id="P002") para verificar stock de NPK 20-20-20.
+
+        Uso incorrecto:
+        - check_stock(producto_id="Urea 46%")
+        - check_stock(producto_id="NPK 20-20-20")
+
+        En un cambio de opinion del cliente, volver a llamar check_stock con el
+        producto_id final antes de crear el pedido. Por ejemplo, si primero queria
+        P001 y luego cambia a NPK 20-20-20, usar check_stock(producto_id="P002").
+
         Retorna el stock actual y si esta disponible (True/False).
-        Retorna error si el producto no existe.
+        Retorna error si el producto_id no existe.
         """
         producto = self.db.productos.get(producto_id)
         if not producto:
