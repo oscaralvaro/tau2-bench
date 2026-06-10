@@ -344,11 +344,11 @@ def run_tasks(
         if save_to is None:
             return
         with lock:
-            with open(save_to, "r") as fp:
+            with open(save_to, "r", encoding="utf-8") as fp:
                 ckpt = json.load(fp)
             ckpt["simulations"].append(simulation.model_dump())
-            with open(save_to, "w") as fp:
-                json.dump(ckpt, fp, indent=2)
+            with open(save_to, "w", encoding="utf-8") as fp:
+                json.dump(ckpt, fp, indent=2, ensure_ascii=False)
 
     def _run(task: Task, trial: int, seed: int, progress_str: str) -> SimulationRun:
         console_text = Text(
