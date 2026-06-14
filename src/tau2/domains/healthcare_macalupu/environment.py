@@ -3,38 +3,65 @@ from typing import Optional
 from webbrowser import get
 
 from tau2.data_model.tasks import Task
-from tau2.domains.healthcare_macalupu.data_model import InterconsultaDB, get_db
-from tau2.domains.healthcare_macalupu.tools import InterconsultaTools
+from tau2.domains.healthcare_macalupu.auth_data_model import AuthCodeService
+from tau2.domains.healthcare_macalupu.data_model import HealthcareDB
+from tau2.domains.healthcare_macalupu.tools import HealthcareTools
+from tau2.domains.healthcare_macalupu.user_data_model import HealthcareUserDB
+from tau2.domains.healthcare_macalupu.user_tools import HealthcareUserTools
 from tau2.domains.healthcare_macalupu.utils import (
-    HEALTHCARE_POLICY_PATH, HEALTHCARE_TASK_SET_PATH
+    HEALTHCARE_DB_PATH,
+    HEALTHCARE_POLICY_PATH,
+    HEALTHCARE_TASK_SET_PATH,
 )
 from tau2.environment.environment import Environment
 from tau2.utils import load_file
 
+
+class HealthcareEnvironment(Environment):
+    tools: HealthcareTools
+    user_tools: HealthcareUserTools
+
+    def __init__(
+        self,
+        domain_name: str,
+        policy: str,
+        tools: HealthcareTools,
+        user_tools: HealthcareUserTools,
+    ):
+        super().__init__(domain_name, policy, tools, user_tools)
+
+
 # ---------------------------------------------------------------------------
 # Environment factory
 # ---------------------------------------------------------------------------
-
-
 def get_environment(
-    db: Optional[InterconsultaDB] = None, solo_mode: bool = False
+    db: Optional[HealthcareDB] = None,
+    user_db: Optional[HealthcareUserDB] = None,
+    solo_mode: bool = False,
 ) -> Environment:
 
-	if solo_mode:
-		raise ValueError("healthcare_macalupu domain does not support solo mode")
-	if db is None:
-		db = get_db()
+    if solo_mode:
+        raise ValueError("healthcare_macalupu domain does not support solo mode")
 
-	tools = InterconsultaTools(db)
+    auth_service = AuthCodeService()
 
-	with open(HEALTHCARE_POLICY_PATH, "r", encoding="utf-8") as fp:
-		policy = fp.read()
+    if db is None:
+        db = HealthcareDB.load(HEALTHCARE_DB_PATH)  # pyright: ignore[reportAssignmentType, reportArgumentType]
+    if user_db is None:
+        user_db = HealthcareUserDB(auth_service._codes)
 
-	return Environment(
-	    domain_name="healthcare_macalupu",
-	    policy=policy,
-	    tools=tools,
-	)
+    tools = HealthcareTools(db, auth_service)  # pyright: ignore[reportArgumentType]
+    user_tools = HealthcareUserTools(user_db)
+
+    with open(HEALTHCARE_POLICY_PATH, "r", encoding="utf-8") as fp:
+        policy = fp.read()
+
+    return HealthcareEnvironment(
+        domain_name="healthcare_macalupu",
+        policy=policy,
+        tools=tools,
+        user_tools=user_tools,
+    )
 
 
 # ---------------------------------------------------------------------------
