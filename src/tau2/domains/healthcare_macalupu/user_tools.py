@@ -17,11 +17,10 @@ class HealthcareUserTools(ToolKitBase):
             return "La bandeja de entrada está vacía"
         code = self.db.sms_inbox[-1]
 
-        return (
-            code
-            if code not in self.db.used_sms
-            else "No hay nuevos SMS en la bandeja de entrada"
-        )
+        if code in self.db.used_sms:
+            return "No hay nuevos SMS en la bandeja de entrada"
+
+        return code
 
     @is_tool(ToolType.WRITE)
     def mark_sms_as_used(self, code: str) -> None:
