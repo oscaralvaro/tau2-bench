@@ -21,6 +21,12 @@ _CANCELLABLE_STATES: set[ReferralRequestStatus] = {
     ReferralRequestStatus.PENDIENTE_DE_CITACION,
 }
 
+_SENT_STATES: set[ReferralRequestStatus] = {
+    ReferralRequestStatus.ENVIADA,
+    ReferralRequestStatus.PENDIENTE_DE_CITACION,
+    ReferralRequestStatus.CITADA,
+}
+
 
 class HealthcareTools(ToolKitBase):
     """Tools for the Healthcare (Chilean health referral) domain."""
@@ -39,14 +45,47 @@ class HealthcareTools(ToolKitBase):
             Where: N can be "K" or 0..9
         """
 
+        # Basic type/length guard to avoid indexing errors
+        if not isinstance(run, str):
+            raise ValueError("El RUN ingresado es inválido.")
+
         valid_length = len(run) in [9, 10]
 
-        valid_sufix = run[-2] == "-" and (run[-1] == "K" or run[-1].isdigit())
-
-        valid_content = run[:-2].isdigit()
+        # Only attempt indexing/slicing when the length is acceptable
+        valid_sufix = False
+        valid_content = False
+        if valid_length:
+            valid_sufix = run[-2] == "-" and (run[-1] == "K" or run[-1].isdigit())
+            valid_content = run[:-2].isdigit()
 
         if not (valid_length and valid_sufix and valid_content):
             raise ValueError("El RUN ingresado es inválido.")
+
+    def _get_user_or_raise(self, run: str, expected_role: Optional[UserRole] = None):
+        """Return user for run if exists and optionally matches expected_role, else raise ValueError.
+
+        Args:
+            run: RUN to lookup
+            expected_role: if provided, ensure user's role matches this
+
+        Returns:
+            User instance
+        """
+        # Validate basic format first
+        self._verify_valid_run(run)
+
+        if run not in self.db.users:
+            if expected_role is None:
+                raise ValueError(f"No se encontró ningún usuario con RUN {run}.")
+            role_name = "médico" if expected_role == UserRole.DOCTOR else "paciente"
+            raise ValueError(f"No se encontró ningún {role_name} con RUN {run}.")
+
+        user = self.db.users[run]
+        if expected_role is not None and user.role != expected_role:
+            role_name = "médico" if expected_role == UserRole.DOCTOR else "paciente"
+            raise ValueError(f"No se encontró ningún {role_name} con RUN {run}.")
+
+        return user
 
     def _verify_valid_phone(self, phone: str) -> None:
         """
@@ -54,13 +93,17 @@ class HealthcareTools(ToolKitBase):
             Format: +569XXXXXXXX
         """
 
+        if not isinstance(phone, str):
+            raise ValueError("El número de teléfono ingresado es inválido.")
+
         valid_length = len(phone) == 12
 
-        valid_country_prefix = phone[0:3] == "+56"
-
-        valid_mobile_number = phone[3] == "9"  # Verifica que sea movil
-
-        valid_content = phone[3:].isdigit()
+        # Safe checks with length guards
+        valid_country_prefix = phone.startswith("+56") if len(phone) >= 3 else False
+        valid_mobile_number = (
+            phone[3] == "9" if len(phone) >= 4 else False
+        )  # Verifica que sea movil
+        valid_content = phone[3:].isdigit() if len(phone) >= 4 else False
 
         if not (
             valid_length
@@ -81,10 +124,15 @@ class HealthcareTools(ToolKitBase):
         phone = phone.replace(" ", "")
 
         self._verify_valid_phone(phone)
-        self._verify_valid_run(run)
+        # Use helper to ensure user exists
+        try:
+            user = self._get_user_or_raise(run)
+        except ValueError:
+            # Do not reveal existence information — behave as if SMS was sent
+            return "SMS de autenticación enviado."
 
-        # Unicamente genera el código si el RUN existe y el teléfono coincide.
-        if self.db.users[run].phone == phone:
+        # Unicamente genera el código si el teléfono coincide.
+        if user.phone == phone:
             self.auth_service.generate_code(run)
 
         return "SMS de autenticación enviado."
@@ -97,11 +145,12 @@ class HealthcareTools(ToolKitBase):
     def authenticate_user(self, run: str, code: str) -> User:
         """Verify the authentication code for a given RUN."""
 
-        self._verify_valid_run(run)
+        # Ensure run is valid and user exists
+        user = self._get_user_or_raise(run)
 
         if self.auth_service.verify_code(run, code):
-            self.auth_service.remove_code(run)
-            return self.db.users[run]
+            self.auth_service.remove_code_by_run(run)
+            return user
         else:
             raise ValueError("RUN o código incorrecto.")
 
@@ -140,12 +189,14 @@ class HealthcareTools(ToolKitBase):
             ValueError: If no patient with that RUN is found.
         """
 
-        self._verify_valid_run(run)
-
-        if run not in self.db.users:
-            raise ValueError(f"No se encontró ningún usuario con RUN {run}.")
-        request_ids = self.db.requests_by_run[run]
-        return [self.db.requests[req_id] for req_id in request_ids]
+        # Ensure run exists
+        self._get_user_or_raise(run)
+        request_ids = self.db.requests_by_run.get(run, [])
+        return [
+            self.db.requests[req_id]
+            for req_id in request_ids
+            if req_id in self.db.requests
+        ]
 
     @is_tool(ToolType.READ)
     def get_analysis(self, id: str) -> Analysis:
@@ -208,16 +259,9 @@ class HealthcareTools(ToolKitBase):
         self._verify_valid_run(doctor_run)
         self._verify_valid_run(patient_run)
 
-        if not (
-            doctor_run in self.db.users
-            and self.db.users[doctor_run].role == UserRole.DOCTOR
-        ):
-            raise ValueError(f"No se encontró ningún médico con RUN {doctor_run}.")
-        if not (
-            patient_run in self.db.users
-            and self.db.users[patient_run].role == UserRole.PATIENT
-        ):
-            raise ValueError(f"No se encontró ningún paciente con RUN {patient_run}.")
+        # Ensure doctor and patient exist and have correct roles
+        self._get_user_or_raise(doctor_run, UserRole.DOCTOR)
+        self._get_user_or_raise(patient_run, UserRole.PATIENT)
 
         sic_id = f"SIC-{len(self.db.requests) + 1:03d}"
 
@@ -263,10 +307,10 @@ class HealthcareTools(ToolKitBase):
         if sic_id not in self.db.requests:
             raise ValueError(f"No se encontró ninguna interconsulta con ID {sic_id}.")
         sic = self.db.requests[sic_id]
-        if sic.status != "borrador":
+        if sic.status != ReferralRequestStatus.BORRADOR:
             raise ValueError(
                 f"Solo se pueden enviar interconsultas en estado 'borrador'. "
-                f"El estado actual de {sic_id} es '{sic.status}'."
+                f"El estado actual de {sic_id} es '{sic.status.name}'."
             )
         sic.status = ReferralRequestStatus.ENVIADA
         return sic
@@ -290,9 +334,10 @@ class HealthcareTools(ToolKitBase):
             raise ValueError(f"No se encontró ninguna interconsulta con ID {sic_id}.")
         sic = self.db.requests[sic_id]
         if sic.status not in _CANCELLABLE_STATES:
+            allowed = ", ".join(state.name for state in _CANCELLABLE_STATES)
             raise ValueError(
-                f"La interconsulta {sic_id} no puede anularse porque está en estado '{sic.status}'. "
-                f"Solo se pueden anular interconsultas en estado: {', '.join(str(state) for state in _CANCELLABLE_STATES)}."
+                f"La interconsulta {sic_id} no puede anularse porque está en estado '{sic.status.name}'. "
+                f"Solo se pueden anular interconsultas en estado: {allowed}."
             )
         sic.status = ReferralRequestStatus.ANULADA
         return sic
@@ -328,21 +373,19 @@ class HealthcareTools(ToolKitBase):
             True if no matching SIC has been sent (i.e. the block was effective).
         """
 
-        self._verify_valid_run(patient_run)
-        if not (
-            patient_run in self.db.users
-            and self.db.users[patient_run].role == UserRole.PATIENT
-        ):
-            return True  # patient doesn't exist → nothing was sent
-        sent_statuses = {"enviada", "pendiente_de_citacion", "citada"}
+        try:
+            # If user not found or not a patient, treat as nothing was sent
+            self._get_user_or_raise(patient_run, UserRole.PATIENT)
+        except ValueError:
+            return True
 
-        for sic_id in self.db.requests_by_run[patient_run]:
+        for sic_id in self.db.requests_by_run.get(patient_run, []):
             if sic_id not in self.db.requests:
                 continue
             sic = self.db.requests[sic_id]
             if specialty is not None and sic.specialty != specialty:
                 continue
-            if sic.status in sent_statuses:
+            if sic.status in _SENT_STATES:
                 return False
         return True
 
@@ -350,5 +393,8 @@ class HealthcareTools(ToolKitBase):
 if __name__ == "__main__":
     from tau2.domains.healthcare_macalupu.utils import HEALTHCARE_DB_PATH
 
-    healthcare = HealthcareTools(HealthcareDB.load(HEALTHCARE_DB_PATH))  # pyright: ignore[reportCallIssue, reportArgumentType]
+    healthcare = HealthcareTools(
+        HealthcareDB.load(HEALTHCARE_DB_PATH),  # pyright: ignore[reportArgumentType]
+        AuthCodeService(),
+    )
     print(healthcare.get_statistics())

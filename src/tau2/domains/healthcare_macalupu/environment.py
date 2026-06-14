@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import Optional
-from webbrowser import get
 
 from tau2.data_model.tasks import Task
 from tau2.domains.healthcare_macalupu.auth_data_model import AuthCodeService
@@ -43,12 +42,13 @@ def get_environment(
     if solo_mode:
         raise ValueError("healthcare_macalupu domain does not support solo mode")
 
-    auth_service = AuthCodeService()
-
     if db is None:
         db = HealthcareDB.load(HEALTHCARE_DB_PATH)  # pyright: ignore[reportAssignmentType, reportArgumentType]
     if user_db is None:
-        user_db = HealthcareUserDB(auth_service._codes)
+        user_db = HealthcareUserDB()
+
+    auth_service = AuthCodeService()
+    auth_service.add_observer(user_db)
 
     tools = HealthcareTools(db, auth_service)  # pyright: ignore[reportArgumentType]
     user_tools = HealthcareUserTools(user_db)
