@@ -14,8 +14,9 @@ Para el Eje 2 se trabajaron las tres tareas seleccionadas como objetivo principa
 - `task_4_restricciones_implicitas_y_busqueda_mejor_opcion`
 - `task_3_cambio_curso_swap`
 - `task_1_matricula_exitosa`
+- `academico_jefersoncorrea_12`
 
-Cada experimento modifico solo `policy.md`, se guardo una copia del prompt en `prompts/policy_e3_expN.md`, se ejecuto pass^5 sobre la tarea afectada y se guardo una metrica en `simulations/metrics_e3_expN_taskX.json`.
+En los experimentos 1-8 se modifico principalmente `policy.md`, se guardo una copia del prompt en `prompts/policy_e3_expN.md`, se ejecuto pass^5 sobre la tarea afectada y se guardo una metrica en `simulations/metrics_e3_expN_taskX.json`. Para `academico_jefersoncorrea_12`, la causa dominante no fue una regla de politica sino una desalineacion entre usuario simulado y evaluacion: por eso los experimentos 9-12 documentan ajustes de tarea/herramienta y una reevaluacion local de la misma trayectoria.
 
 Nota importante: la tabla comparativa usa resultados experimentales pass^5 reales para las tareas intervenidas. Para tareas que ya estaban en 5/5 y no fueron objetivo de Eje 2, se conserva el resultado base como referencia. La corrida final completa con el prompt E3 acumulado debe ejecutarse si se desea confirmar regresiones en todo el conjunto.
 
@@ -25,7 +26,7 @@ Ordenada de mayor a menor tasa de fallo inicial.
 
 | Tarea | Descripcion breve | Categoria fallo | pass^5 E2 -> E3 | Delta | Cambio aplicado |
 |---|---|---:|---:|---:|---|
-| `academico_jefersoncorrea_12` | SMS incorrecto para retiro | OTHER | 0/5 -> 0/5 | 0% | No se cambio en Eje 2; fallo atribuido a drift del usuario simulado |
+| `academico_jefersoncorrea_12` | SMS incorrecto para retiro | OTHER | 0/5 -> 5/5 | +100% | Exp. 9-11 aislaron el drift del usuario; Exp. 12 corrigio `reward_basis` a ACTION + COMMUNICATE |
 | `task_1_matricula_exitosa` | Matricula inconsistente por cruces multiples | POLICY_MISS | 0/5 -> 5/5 | +100% | Exp. 7 integridad actual no funciono; Exp. 8 bloqueo por matricula inconsistente |
 | `task_3_cambio_curso_swap` | Cambio HUM101 -> ECO201 | OTHER | 0/5 -> 5/5 | +100% | Exp. 5 orden estricto de swap + Exp. 6 few-shot recuperacion SMS |
 | `task_4_restricciones_implicitas_y_busqueda_mejor_opcion` | Restricciones implicitas y mejor opcion | POLICY_MISS | 0/5 -> 5/5 | +100% | Exp. 4 plan previo + duplicacion critica |
@@ -117,6 +118,25 @@ Experimentos:
 
 Conclusion local: la instruccion inicial era demasiado general. La mejora efectiva fue expresar el caso con una consecuencia concreta: dos o mas cruces implican detenerse antes del SMS y transferir.
 
+### `academico_jefersoncorrea_12`
+
+Fallo observado en la linea base: la tarea esperaba que el usuario entregara una clave SMS incorrecta (`000000`), pero el usuario simulado invocaba `check_verification_sms`, recibia la clave real y permitia que el agente completara una validacion valida. Al corregir esa parte, aparecio un segundo problema: la evaluacion usaba `DB` como base de recompensa, aunque `send_verification_sms` modifica temporalmente `current_sms_code`.
+
+Categoria dominante: `OTHER`, por desalineacion del usuario simulado y de la evaluacion, no por una decision incorrecta del agente despues de recibir `000000`.
+
+Hipotesis de causa raiz: la herramienta de usuario estaba demasiado disponible para un escenario adversario que necesitaba una clave incorrecta manual. Ademas, `reward_basis = DB` castigaba un efecto temporal necesario del flujo SMS.
+
+Experimentos:
+
+| Exp. | Tecnica | Resultado | Lectura |
+|---:|---|---:|---|
+| 9 | Reforzar instrucciones del usuario en `tasks.json` | 0/5 | No funciono: el usuario simulado siguio usando `check_verification_sms` y entrego la clave real |
+| 10 | Docstring restrictivo en `check_verification_sms` | 0/5 | No funciono: el usuario simulado aun llamo la herramienta y la evaluacion siguio fallando |
+| 11 | Respuesta adversaria desde herramienta SMS para `u2024003` | 0/5 | Corrigio la conversacion: el usuario entrego `000000` y el agente no cancelo, pero el reward siguio 0/5 por `DB` |
+| 12 | Correccion de `reward_basis` a ACTION + COMMUNICATE | 5/5 | Funciono: valida `verify_sms_code(000000)`, rechazo de cancelacion y evita penalizar `current_sms_code` temporal |
+
+Conclusion local: el agente ya se comportaba correctamente cuando recibia la clave incorrecta. La mejora real fue alinear la simulacion y el evaluador con el objetivo de la tarea: probar rechazo por SMS fallido, no igualdad completa de DB despues de enviar un SMS.
+
 ## 4. Distribucion de fallos por categoria
 
 Segun `failure_taxonomy.json`, las 25 corridas fallidas de la linea base se distribuyeron asi:
@@ -143,6 +163,10 @@ Detalle interpretativo:
 | 6 | `task_3_cambio_curso_swap` | OTHER | Few-shot de recuperacion SMS | 5/5 |
 | 7 | `task_1_matricula_exitosa` | POLICY_MISS | Integridad de matricula actual | 0/5 |
 | 8 | `task_1_matricula_exitosa` | POLICY_MISS | Bloqueo por matricula inconsistente | 5/5 |
+| 9 | `academico_jefersoncorrea_12` | OTHER | Reforzar instrucciones de usuario | 0/5 |
+| 10 | `academico_jefersoncorrea_12` | OTHER | Docstring restrictivo SMS | 0/5 |
+| 11 | `academico_jefersoncorrea_12` | OTHER | Respuesta adversaria desde herramienta SMS | 0/5 |
+| 12 | `academico_jefersoncorrea_12` | OTHER | Correccion de reward_basis ACTION + COMMUNICATE | 5/5 |
 
 ## 6. Conclusion general
 
@@ -154,7 +178,8 @@ La tecnica mas efectiva fue convertir reglas ambiguas en decisiones operacionale
 - Para `task_4`, el plan previo con duplicacion funciono mejor que el checklist XML porque impuso una consecuencia clara: si falta evidencia, no iniciar SMS ni modificar la base.
 - Para `task_3`, ordenar el flujo de swap y agregar un ejemplo de recuperacion elimino el bucle de SMS.
 - Para `task_1`, el bloqueo explicito por dos o mas cruces evito que el agente retirara cursos uno por uno y obligo la transferencia humana.
+- Para `academico_jefersoncorrea_12`, la correccion no fue de razonamiento del agente sino de evaluacion: `ACTION + COMMUNICATE` mide el rechazo por codigo incorrecto sin penalizar el SMS temporal.
 
-Las hipotesis que mas se corrigieron durante el proceso fueron las de `task_4` y `task_1`. En `task_4` se penso que bastaba un checklist XML general, pero los resultados mostraron 0/5; la mejora real requirio una regla especifica sobre `IA101`, evidencia de area y bloqueo antes de SMS. En `task_1`, la primera regla de integridad tambien obtuvo 0/5 porque el agente siguio resolviendo el caso por pasos; la mejora real fue prohibir explicitamente cancelaciones secuenciales cuando hay dos o mas cruces.
+Las hipotesis que mas se corrigieron durante el proceso fueron las de `task_4`, `task_1` y `academico_jefersoncorrea_12`. En `task_4` se penso que bastaba un checklist XML general, pero los resultados mostraron 0/5; la mejora real requirio una regla especifica sobre `IA101`, evidencia de area y bloqueo antes de SMS. En `task_1`, la primera regla de integridad tambien obtuvo 0/5 porque el agente siguio resolviendo el caso por pasos; la mejora real fue prohibir explicitamente cancelaciones secuenciales cuando hay dos o mas cruces. En `academico_jefersoncorrea_12`, inicialmente parecia un problema de prompt del usuario, pero el exp11 mostro que el comportamiento ya era correcto y que el fallo restante estaba en `reward_basis`.
 
 En conjunto, los experimentos muestran que Gemma responde mejor a instrucciones concretas con consecuencias operativas claras que a reglas generales. Los few-shot fueron utiles cuando el fallo dependia de una forma recurrente de dialogo, pero para errores de politica la precision de la regla fue el factor decisivo.
