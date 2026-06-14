@@ -1,3 +1,4 @@
+from enum import Enum
 from pydoc import describe
 from typing import Dict, List, Literal, Optional
 
@@ -6,36 +7,33 @@ from pydantic import BaseModel, Field
 from tau2.domains.healthcare_macalupu.utils import HEALTHCARE_DB_PATH
 from tau2.environment.db import DB
 
-SICStatus = Literal[
-    "borrador",
-    "enviada",
-    "pendiente_de_citacion",
-    "citada",
-    "devuelta",
-    "no_pertinente",
-    "atendida",
-    "anulada",
-]
+
+class ReferralRequestStatus(int, Enum):
+    BORRADOR = 1
+    ENVIADA = 2
+    PENDIENTE_DE_CITACION = 3
+    CITADA = 4
+    DEVUELTA = 5
+    NO_PERTINENTE = 6
+    ATENDIDA = 7
+    ANULADA = 8
+
 
 Priority = Literal["P1", "P2"]
 
-Specialty = Literal[
-    "Oftalmología",
-    "Otorrinolaringología",
-    "Traumatología",
-    "Odontología Especializada",
-    "Medicina Interna",
-    "Cardiología",
-    "Salud Mental",
-]
+
+class Specialty(str, Enum):
+    OFTALMOLOGIA = "OFTA"
+    OTORRINOLARINGOLOGIA = "OTOR"
+    MEDICINA_INTERNA = "MEIN"
 
 
-class SIC(BaseModel):
+class ReferralRequest(BaseModel):
     """Solicitud de Interconsulta."""
 
     sic_id: str = Field(description="Unique identifier for the referral request")
     patient_run: str = Field(description="Patient's RUN (national ID)")
-    doctor_rut: str = Field(description="Requesting doctor's RUT")
+    doctor_run: str = Field(description="Requesting doctor's RUT")
     specialty: Specialty = Field(description="Target medical specialty")
     cie10_code: str = Field(description="CIE-10 diagnosis code")
     cie10_description: str = Field(description="CIE-10 diagnosis description")
@@ -44,7 +42,9 @@ class SIC(BaseModel):
         description="Priority level: P1 (urgent) or P2 (non-urgent)"
     )
     attached_exams: List[str] = Field(description="List of attached exam's identifiers")
-    status: SICStatus = Field(description="Current status of the referral request")
+    status: ReferralRequestStatus = Field(
+        description="Current status of the referral request"
+    )
     is_ges: bool = Field(
         description="Whether the condition is covered by GES guarantee"
     )
@@ -57,24 +57,20 @@ class SIC(BaseModel):
     )
 
 
-class Doctor(BaseModel):
-    """APS doctor (primary care physician)."""
-
-    rut: str = Field(description="Doctor's RUT (unique identifier)")
-    name: str = Field(description="Doctor's full name")
-    cesfam: str = Field(description="CESFAM the doctor belongs to")
+class UserRole(str, Enum):
+    PATIENT = "Patient"
+    DOCTOR = "Doctor"
 
 
-class Patient(BaseModel):
-    """Patient registered in the primary care network."""
+class User(BaseModel):
+    """User registered in the system."""
 
-    run: str = Field(description="Patient's RUN (unique national identifier)")
-    name: str = Field(description="Patient's full name")
-    birth_date: str = Field(description="Date of birth in YYYY-MM-DD format")
-    cesfam: str = Field(description="CESFAM where the patient is enrolled")
-    sic_ids: List[str] = Field(
-        description="List of referral request IDs for this patient"
-    )
+    run: str = Field(description="User's RUN in XXXXXXXX-X format")
+    name: str = Field(description="User's full name")
+    birth_date: str = Field(description="User's birth date in YYYY-MM-DD format")
+    cesfam: str = Field(description="CESFAM where the user is belongs")
+    role: UserRole = Field(description="User's role in the system")
+    phone: str = Field(description="User's phone number in +569XXXXXXXX format")
 
 
 class Analysis(BaseModel):
@@ -86,22 +82,19 @@ class Analysis(BaseModel):
     details: Optional[str] = Field(description="Analysis details")
 
 
-class InterconsultaDB(DB):
+class HealthcareDB(DB):
     """Database for the Chilean health referral agent."""
 
-    doctors: Dict[str, Doctor] = Field(
-        description="Dictionary of doctors indexed by RUT"
-    )
-    patients: Dict[str, Patient] = Field(
-        description="Dictionary of patients indexed by RUN"
-    )
-    sics: Dict[str, SIC] = Field(
+    users: Dict[str, User] = Field(description="Dictionary of users indexed by RUN")
+
+    requests: Dict[str, ReferralRequest] = Field(
         description="Dictionary of referral requests indexed by SIC ID"
     )
+
+    requests_by_run: Dict[str, list[str]] = Field(
+        description="Dictionary of referral requests indexed by RUN"
+    )
+
     analyses: Dict[str, Analysis] = Field(
         description="Dictionary of analyses indexed by analysis ID"
     )
-
-
-def get_db():
-    return InterconsultaDB.load(HEALTHCARE_DB_PATH)

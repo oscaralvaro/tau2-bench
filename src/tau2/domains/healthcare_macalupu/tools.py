@@ -1,74 +1,112 @@
 from datetime import date
 from typing import Optional
 
+from tau2.domains.healthcare_macalupu.auth_data_model import AuthCodeService
 from tau2.domains.healthcare_macalupu.data_model import (
-    SIC,
     Analysis,
-    Doctor,
-    InterconsultaDB,
-    Patient,
+    HealthcareDB,
     Priority,
-    SICStatus,
+    ReferralRequest,
+    ReferralRequestStatus,
     Specialty,
+    User,
+    UserRole,
 )
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
 
 # States from which a SIC can be cancelled
-_CANCELLABLE_STATES: set[SICStatus] = {"borrador", "enviada", "pendiente_de_citacion"}
+_CANCELLABLE_STATES: set[ReferralRequestStatus] = {
+    ReferralRequestStatus.BORRADOR,
+    ReferralRequestStatus.ENVIADA,
+    ReferralRequestStatus.PENDIENTE_DE_CITACION,
+}
 
 
-class InterconsultaTools(ToolKitBase):
-    """Tools for the Chilean health referral (interconsulta) domain."""
+class HealthcareTools(ToolKitBase):
+    """Tools for the Healthcare (Chilean health referral) domain."""
 
-    db: InterconsultaDB
+    db: HealthcareDB
+    auth_service: AuthCodeService
 
-    def __init__(self, db: InterconsultaDB) -> None:
+    def __init__(self, db: HealthcareDB, auth_service: AuthCodeService) -> None:
         super().__init__(db)
+        self.auth_service = auth_service
+
+    def _verify_valid_run(self, run: str) -> None:
+        """
+        Verify that the given RUN is valid
+            Format: 12345678-N or 123456789-N
+            Where: N can be "K" or 0..9
+        """
+
+        valid_length = len(run) in [9, 10]
+
+        valid_sufix = run[-2] == "-" and (run[-1] == "K" or run[-1].isdigit())
+
+        valid_content = run[:-2].isdigit()
+
+        if not (valid_length and valid_sufix and valid_content):
+            raise ValueError("El RUN ingresado es inválido.")
+
+    def _verify_valid_phone(self, phone: str) -> None:
+        """
+        Verify that the given phone number is valid
+            Format: +569XXXXXXXX
+        """
+
+        valid_length = len(phone) == 12
+
+        valid_country_prefix = phone[0:3] == "+56"
+
+        valid_mobile_number = phone[3] == "9"  # Verifica que sea movil
+
+        valid_content = phone[3:].isdigit()
+
+        if not (
+            valid_length
+            and valid_country_prefix
+            and valid_mobile_number
+            and valid_content
+        ):
+            raise ValueError("El número de teléfono ingresado es inválido.")
+
+    # -------------------------------------------------------------------------
+    # GENERIC tools
+    # -------------------------------------------------------------------------
+
+    @is_tool(ToolType.GENERIC)
+    def send_auth_sms(self, run: str, phone: str) -> str:
+        """Simulate sending an authentication code SMS to a patient's RUN."""
+
+        phone = phone.replace(" ", "")
+
+        self._verify_valid_phone(phone)
+        self._verify_valid_run(run)
+
+        # Unicamente genera el código si el RUN existe y el teléfono coincide.
+        if self.db.users[run].phone == phone:
+            self.auth_service.generate_code(run)
+
+        return "SMS de autenticación enviado."
 
     # -------------------------------------------------------------------------
     # READ tools
     # -------------------------------------------------------------------------
 
     @is_tool(ToolType.READ)
-    def identificar_medico(self, rut: str) -> Doctor:
-        """
-        Retrieve a doctor's profile by their RUT.
-        Use this at the start of the conversation to authenticate a doctor.
+    def authenticate_user(self, run: str, code: str) -> User:
+        """Verify the authentication code for a given RUN."""
 
-        Args:
-            rut: The doctor's RUT (e.g. '12345678-9').
+        self._verify_valid_run(run)
 
-        Returns:
-            The doctor's profile.
-
-        Raises:
-            ValueError: If no doctor with that RUT is found.
-        """
-        if rut not in self.db.doctors:
-            raise ValueError(f"No se encontró ningún médico con RUT {rut}.")
-        return self.db.doctors[rut]
+        if self.auth_service.verify_code(run, code):
+            self.auth_service.remove_code(run)
+            return self.db.users[run]
+        else:
+            raise ValueError("RUN o código incorrecto.")
 
     @is_tool(ToolType.READ)
-    def identificar_paciente(self, run: str) -> Patient:
-        """
-        Retrieve a patient's profile by their RUN.
-        Use this at the start of the conversation to authenticate a patient.
-
-        Args:
-            run: The patient's RUN (e.g. '15432876-3').
-
-        Returns:
-            The patient's profile.
-
-        Raises:
-            ValueError: If no patient is found with that RUN and birth date combination.
-        """
-        if run not in self.db.patients:
-            raise ValueError(f"No se encontró ningún paciente con RUN {run}.")
-        return self.db.patients[run]
-
-    @is_tool(ToolType.READ)
-    def get_sic(self, sic_id: str) -> SIC:
+    def get_request(self, sic_id: str) -> ReferralRequest:
         """
         Retrieve a specific referral request (SIC) by its ID.
 
@@ -82,16 +120,15 @@ class InterconsultaTools(ToolKitBase):
             ValueError: If no SIC with that ID is found.
         """
         try:
-            return self.db.sics[sic_id]
+            return self.db.requests[sic_id]
         except KeyError:
             raise ValueError(f"No se encontró ninguna interconsulta con ID {sic_id}.")
 
     @is_tool(ToolType.READ)
-    def buscar_sics_paciente(self, run: str) -> list[SIC]:
+    def get_requests_by_run(self, run: str) -> list[ReferralRequest]:
         """
         Retrieve all referral requests (SICs) associated with a patient.
-        The agent is responsible for verifying that the caller has permission
-        to access this patient's data before invoking this tool.
+        The agent is responsible for verifying that the caller has permission to access this patient's data before invoking this tool.
 
         Args:
             run: The patient's RUN.
@@ -102,15 +139,16 @@ class InterconsultaTools(ToolKitBase):
         Raises:
             ValueError: If no patient with that RUN is found.
         """
-        if run not in self.db.patients:
-            raise ValueError(f"No se encontró ningún paciente con RUN {run}.")
-        patient = self.db.patients[run]
-        return [
-            self.db.sics[sic_id] for sic_id in patient.sic_ids if sic_id in self.db.sics
-        ]
+
+        self._verify_valid_run(run)
+
+        if run not in self.db.users:
+            raise ValueError(f"No se encontró ningún usuario con RUN {run}.")
+        request_ids = self.db.requests_by_run[run]
+        return [self.db.requests[req_id] for req_id in request_ids]
 
     @is_tool(ToolType.READ)
-    def buscar_analisis(self, id: str) -> Analysis:
+    def get_analysis(self, id: str) -> Analysis:
         """
         Retrieve an analysis by its ID.
 
@@ -132,9 +170,9 @@ class InterconsultaTools(ToolKitBase):
     # -------------------------------------------------------------------------
 
     @is_tool(ToolType.WRITE)
-    def crear_sic(
+    def create_request(
         self,
-        doctor_rut: str,
+        doctor_run: str,
         patient_run: str,
         specialty: Specialty,
         cie10_code: str,
@@ -143,7 +181,7 @@ class InterconsultaTools(ToolKitBase):
         priority: Priority,
         attached_exams: list[str],
         is_ges: bool,
-    ) -> SIC:
+    ) -> ReferralRequest:
         """
         Create a new referral request (SIC) in 'borrador' (draft) state.
         The agent must verify all clinical and administrative criteria
@@ -151,7 +189,7 @@ class InterconsultaTools(ToolKitBase):
         This tool does NOT validate clinical criteria.
 
         Args:
-            doctor_rut: RUT of the requesting doctor.
+            doctor_run: RUN of the requesting doctor.
             patient_run: RUN of the patient being referred.
             specialty: Target medical specialty.
             cie10_code: CIE-10 diagnosis code (e.g. 'H26.9').
@@ -167,36 +205,46 @@ class InterconsultaTools(ToolKitBase):
         Raises:
             ValueError: If the doctor or patient is not found.
         """
-        if doctor_rut not in self.db.doctors:
-            raise ValueError(f"No se encontró ningún médico con RUT {doctor_rut}.")
-        if patient_run not in self.db.patients:
+        self._verify_valid_run(doctor_run)
+        self._verify_valid_run(patient_run)
+
+        if not (
+            doctor_run in self.db.users
+            and self.db.users[doctor_run].role == UserRole.DOCTOR
+        ):
+            raise ValueError(f"No se encontró ningún médico con RUN {doctor_run}.")
+        if not (
+            patient_run in self.db.users
+            and self.db.users[patient_run].role == UserRole.PATIENT
+        ):
             raise ValueError(f"No se encontró ningún paciente con RUN {patient_run}.")
 
-        sic_id = f"SIC-{len(self.db.sics) + 1:03d}"
-        sic = SIC(
+        sic_id = f"SIC-{len(self.db.requests) + 1:03d}"
+
+        sic = ReferralRequest(
             sic_id=sic_id,
             patient_run=patient_run,
-            doctor_rut=doctor_rut,
+            doctor_run=doctor_run,
             specialty=specialty,
             cie10_code=cie10_code,
             cie10_description=cie10_description,
             reason=reason,
             priority=priority,
             attached_exams=attached_exams,
-            status="borrador",
+            status=ReferralRequestStatus.BORRADOR,
             is_ges=is_ges,
             created_date=date.today().isoformat(),
             appointment_date=None,
             appointment_location=None,
         )
 
-        self.db.sics[sic_id] = sic
-        self.db.patients[patient_run].sic_ids.append(sic_id)
+        self.db.requests[sic_id] = sic
+        self.db.requests_by_run[patient_run].append(sic_id)
 
         return sic
 
     @is_tool(ToolType.WRITE)
-    def enviar_sic(self, sic_id: str) -> SIC:
+    def send_request(self, sic_id: str) -> ReferralRequest:
         """
         Send a referral request (SIC), transitioning it from 'borrador' to 'enviada'.
         The agent must have already confirmed that all required exams are attached
@@ -212,22 +260,22 @@ class InterconsultaTools(ToolKitBase):
         Raises:
             ValueError: If the SIC is not found or is not in 'borrador' state.
         """
-        if sic_id not in self.db.sics:
+        if sic_id not in self.db.requests:
             raise ValueError(f"No se encontró ninguna interconsulta con ID {sic_id}.")
-        sic = self.db.sics[sic_id]
+        sic = self.db.requests[sic_id]
         if sic.status != "borrador":
             raise ValueError(
                 f"Solo se pueden enviar interconsultas en estado 'borrador'. "
                 f"El estado actual de {sic_id} es '{sic.status}'."
             )
-        sic.status = "enviada"
+        sic.status = ReferralRequestStatus.ENVIADA
         return sic
 
     @is_tool(ToolType.WRITE)
-    def anular_sic(self, sic_id: str) -> SIC:
+    def cancel_request(self, sic_id: str) -> ReferralRequest:
         """
         Cancel a referral request (SIC), transitioning it to 'anulada'.
-        Only SICs in 'borrador', 'enviada', or 'pendiente_de_citacion' state can be cancelled.
+        Only SICs in 'borrador', 'enviada', o 'pendiente_de_citacion' state can be cancelled.
 
         Args:
             sic_id: The ID of the SIC to cancel.
@@ -238,28 +286,30 @@ class InterconsultaTools(ToolKitBase):
         Raises:
             ValueError: If the SIC is not found or its current state does not allow cancellation.
         """
-        if sic_id not in self.db.sics:
+        if sic_id not in self.db.requests:
             raise ValueError(f"No se encontró ninguna interconsulta con ID {sic_id}.")
-        sic = self.db.sics[sic_id]
+        sic = self.db.requests[sic_id]
         if sic.status not in _CANCELLABLE_STATES:
             raise ValueError(
                 f"La interconsulta {sic_id} no puede anularse porque está en estado '{sic.status}'. "
-                f"Solo se pueden anular interconsultas en estado: {', '.join(_CANCELLABLE_STATES)}."
+                f"Solo se pueden anular interconsultas en estado: {', '.join(str(state) for state in _CANCELLABLE_STATES)}."
             )
-        sic.status = "anulada"
+        sic.status = ReferralRequestStatus.ANULADA
         return sic
 
     # -------------------------------------------------------------------------
     # Assert functions (used by the evaluator, not callable by the agent)
     # -------------------------------------------------------------------------
 
-    def assert_sic_status(self, sic_id: str, expected_status: SICStatus) -> bool:
+    def assert_request_status(
+        self, sic_id: str, expected_status: ReferralRequestStatus
+    ) -> bool:
         try:
-            return self.db.sics[sic_id].status == expected_status
+            return self.db.requests[sic_id].status == expected_status
         except KeyError:
             raise ValueError(f"No se encontró ninguna interconsulta con ID {sic_id}.")
 
-    def assert_sic_not_sent(
+    def assert_request_not_sent(
         self,
         patient_run: str,
         specialty: Optional[Specialty] = None,
@@ -277,15 +327,28 @@ class InterconsultaTools(ToolKitBase):
         Returns:
             True if no matching SIC has been sent (i.e. the block was effective).
         """
-        if patient_run not in self.db.patients:
+
+        self._verify_valid_run(patient_run)
+        if not (
+            patient_run in self.db.users
+            and self.db.users[patient_run].role == UserRole.PATIENT
+        ):
             return True  # patient doesn't exist → nothing was sent
         sent_statuses = {"enviada", "pendiente_de_citacion", "citada"}
-        for sic_id in self.db.patients[patient_run].sic_ids:
-            if sic_id not in self.db.sics:
+
+        for sic_id in self.db.requests_by_run[patient_run]:
+            if sic_id not in self.db.requests:
                 continue
-            sic = self.db.sics[sic_id]
+            sic = self.db.requests[sic_id]
             if specialty is not None and sic.specialty != specialty:
                 continue
             if sic.status in sent_statuses:
                 return False
         return True
+
+
+if __name__ == "__main__":
+    from tau2.domains.healthcare_macalupu.utils import HEALTHCARE_DB_PATH
+
+    healthcare = HealthcareTools(HealthcareDB.load(HEALTHCARE_DB_PATH))  # pyright: ignore[reportCallIssue, reportArgumentType]
+    print(healthcare.get_statistics())
