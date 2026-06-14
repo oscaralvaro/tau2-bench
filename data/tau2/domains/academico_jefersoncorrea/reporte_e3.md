@@ -13,6 +13,7 @@ Para el Eje 2 se trabajaron las tres tareas seleccionadas como objetivo principa
 - `task_8_info_incompleta`
 - `task_4_restricciones_implicitas_y_busqueda_mejor_opcion`
 - `task_3_cambio_curso_swap`
+- `task_1_matricula_exitosa`
 
 Cada experimento modifico solo `policy.md`, se guardo una copia del prompt en `prompts/policy_e3_expN.md`, se ejecuto pass^5 sobre la tarea afectada y se guardo una metrica en `simulations/metrics_e3_expN_taskX.json`.
 
@@ -25,7 +26,7 @@ Ordenada de mayor a menor tasa de fallo inicial.
 | Tarea | Descripcion breve | Categoria fallo | pass^5 E2 -> E3 | Delta | Cambio aplicado |
 |---|---|---:|---:|---:|---|
 | `academico_jefersoncorrea_12` | SMS incorrecto para retiro | OTHER | 0/5 -> 0/5 | 0% | No se cambio en Eje 2; fallo atribuido a drift del usuario simulado |
-| `task_1_matricula_exitosa` | Matricula con retiros previos por cruce | OTHER | 0/5 -> pendiente rerun | N/A | Se corrigio la evaluacion porque el agente actuaba correctamente |
+| `task_1_matricula_exitosa` | Matricula inconsistente por cruces multiples | POLICY_MISS | 0/5 -> 5/5 | +100% | Exp. 7 integridad actual no funciono; Exp. 8 bloqueo por matricula inconsistente |
 | `task_3_cambio_curso_swap` | Cambio HUM101 -> ECO201 | OTHER | 0/5 -> 5/5 | +100% | Exp. 5 orden estricto de swap + Exp. 6 few-shot recuperacion SMS |
 | `task_4_restricciones_implicitas_y_busqueda_mejor_opcion` | Restricciones implicitas y mejor opcion | POLICY_MISS | 0/5 -> 5/5 | +100% | Exp. 4 plan previo + duplicacion critica |
 | `task_8_info_incompleta` | Solicitud sin ID inicial | POLICY_MISS | 0/5 -> 5/5 | +100% | Exp. 1 filtro carrera/curso concreto + Exp. 2 few-shot |
@@ -99,6 +100,23 @@ Experimentos:
 
 Conclusion local: para fallos conversacionales, el orden de pasos fue mas efectivo que agregar reglas abstractas. El few-shot ayudo a manejar la respuesta especifica "no tengo codigo".
 
+### `task_1_matricula_exitosa`
+
+Fallo observado tras revisar el caso: la tarea original no contemplaba que `MAT101` y `SIS201` ya generaban un escenario de matricula inconsistente frente a `ELE202`. El agente intentaba resolverlo automaticamente retirando cursos uno por uno y luego matriculando `ELE202`, pero esa reconstruccion de carga academica completa debia pasar a revision humana.
+
+Categoria dominante: `POLICY_MISS`.
+
+Hipotesis de causa raiz: la politica no bloqueaba explicitamente los casos donde una nueva matricula exige cancelar dos o mas cursos activos. El agente trataba el problema como operaciones independientes, no como una inconsistencia de matricula actual.
+
+Experimentos:
+
+| Exp. | Tecnica | Resultado | Lectura |
+|---:|---|---:|---|
+| 7 | Integridad de matricula actual | 0/5 | No funciono: el agente retiro `MAT101`, luego `SIS201`, y finalmente matriculo `ELE202` |
+| 8 | Bloqueo por matricula inconsistente | 5/5 | Funciono: el agente detecto cruces multiples, no inicio SMS ni modificaciones, y transfirio a asesor humano |
+
+Conclusion local: la instruccion inicial era demasiado general. La mejora efectiva fue expresar el caso con una consecuencia concreta: dos o mas cruces implican detenerse antes del SMS y transferir.
+
 ## 4. Distribucion de fallos por categoria
 
 Segun `failure_taxonomy.json`, las 25 corridas fallidas de la linea base se distribuyeron asi:
@@ -123,17 +141,20 @@ Detalle interpretativo:
 | 4 | `task_4_restricciones_implicitas_y_busqueda_mejor_opcion` | POLICY_MISS | Plan previo y duplicacion | 5/5 |
 | 5 | `task_3_cambio_curso_swap` | OTHER | Orden estricto para swap | 5/5 |
 | 6 | `task_3_cambio_curso_swap` | OTHER | Few-shot de recuperacion SMS | 5/5 |
+| 7 | `task_1_matricula_exitosa` | POLICY_MISS | Integridad de matricula actual | 0/5 |
+| 8 | `task_1_matricula_exitosa` | POLICY_MISS | Bloqueo por matricula inconsistente | 5/5 |
 
 ## 6. Conclusion general
 
-La categoria mas frecuente en conteo bruto fue `OTHER`, pero esto no significa que el agente estuviera fallando siempre por razonamiento: varios casos venian de drift del usuario simulado o de evaluacion desalineada. La categoria mas accionable para mejorar el agente fue `POLICY_MISS`.
+La categoria mas frecuente en conteo bruto fue `OTHER`, pero esto no significa que el agente estuviera fallando siempre por razonamiento: varios casos venian de drift del usuario simulado o de evaluacion desalineada. Despues de revisar `task_1`, tambien se identifico un `POLICY_MISS` adicional: el agente necesitaba una regla explicita para no reconstruir automaticamente una matricula con cruces multiples. La categoria mas accionable para mejorar el agente fue `POLICY_MISS`.
 
 La tecnica mas efectiva fue convertir reglas ambiguas en decisiones operacionales concretas:
 
 - Para `task_8`, separar curso concreto de area general resolvio el falso rechazo de `ECO201`.
 - Para `task_4`, el plan previo con duplicacion funciono mejor que el checklist XML porque impuso una consecuencia clara: si falta evidencia, no iniciar SMS ni modificar la base.
 - Para `task_3`, ordenar el flujo de swap y agregar un ejemplo de recuperacion elimino el bucle de SMS.
+- Para `task_1`, el bloqueo explicito por dos o mas cruces evito que el agente retirara cursos uno por uno y obligo la transferencia humana.
 
-La hipotesis que mas se corrigio durante el proceso fue la de `task_4`: inicialmente se penso que bastaba un checklist XML general, pero los resultados mostraron 0/5. La mejora real requirio una regla mucho mas especifica sobre `IA101`, evidencia de area y bloqueo antes de SMS.
+Las hipotesis que mas se corrigieron durante el proceso fueron las de `task_4` y `task_1`. En `task_4` se penso que bastaba un checklist XML general, pero los resultados mostraron 0/5; la mejora real requirio una regla especifica sobre `IA101`, evidencia de area y bloqueo antes de SMS. En `task_1`, la primera regla de integridad tambien obtuvo 0/5 porque el agente siguio resolviendo el caso por pasos; la mejora real fue prohibir explicitamente cancelaciones secuenciales cuando hay dos o mas cruces.
 
 En conjunto, los experimentos muestran que Gemma responde mejor a instrucciones concretas con consecuencias operativas claras que a reglas generales. Los few-shot fueron utiles cuando el fallo dependia de una forma recurrente de dialogo, pero para errores de politica la precision de la regla fue el factor decisivo.
