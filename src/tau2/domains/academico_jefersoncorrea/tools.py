@@ -72,27 +72,27 @@ class AcademicTools(ToolKitBase):
     @is_tool(ToolType.READ)
     def search_courses(self, query: str = "") -> List[Course]:
         """
-        Busca cursos en el catálogo académico. Devuelve información vital como:
-        créditos, prerrequisitos, horarios y VACANTES DISPONIBLES.
+        Busca cursos en el catalogo academico. Devuelve informacion vital como:
+        creditos, facultad, prerrequisitos, horarios, fecha de finalizacion y VACANTES DISPONIBLES.
         
         Uso: Usa esta herramienta cuando el estudiante pregunte por cursos disponibles 
-        o antes de matricularlo para verificar que el curso tenga vacantes y no cruce horario.
+        o antes de matricularlo para verificar facultad, vacantes, prerrequisitos, fecha y cruce de horario.
         
-        IMPORTANTE SOBRE LA BÚSQUEDA:
-        El campo 'query' SOLO busca coincidencias exactas en el NOMBRE del curso o el ID del curso.
-        NUNCA envíes conceptos abstractos como "4 créditos", "3 o 5 créditos" o "Ingeniería Informática" 
-        en el query, ya que la búsqueda fallará y devolverá vacío.
+        IMPORTANTE SOBRE LA BUSQUEDA:
+        El campo 'query' SOLO busca coincidencias en el NOMBRE del curso o el ID del curso.
+        NUNCA envies conceptos abstractos como "4 creditos", "3 o 5 creditos", "Ingenieria" o
+        "Ingenieria Informatica" en el query, ya que la busqueda puede fallar y devolver vacio.
         
-        Si necesitas filtrar por créditos, carreras, requisitos, etc:
-        1. Llama a search_courses() con query="" (vacío) para obtener la lista COMPLETA de cursos.
-        2. Revisa tú mismo esa lista completa devuelta y dile al usuario cuáles opciones 
-           coinciden con lo que te está pidiendo.
+        Si necesitas filtrar por creditos, facultad, carreras, requisitos, fechas, etc:
+        1. Llama a search_courses() con query="" (vacio) para obtener la lista COMPLETA de cursos.
+        2. Revisa tu mismo esa lista completa devuelta y usa el campo `facultad` como evidencia primaria
+           para decidir si el curso coincide con el area o facultad solicitada.
         
         Args:
-            query: (Opcional) Texto corto para filtrar por nombre del curso o ID. Si está vacío, devuelve todos.
+            query: (Opcional) Texto corto para filtrar por nombre del curso o ID. Si esta vacio, devuelve todos.
             
         Returns:
-            Lista de cursos que coinciden con la búsqueda.
+            Lista de cursos que coinciden con la busqueda.
         """
         all_courses = list(self.db.courses.values())
         if not query:

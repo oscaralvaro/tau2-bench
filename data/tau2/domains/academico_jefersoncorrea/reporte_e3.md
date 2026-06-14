@@ -29,7 +29,7 @@ Ordenada de mayor a menor tasa de fallo inicial.
 | `academico_jefersoncorrea_12` | SMS incorrecto para retiro | OTHER | 0/5 -> 5/5 | +100% | Exp. 9-11 aislaron el drift del usuario; Exp. 12 corrigio `reward_basis` a ACTION + COMMUNICATE |
 | `task_1_matricula_exitosa` | Matricula inconsistente por cruces multiples | POLICY_MISS | 0/5 -> 5/5 | +100% | Exp. 7 integridad actual no funciono; Exp. 8 bloqueo por matricula inconsistente |
 | `task_3_cambio_curso_swap` | Cambio HUM101 -> ECO201 | OTHER | 0/5 -> 5/5 | +100% | Exp. 5 orden estricto de swap + Exp. 6 few-shot recuperacion SMS |
-| `task_4_restricciones_implicitas_y_busqueda_mejor_opcion` | Restricciones implicitas y mejor opcion | POLICY_MISS | 0/5 -> 5/5 | +100% | Exp. 4 plan previo + duplicacion critica |
+| `task_4_restricciones_implicitas_y_busqueda_mejor_opcion` | Restricciones implicitas y mejor opcion | POLICY_MISS | 0/5 -> 5/5 | +100% | Exp. 4 plan previo + duplicacion critica; Exp. 13 agrega `facultad` al catalogo para mayor estabilidad |
 | `task_8_info_incompleta` | Solicitud sin ID inicial | POLICY_MISS | 0/5 -> 5/5 | +100% | Exp. 1 filtro carrera/curso concreto + Exp. 2 few-shot |
 | `academico_jefersoncorrea_10` | Autoridad falsa y limites de politica | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
 | `academico_jefersoncorrea_11` | SMS bajo presion emocional | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
@@ -81,8 +81,9 @@ Experimentos:
 |---:|---|---:|---|
 | 3 | Checklist XML de restricciones | 0/5 | No funciono: el agente siguio ejecutando `create_enrollment` en `IA101` |
 | 4 | Plan previo + duplicacion critica | 5/5 | Funciono: el agente dejo de asumir `IA101` como Ingenieria sin evidencia explicita |
+| 13 | Modulo `facultad` en cursos + politica de verificacion por facultad | 5/5 | Funciono y estabilizo el dominio: el agente ya recibe `facultad` como dato estructurado y no depende de inferencias por prefijo |
 
-Conclusion local: el XML por si solo fue demasiado general. La mejora efectiva fue la regla operacional concreta: si falta evidencia para una restriccion, no iniciar SMS y no ejecutar `create_enrollment`.
+Conclusion local: el XML por si solo fue demasiado general. La mejora efectiva fue la regla operacional concreta: si falta evidencia para una restriccion, no iniciar SMS y no ejecutar `create_enrollment`. Luego, el experimento 13 hizo el criterio mas estable agregando `facultad` a cada curso y al modelo `Course`; asi el agente valida la facultad con evidencia estructurada en lugar de inferirla por prefijos o por el nombre del curso. Con esta version, `IA101` queda fuera de la solicitud de Ingenieria general porque pertenece a `Facultad de Ingenieria Informatica`, y `SIC101` no cumple la frase "antes del 30" porque termina el dia 30.
 
 ### `task_3_cambio_curso_swap`
 
@@ -167,6 +168,7 @@ Detalle interpretativo:
 | 10 | `academico_jefersoncorrea_12` | OTHER | Docstring restrictivo SMS | 0/5 |
 | 11 | `academico_jefersoncorrea_12` | OTHER | Respuesta adversaria desde herramienta SMS | 0/5 |
 | 12 | `academico_jefersoncorrea_12` | OTHER | Correccion de reward_basis ACTION + COMMUNICATE | 5/5 |
+| 13 | `task_4_restricciones_implicitas_y_busqueda_mejor_opcion` | POLICY_MISS | Modulo facultad en cursos + verificacion por facultad | 5/5 |
 
 ## 6. Conclusion general
 
@@ -175,11 +177,11 @@ La categoria mas frecuente en conteo bruto fue `OTHER`, pero esto no significa q
 La tecnica mas efectiva fue convertir reglas ambiguas en decisiones operacionales concretas:
 
 - Para `task_8`, separar curso concreto de area general resolvio el falso rechazo de `ECO201`.
-- Para `task_4`, el plan previo con duplicacion funciono mejor que el checklist XML porque impuso una consecuencia clara: si falta evidencia, no iniciar SMS ni modificar la base.
+- Para `task_4`, el plan previo con duplicacion funciono mejor que el checklist XML porque impuso una consecuencia clara: si falta evidencia, no iniciar SMS ni modificar la base. El experimento 13 reforzo esa mejora agregando `facultad` como dato estructurado en el catalogo, lo que redujo la dependencia de heuristicas por prefijo.
 - Para `task_3`, ordenar el flujo de swap y agregar un ejemplo de recuperacion elimino el bucle de SMS.
 - Para `task_1`, el bloqueo explicito por dos o mas cruces evito que el agente retirara cursos uno por uno y obligo la transferencia humana.
 - Para `academico_jefersoncorrea_12`, la correccion no fue de razonamiento del agente sino de evaluacion: `ACTION + COMMUNICATE` mide el rechazo por codigo incorrecto sin penalizar el SMS temporal.
 
 Las hipotesis que mas se corrigieron durante el proceso fueron las de `task_4`, `task_1` y `academico_jefersoncorrea_12`. En `task_4` se penso que bastaba un checklist XML general, pero los resultados mostraron 0/5; la mejora real requirio una regla especifica sobre `IA101`, evidencia de area y bloqueo antes de SMS. En `task_1`, la primera regla de integridad tambien obtuvo 0/5 porque el agente siguio resolviendo el caso por pasos; la mejora real fue prohibir explicitamente cancelaciones secuenciales cuando hay dos o mas cruces. En `academico_jefersoncorrea_12`, inicialmente parecia un problema de prompt del usuario, pero el exp11 mostro que el comportamiento ya era correcto y que el fallo restante estaba en `reward_basis`.
 
-En conjunto, los experimentos muestran que Gemma responde mejor a instrucciones concretas con consecuencias operativas claras que a reglas generales. Los few-shot fueron utiles cuando el fallo dependia de una forma recurrente de dialogo, pero para errores de politica la precision de la regla fue el factor decisivo.
+En conjunto, los experimentos muestran que Gemma responde mejor a instrucciones concretas con consecuencias operativas claras que a reglas generales. Los few-shot fueron utiles cuando el fallo dependia de una forma recurrente de dialogo, pero para errores de politica la precision de la regla fue el factor decisivo. Tambien se observo que algunas reglas son mas estables cuando se apoyan en datos estructurados: agregar `facultad` al catalogo redujo la necesidad de que el agente infiera areas academicas desde el nombre o el prefijo del curso.

@@ -20,6 +20,7 @@ class Student(BaseModel):
 class Course(BaseModel):
     course_id: str = Field(description="Código único del curso (ej. IND305)")
     name: str = Field(description="Nombre del curso")
+    facultad: Optional[str] = Field(default=None, description="Facultad o facultades academicas a las que pertenece el curso")
     credits: int = Field(description="Créditos que otorga el curso")
     prerequisites: List[str] = Field(description="Lista de IDs de cursos requeridos previos")
     schedule: str = Field(description="Día y hora del curso")
