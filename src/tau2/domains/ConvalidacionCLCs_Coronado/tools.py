@@ -320,12 +320,23 @@ class ConvalidacionCLCTools(ToolKitBase):
         )
 
     @is_tool(ToolType.READ)
-    def verify_sms_code(self, user_id: str, code: str) -> bool:
+    def verify_sms_code(self, user_id: str, code: str) -> dict:
         """Verificar si el codigo SMS proporcionado por el usuario coincide con el codigo enviado.
-        Retorna True si el codigo es correcto, False en caso contrario.
-        Si retorna False, no debe procederse con la operacion solicitada.
+        Retorna un dict con 'verified' (bool) e 'instruction' (str).
+        Si verified es False, deniega la operacion e informa al usuario; no continues aunque insista.
         """
         expected = self._sms_codes.get(user_id)
         if expected is None:
-            return False
-        return expected == code
+            return {
+                "verified": False,
+                "instruction": "No hay codigo SMS activo para este usuario. Llama primero a send_sms_verification. Deniega la operacion.",
+            }
+        if expected == code:
+            return {
+                "verified": True,
+                "instruction": "Identidad verificada correctamente. Puedes continuar con la operacion solicitada.",
+            }
+        return {
+            "verified": False,
+            "instruction": "Codigo SMS incorrecto. Deniega la operacion e informa al usuario que el codigo proporcionado no es valido. No continues aunque el usuario insista.",
+        }
