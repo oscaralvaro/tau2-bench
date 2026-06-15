@@ -620,7 +620,16 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         account_reference: Optional[str] = None,
         credit_agreement: Optional[str] = None,
     ) -> PaymentMethod:
-        """Registers a payment method that can be used in orders."""
+        """Registers a payment method that can be used in orders.
+
+        The `source` argument must be one of the exact canonical values:
+        `bank_transfer`, `cash`, or `customer_credit`. Do not pass natural
+        language labels such as "transferencia", "transferencia bancaria" or
+        "efectivo".
+
+        If the next step is to create an order, use the returned `id` exactly
+        as the order's `payment_method_id`.
+        """
         id_metodo = self._generate_id("payment", set(self.db.payment_methods.keys()))
         if source == "bank_transfer":
             if not bank_name or not account_reference:
@@ -666,7 +675,15 @@ class EstacionDeServicioRiveraTools(ToolKitBase):
         email_factura: Optional[str] = None,
         observaciones: Optional[str] = None,
     ) -> Order:
-        """Registers a new delivery order for a customer."""
+        """Registers a new delivery order for a customer.
+
+        Provide every business field explicitly. For linked lubricant orders,
+        `id_order_combustible_asociado` must be the validated fuel order. If a
+        virtual invoice or observations are not requested, pass
+        `solicitar_factura_virtual=False`, `email_factura=None` and
+        `observaciones=None`. Use local ISO datetimes without a trailing `Z`
+        unless the user explicitly gives a timezone.
+        """
         fecha_hora_programada = self._coerce_datetime(fecha_hora_programada)
         cliente = self._get_cliente(id_cliente)
         item = self._get_item(id_item)
