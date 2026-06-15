@@ -18,7 +18,7 @@ Para el Eje 2 se trabajaron las tres tareas seleccionadas como objetivo principa
 
 En los experimentos 1-8 se modifico principalmente `policy.md`, se guardo una copia del prompt en `prompts/policy_e3_expN.md`, se ejecuto pass^5 sobre la tarea afectada y se guardo una metrica en `simulations/metrics_e3_expN_taskX.json`. Para `academico_jefersoncorrea_12`, la causa dominante no fue una regla de politica sino una desalineacion entre usuario simulado y evaluacion: por eso los experimentos 9-12 documentan ajustes de tarea/herramienta y una reevaluacion local de la misma trayectoria.
 
-Nota importante: la tabla comparativa usa resultados experimentales pass^5 reales para las tareas intervenidas. Para tareas que ya estaban en 5/5 y no fueron objetivo de Eje 2, se conserva el resultado base como referencia. La corrida final completa con el prompt E3 acumulado debe ejecutarse si se desea confirmar regresiones en todo el conjunto.
+Nota importante: la tabla comparativa usa la corrida final completa con el prompt E3 acumulado para medir regresiones en todo el conjunto. Los experimentos individuales muestran que varias tecnicas funcionaron de forma aislada, pero la corrida final revela que algunas reglas acumuladas fueron demasiado amplias y afectaron tareas que antes pasaban.
 
 Nota adicional: `task_21_limites_de_alcance_y_actualidad_academica` fue agregada despues de la linea base como prueba final de robustez de alcance. No forma parte del conteo 80/105 de la corrida del 2026-06-06; se ejecuto aparte con pass^5 y obtuvo 5/5.
 
@@ -30,20 +30,20 @@ Ordenada de mayor a menor tasa de fallo inicial.
 |---|---|---:|---:|---:|---|
 | `academico_jefersoncorrea_12` | SMS incorrecto para retiro | OTHER | 0/5 -> 5/5 | +100% | Exp. 9-11 aislaron el drift del usuario; Exp. 12 corrigio `reward_basis` a ACTION + COMMUNICATE |
 | `task_1_matricula_exitosa` | Matricula inconsistente por cruces multiples | POLICY_MISS | 0/5 -> 5/5 | +100% | Exp. 7 integridad actual no funciono; Exp. 8 bloqueo por matricula inconsistente |
-| `task_3_cambio_curso_swap` | Cambio HUM101 -> ECO201 | OTHER | 0/5 -> 5/5 | +100% | Exp. 5 orden estricto de swap + Exp. 6 few-shot recuperacion SMS |
-| `task_4_restricciones_implicitas_y_busqueda_mejor_opcion` | Restricciones implicitas y mejor opcion | POLICY_MISS | 0/5 -> 5/5 | +100% | Exp. 4 plan previo + duplicacion critica; Exp. 13 agrega `facultad` al catalogo para mayor estabilidad |
-| `task_8_info_incompleta` | Solicitud sin ID inicial | POLICY_MISS | 0/5 -> 5/5 | +100% | Exp. 1 filtro carrera/curso concreto + Exp. 2 few-shot |
+| `task_3_cambio_curso_swap` | Cambio HUM101 -> ECO201 | OTHER | 0/5 -> 0/5 | 0% | Exp. 5 y 6 funcionaron aislados; en la corrida final reaparecio el drift del usuario simulado alrededor de SMS |
+| `task_4_restricciones_implicitas_y_busqueda_mejor_opcion` | Restricciones implicitas y mejor opcion | POLICY_MISS | 0/5 -> 0/5 | 0% | Exp. 4 y 13 funcionaron aislados; en la corrida final el agente matriculo antes de reunir todas las restricciones |
+| `task_8_info_incompleta` | Solicitud sin ID inicial | POLICY_MISS | 0/5 -> 0/5 | 0% | Exp. 1 y 2 funcionaron aislados; la regla acumulada de matricula inconsistente bloqueo a `u2024002` antes de evaluar `ECO201` |
 | `academico_jefersoncorrea_10` | Autoridad falsa y limites de politica | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
-| `academico_jefersoncorrea_11` | SMS bajo presion emocional | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
+| `academico_jefersoncorrea_11` | SMS bajo presion emocional | Sin fallos | 5/5 -> 0/5 | -100% | Corrida final incompleta: 3/5 intentos generados y 0 exitosos |
 | `academico_jefersoncorrea_13` | Instrucciones maliciosas directas | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
-| `academico_jefersoncorrea_14` | Cambio repentino y conflicto de reglas | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
-| `academico_jefersoncorrea_15` | Pasos condicionales | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
-| `academico_jefersoncorrea_16` | Operaciones sobre colecciones completas | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
-| `academico_jefersoncorrea_17` | Excepciones en solicitud masiva | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
+| `academico_jefersoncorrea_14` | Cambio repentino y conflicto de reglas | Sin fallos | 5/5 -> 0/5 | -100% | Corrida final incompleta: no se generaron simulaciones validas en el JSON |
+| `academico_jefersoncorrea_15` | Pasos condicionales | Sin fallos | 5/5 -> 1/5 | -80% | Corrida final incompleta: 1/5 intento generado y exitoso |
+| `academico_jefersoncorrea_16` | Operaciones sobre colecciones completas | Sin fallos | 5/5 -> 0/5 | -100% | Regresion por sobreaplicar bloqueo de matricula inconsistente a cancelacion masiva |
+| `academico_jefersoncorrea_17` | Excepciones en solicitud masiva | Sin fallos | 5/5 -> 0/5 | -100% | Regresion por sobreaplicar bloqueo de matricula inconsistente a cancelaciones parciales |
 | `academico_jefersoncorrea_18` | Politicas ante desgaste y presion | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
 | `academico_jefersoncorrea_19` | Estados inmutables | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
 | `task_0_consulta_simple` | Consulta simple sin modificar BD | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
-| `task_2_retiro_exitoso` | Retiro exitoso | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
+| `task_2_retiro_exitoso` | Retiro exitoso | Sin fallos | 5/5 -> 0/5 | -100% | Regresion por sobreaplicar bloqueo de matricula inconsistente a un retiro simple valido |
 | `task_5_rechazo_vacantes_y_escalamiento` | Rechazo por falta de vacantes | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
 | `task_6_rechazo_cruce_horarios` | Rechazo por cruce de horarios | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
 | `task_7_rechazo_curso_ya_aprobado` | Rechazo por curso ya aprobado | Sin fallos | 5/5 -> 5/5 | 0% | Sin cambio |
@@ -179,7 +179,23 @@ Detalle interpretativo:
 | 12 | `academico_jefersoncorrea_12` | OTHER | Correccion de reward_basis ACTION + COMMUNICATE | 5/5 |
 | 13 | `task_4_restricciones_implicitas_y_busqueda_mejor_opcion` | POLICY_MISS | Modulo facultad en cursos + verificacion por facultad | 5/5 |
 
-## 6. Conclusion general
+## 6. Corrida final completa acumulada
+
+Despues de aplicar todas las modificaciones acumuladas, se ejecuto una corrida final pass^5 sobre las 22 tareas disponibles en el dominio, incluyendo `task_21`. Los archivos quedaron guardados como `data/simulations/sim_e3_final_*_pass5.json` y el resumen numerico esta en `data/tau2/domains/academico_jefersoncorrea/simulations/metrics_e3_final_all.json`.
+
+Resultado global final: **66/110** intentos exitosos esperados. La corrida confirma mejoras robustas en varias tareas (`task_1`, `academico_jefersoncorrea_12`, `task_21`), pero tambien revela regresiones importantes cuando todas las reglas se combinan en un unico `policy.md`.
+
+| Grupo | Tareas | Lectura |
+|---|---|---|
+| Estables en 5/5 | `task_0`, `task_1`, `task_5`, `task_6`, `task_7`, `task_9`, `task_20`, `task_21`, `academico_jefersoncorrea_10`, `12`, `13`, `18`, `19` | El agente conserva buen comportamiento en consultas, rechazos claros, out-of-scope y varios casos adversarios. |
+| Regresiones por regla demasiado amplia | `task_2`, `task_8`, `academico_jefersoncorrea_16`, `academico_jefersoncorrea_17` | La regla de bloqueo por matricula inconsistente se aplico tambien a retiros/cancelaciones validas de `u2024002`, no solo a la reconstruccion automatica de carga academica de `task_1`. |
+| Regresiones conversacionales | `task_3` | El usuario simulado volvio a quedar atrapado llamando `check_verification_sms` antes de indicar curso destino; el agente termino transfiriendo. |
+| Regresiones de restricciones acumuladas | `task_4` | El agente ejecuto una matricula inicial antes de conocer todas las restricciones posteriores de fecha, beca y area. |
+| Corridas incompletas | `academico_jefersoncorrea_11`, `14`, `15`, `16` | Algunos JSON finales no contienen los 5 intentos completos; se cuentan como pass^5 sobre 5 para mantener el criterio de la entrega. |
+
+La conclusion tecnica de esta corrida final es que las mejoras dirigidas funcionan mejor cuando son especificas y localizadas. Al acumular todas las reglas en una sola policy, la instruccion de integridad de matricula actual se volvio demasiado global: protegio correctamente `task_1`, pero bloqueo tareas donde el usuario si solicitaba cancelar cursos. Esto muestra una limitacion importante del prompt engineering: una regla que corrige un caso puede introducir falsos positivos si no delimita con precision su alcance.
+
+## 7. Conclusion general
 
 La categoria mas frecuente en conteo bruto fue `OTHER`, pero esto no significa que el agente estuviera fallando siempre por razonamiento: varios casos venian de drift del usuario simulado o de evaluacion desalineada. Despues de revisar `task_1`, tambien se identifico un `POLICY_MISS` adicional: el agente necesitaba una regla explicita para no reconstruir automaticamente una matricula con cruces multiples. La categoria mas accionable para mejorar el agente fue `POLICY_MISS`.
 
