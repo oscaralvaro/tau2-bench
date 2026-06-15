@@ -12,7 +12,7 @@ Para Entrega 3 se seleccionaron las 10 tareas mas dificiles del dominio y se eje
 
 La corrida baseline se guardo con el nombre esperado por la entrega:
 
-- `data/simulations/sim_e3_baseline_estaciondeservicio_Rivera.json`
+- `data/simulations/sim_e3_baseline.json`
 
 Tambien se conserva la copia original generada por la corrida:
 
@@ -61,7 +61,7 @@ Comparacion baseline vs final:
 | Tarea | Baseline pass^5 | Final pass^5 | Cambio |
 |---:|---:|---:|---|
 | 4 | 0/5 | 5/5 | Mejora completa |
-| 13 | 0/5 | 0/5 en corrida completa; 5/5 en exp3 focalizado | Corregida en `sim_e3_exp3_task13_pass5_estaciondeservicio_Rivera.json` |
+| 13 | 0/5 | 0/5 en corrida completa; 5/5 en exp3 focalizado | Corregida en `sim_e3_exp3_task13_pass5.json` |
 | 1 | 5/5 | 5/5 | Se mantiene |
 | 2 | 5/5 | 5/5 | Se mantiene |
 | 6 | 5/5 | 5/5 | Se mantiene |
@@ -124,7 +124,7 @@ Correccion adicional aplicada despues de la corrida final:
 
 - Se ajusto `tasks.json` para que el usuario mencione proactivamente la factura virtual y el correo cuando entregue los datos del pedido.
 - Se reforzo `tasks.json`, `policy.md`, `tools.py` y `policy_e3_exp3.md` para que el tipo de pago use el valor canonico `bank_transfer` y no variantes en lenguaje natural como "transferencia bancaria".
-- Se documento este ajuste residual en `policy_e3_exp3.md` y se corro `sim_e3_exp3_task13_pass5_estaciondeservicio_Rivera.json`, donde la tarea 13 obtuvo 5/5.
+- Se documento este ajuste residual en `policy_e3_exp3.md` y se corro `sim_e3_exp3_task13_pass5.json`, donde la tarea 13 obtuvo 5/5.
 
 ### Tarea 6: cambio de metodo de pago y pago total
 
@@ -143,9 +143,9 @@ Cada simulacion guardada corresponde a un experimento o evidencia de experimento
 
 | Experimento | Simulacion asociada | Archivo | Tecnica principal | Objetivo |
 |---|---|---|---|
-| 1 | `sim_e3_baseline_estaciondeservicio_Rivera.json` | `prompts/policy_e3_exp1.md` | Diagnostico baseline | Medir el agente antes de mejoras E3 |
+| 1 | `sim_e3_baseline.json` | `prompts/policy_e3_exp1.md` | Diagnostico baseline | Medir el agente antes de mejoras E3 |
 | 2 | `sim_e3_final_estaciondeservicio_Rivera.json` | `prompts/policy_e3_exp2.md` | Claridad + grounding + normalizacion | Corregir task 4 y reducir fallas de task 13 |
-| 3 | `sim_e3_exp3_task13_pass5_estaciondeservicio_Rivera.json` | `prompts/policy_e3_exp3.md` | Especificidad de factura virtual | Corregir la falla residual de task 13 |
+| 3 | `sim_e3_exp3_task13_pass5.json` | `prompts/policy_e3_exp3.md` | Especificidad de factura virtual | Corregir la falla residual de task 13 |
 
 La tecnica mas efectiva para los fallos observados fue combinar especificidad de task con grounding de argumentos antes de la tool. El error dominante no era que el modelo ignorara la policy, sino que completaba acciones validas de negocio con argumentos no identicos a los esperados por la evaluacion.
 
@@ -169,13 +169,13 @@ Archivos agregados para Entrega 3:
 
 Despues de `sim_e3_final_estaciondeservicio_Rivera.json`, se ejecuto una corrida focalizada para la tarea residual 13:
 
-- `data/simulations/sim_e3_exp3_task13_pass5_estaciondeservicio_Rivera.json`
+- `data/simulations/sim_e3_exp3_task13_pass5.json`
 
 Resultado:
 
 | Tarea | Simulacion | pass^5 | Lectura |
 |---:|---|---:|---|
-| 13 | `sim_e3_exp3_task13_pass5_estaciondeservicio_Rivera.json` | 5/5 | La correccion de factura virtual y tipo de pago canonico resolvio la falla residual |
+| 13 | `sim_e3_exp3_task13_pass5.json` | 5/5 | La correccion de factura virtual y tipo de pago canonico resolvio la falla residual |
 
 Con esta evidencia complementaria, la unica tarea fallida en la corrida completa `sim_e3_final_estaciondeservicio_Rivera.json` queda corregida en una corrida focalizada posterior.
 
@@ -189,7 +189,7 @@ python -m tau2.cli run \
   --user-llm gemini/gemma-4-26b-a4b-it \
   --num-trials 5 \
   --max-concurrency 2 \
-  --save-to sim_e3_exp3_task13_pass5_estaciondeservicio_Rivera \
+  --save-to sim_e3_exp3_task13_pass5 \
   --agent-llm-args '{"temperature": 0.0, "rate_limit_requests_per_minute": 14, "rate_limit_requests_per_day": 14000, "rate_limit_tokens_per_minute": 150000, "rate_limit_bucket": "google-free-tier-agent", "rate_limit_token_reserve": 750}' \
   --user-llm-args '{"temperature": 0.0, "rate_limit_requests_per_minute": 14, "rate_limit_requests_per_day": 14000, "rate_limit_tokens_per_minute": 150000, "rate_limit_bucket": "google-free-tier-user", "rate_limit_token_reserve": 750}'
 ```

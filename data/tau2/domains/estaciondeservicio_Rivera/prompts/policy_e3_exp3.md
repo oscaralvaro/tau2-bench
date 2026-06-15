@@ -2,7 +2,7 @@
 
 Simulacion asociada:
 
-- `data/simulations/sim_e3_exp3_task13_pass5_estaciondeservicio_Rivera.json`
+- `data/simulations/sim_e3_exp3_task13_pass5.json`
 
 Objetivo:
 
