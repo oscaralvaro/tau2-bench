@@ -2,7 +2,7 @@
 
 Simulacion asociada:
 
-- `data/simulations/sim_e3_baseline_estaciondeservicio_Rivera.json`
+- `data/simulations/sim_e3_baseline.json`
 - Copia cruda original: `data/simulations/rivera_top10_dificiles_pass5_v2.json`
 
 Objetivo:
