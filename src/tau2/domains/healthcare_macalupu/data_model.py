@@ -8,14 +8,14 @@ from tau2.environment.db import DB
 
 
 class ReferralRequestStatus(int, Enum):
-    BORRADOR = 1
-    ENVIADA = 2
-    PENDIENTE_DE_CITACION = 3
-    CITADA = 4
-    DEVUELTA = 5
-    NO_PERTINENTE = 6
-    ATENDIDA = 7
-    ANULADA = 8
+    BORRADOR = 0
+    ENVIADA = 1
+    PENDIENTE_DE_CITACION = 2
+    CITADA = 3
+    DEVUELTA = 4
+    NO_PERTINENTE = 5
+    ATENDIDA = 6
+    ANULADA = 7
 
 
 Priority = Literal["P1", "P2"]
