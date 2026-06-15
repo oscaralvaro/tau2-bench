@@ -33,10 +33,43 @@ Resumen de policy:
 - Corrida parcial corregida: `data/simulations/rivera_tasks_corregidas_pass5_v2.json`
 - Corridas posteriores de corroboracion: `data/simulations/rivera_tasks_corregidas_pass5_v4.json` y `data/simulations/rivera_tasks_corregidas_pass5_v5.json`
 - Corrida final focalizada sobre las 3 tareas mas fragiles: `data/simulations/rivera_peores3_pass10_v1.json`
+- Seleccion guardada de las 10 tareas mas dificiles: `data/tau2/domains/estaciondeservicio_Rivera/top10_tareas_dificiles.json`
 - Prompt experimental 1: `data/tau2/domains/estaciondeservicio_Rivera/prompts/policy_exp1.md`
 - Prompt experimental 2: `data/tau2/domains/estaciondeservicio_Rivera/prompts/policy_exp2.md`
 
 Nota importante: la corrida total `pass9` quedo incompleta respecto al objetivo original de pass^10. Por estabilidad, limites de Gemma/Google AI Studio y tiempo de ejecucion, no todas las tareas llegaron al mismo K: algunas tienen 6 intentos y otras 5. Aun asi, esta corrida sirve como diagnostico porque cubre todas las tareas 0-21 e identifica claramente los casos con peor reward. La corrida parcial `pass5_v2` se ejecuto despues sobre las tareas que tuvieron reward 0 en esa corrida inicial.
+
+## 2.1 Seleccion de las 10 tareas mas dificiles
+
+Ademas de las metricas por simulacion, se hizo una seleccion estructural de las 10 tareas mas dificiles del dominio. La idea no fue mirar solo el reward historico, sino combinar:
+
+- historial de fallas o fragilidad en simulaciones previas
+- cantidad de herramientas involucradas
+- cantidad de pasos dependientes
+- necesidad de grounding con tools antes de confirmar
+- uso de verificacion SMS o identidad
+- sensibilidad al orden de ejecucion y a restricciones de policy
+
+Las 10 tareas seleccionadas se guardaron en `top10_tareas_dificiles.json` para poder ejecutarlas mas adelante sin volver a reconstruir la lista.
+
+| Orden | Tarea | Descripcion breve | Por que se considera dificil |
+|---|---:|---|---|
+| 1 | 6 | Cambio de metodo de pago y pago total. | Usa 6 herramientas y exige flujo encadenado: SMS, cambio de metodo, pago exacto y consulta final de estado. |
+| 2 | 20 | Cancelacion con verificacion SMS. | Combina SMS, validacion temporal de cancelacion y una accion sensible sobre la orden. |
+| 3 | 16 | Actualizacion de datos del cliente. | Requiere identidad valida, SMS y escritura correcta de multiples campos del cliente. |
+| 4 | 21 | Rechazo por codigo SMS incorrecto. | Caso adversarial: el agente debe verificar, rechazar y no ejecutar la accion sensible. |
+| 5 | 18 | Registro de reclamo. | Depende de interpretar bien el motivo, escribir en DB y luego confirmar con grounding en tools. |
+| 6 | 2 | Nueva direccion mas registro de orden. | Tiene dos escrituras dependientes: primero direccion autorizada, luego orden completa y valida. |
+| 7 | 13 | Registro de metodo de pago mas orden. | Coordina creacion de metodo de pago y creacion de orden, con coherencia entre ambas entidades. |
+| 8 | 12 | Pago total en efectivo. | Exige monto exacto, una sola transaccion y confirmacion posterior del estado del pago. |
+| 9 | 4 | Pedido de lubricante asociado. | La validez depende de una orden de combustible previa que cumpla restricciones del dominio. |
+| 10 | 1 | Registro de cliente nuevo. | Es sensible a confirmacion explicita, momento de escritura y cierre prematuro de la conversacion. |
+
+Lectura de esta seleccion:
+
+- Las tareas `6`, `16`, `20` y `21` son las mas exigentes porque combinan acciones sensibles con SMS y varias etapas obligatorias.
+- Las tareas `2`, `4`, `12` y `13` exigen razonamiento transaccional: no basta una sola tool, hay que respetar dependencias y restricciones del dominio.
+- Las tareas `1` y `18` muestran que incluso una sola escritura puede ser dificil cuando el reward depende del momento exacto de confirmar, del grounding posterior o de la normalizacion semantica.
 
 ## 3. Resultados de la corrida total incompleta
 
