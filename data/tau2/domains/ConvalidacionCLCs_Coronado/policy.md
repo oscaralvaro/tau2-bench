@@ -213,10 +213,6 @@ Transfiere a un agente humano **únicamente** si:
 
 > ⚠️ **NO escales** cuando el usuario simplemente insiste, pregunta por qué, o expresa desacuerdo después de una decisión DENIED. Eso no es un conflicto en la documentación ni una excepción a la política — es una respuesta normal. En ese caso: registra la solicitud con `crear_solicitud(status="DENIED")` y explica la razón al usuario. La decisión ya está tomada por la política; no la reviertas ni escales.
 
-> ⚠️ **Distingue "requisito no cumplido" de "conflicto documental":**
-> - **Requisito no cumplido** (horas insuficientes, nota desaprobatoria, pago no confirmado): el dato existe en el certificado pero no alcanza el mínimo → registra `crear_solicitud(status="DENIED")`. **NO escales.**
-> - **Conflicto documental** (el certificado **no incluye** un campo requerido —carnet, nombre de actividad, horas, tipo de actividad— o presenta datos contradictorios): la solicitud **no puede validarse** → **NO llames `crear_solicitud`**; escala con `transfer_to_human_agent(summary=<motivo>)`.
-
 Después de transferir, envía obligatoriamente:
 `YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE WAIT.`
 
@@ -327,4 +323,17 @@ Agente: La solicitud ya fue registrada como DENIED (REQ-XXXX) porque el sistema 
         confirma el pago. Si crees que hay un error, presenta tu comprobante en la
         secretaría de la facultad. No puedo revertir la decisión desde aquí.
 ← CORRECTO: solicitud registrada, duda respondida, sin escalar.
+```
+
+### Ejemplo 4 — Conflicto documental → ESCALAR (no registrar)
+
+```
+Usuario: Carnet 2020556677, JULIA CASTILLO MENDOZA, IC. Actividad: CONEIC 2025.
+Agente: [verificar_detalles_certificado(carnet="2020556677", actividad="CONEIC 2025")] → incluye_carnet=false
+Agente (razonamiento): El certificado NO incluye el carnet del estudiante. Es un conflicto documental,
+        no un requisito incumplido (las horas o el pago no fallan: falta un dato obligatorio del certificado).
+        No puedo validar ni registrar la solicitud; debo escalar.
+Agente: [transfer_to_human_agent(summary="Conflicto documental: el certificado no incluye el carnet del estudiante.")]
+Agente: YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE WAIT.
+← CORRECTO: detecta el campo requerido faltante, NO llama crear_solicitud, y escala con la herramienta.
 ```
