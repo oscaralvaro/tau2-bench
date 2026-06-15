@@ -2,11 +2,11 @@
 
 Simulacion asociada:
 
-- `data/simulations/sim_e3_exp3_task13_pass5.json`
+- `data/simulations/sim_e3_exp3_task13_pass5_estaciondeservicio_Rivera.json`
 
 Objetivo:
 
-Corregir la falla residual de la tarea 13 observada en `sim_e3_final.json`.
+Corregir la falla residual de la tarea 13 observada en `sim_e3_final_estaciondeservicio_Rivera.json`.
 
 Tecnicas utilizadas:
 
@@ -26,4 +26,4 @@ Regla experimental:
 
 Resultado:
 
-- Task 13 paso de 0/5 en `sim_e3_final.json` a 5/5 en esta corrida focalizada.
+- Task 13 paso de 0/5 en `sim_e3_final_estaciondeservicio_Rivera.json` a 5/5 en esta corrida focalizada.

@@ -2,7 +2,7 @@
 
 Simulacion asociada:
 
-- `data/simulations/sim_e3_final.json`
+- `data/simulations/sim_e3_final_estaciondeservicio_Rivera.json`
 
 Objetivo:
 
