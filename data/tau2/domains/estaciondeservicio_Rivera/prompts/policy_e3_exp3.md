@@ -2,7 +2,7 @@
 
 Simulacion asociada:
 
-- Pendiente de ejecutar despues de `sim_e3_final.json`.
+- `data/simulations/sim_e3_exp3_task13_pass5.json`
 
 Objetivo:
 
@@ -24,6 +24,6 @@ Regla experimental:
   - `observaciones=None` si no hay observaciones
 - No depender de defaults de la herramienta cuando la evaluacion compara el campo.
 
-Resultado esperado:
+Resultado:
 
-- Task 13 debe pasar de 0/5 a 5/5 al volver a ejecutar `pass^5`.
+- Task 13 paso de 0/5 en `sim_e3_final.json` a 5/5 en esta corrida focalizada.
