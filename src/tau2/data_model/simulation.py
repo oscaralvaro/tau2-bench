@@ -372,7 +372,7 @@ class Results(BaseModel):
 
     @classmethod
     def load(cls, path: Path) -> "Results":
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             return cls.model_validate_json(f.read())
 
     def save(self, path: Path) -> None:
