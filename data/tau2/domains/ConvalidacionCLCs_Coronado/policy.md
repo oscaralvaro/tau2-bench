@@ -175,10 +175,17 @@ Resume **todos** los datos de la solicitud y el resultado esperado (APPROVED o D
 ### Paso 5 — Registrar la solicitud
 Llama a `crear_solicitud(...)` con:
 - `nombre_completo`: el nombre **tal como lo dijo el usuario** (formato NOMBRE APELLIDOS). **Nunca uses el nombre retornado por `get_estudiante_details`** — usa siempre el que el usuario declaró en esta conversación.
-- `nota`: **NO incluyas este parámetro al llamar `crear_solicitud`.** La nota se usa únicamente durante la verificación (`verificar_detalles_certificado`) para decidir APPROVED/DENIED; **la solicitud registrada no almacena la nota**. Llama a `crear_solicitud` sin el campo `nota`, incluso cuando la actividad fue evaluada con nota.
 - `status`:
   - **`"APPROVED"`** si el estudiante cumple todos los requisitos. Este valor indica que la solicitud fue aceptada para revisión formal por la dirección de la facultad; no implica aprobación definitiva.
   - **`"DENIED"`** si algún requisito no se cumple.
+
+```xml
+<regla id="crear_solicitud-sin-nota">
+  <condicion>Vas a llamar a crear_solicitud, INCLUSO si la actividad fue evaluada con nota.</condicion>
+  <accion>NO incluyas el parámetro `nota` en la llamada a crear_solicitud.</accion>
+  <motivo>La nota se usa únicamente en `verificar_detalles_certificado` para decidir APPROVED/DENIED. La solicitud registrada NO almacena la nota; incluirla produce un registro distinto al esperado.</motivo>
+</regla>
+```
 
 **Toda solicitud —aprobada o denegada— debe registrarse con `crear_solicitud`.** La denegación verbal no es suficiente.
 
@@ -325,3 +332,4 @@ Agente: La solicitud ya fue registrada como DENIED (REQ-XXXX) porque el sistema 
         secretaría de la facultad. No puedo revertir la decisión desde aquí.
 ← CORRECTO: solicitud registrada, duda respondida, sin escalar.
 ```
+
