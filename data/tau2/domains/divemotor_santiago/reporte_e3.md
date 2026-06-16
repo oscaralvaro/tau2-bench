@@ -8,7 +8,7 @@ La Entrega 3 se enfoco en analizar los peores casos del agente, clasificar sus f
 
 El baseline completo mostro 30/50 tareas exitosas, equivalente a 60% de pass rate. Los fallos se concentraron en cuatro tareas: 1, 3, 14 y 19. Luego se ejecutaron siete experimentos de prompt engineering, documentados con prompts intermedios y simulaciones. Los experimentos corrigieron los fallos de alcance exacto, cierre prematuro, flujo dependiente con SMS y validacion de rol por herramienta. La tarea 19 se mantuvo como el caso mas resistente.
 
-La corrida final `sim_e3_final.json` quedo parcial por errores externos de Google AI Studio (`500 Internal Server Error`) y luego limite de cuota (`429 RESOURCE_EXHAUSTED`) del plan gratuito. Se alcanzaron 28/50 simulaciones antes del bloqueo. El archivo parcial se conserva como evidencia de ejecucion y se puede reanudar cuando se libere cuota.
+La corrida final `sim_e3_final.json` se completo con 50/50 simulaciones. Durante la ejecucion se presentaron errores externos de Google AI Studio (`500 Internal Server Error`) y limite de cuota (`429 RESOURCE_EXHAUSTED`) del plan gratuito; por ello fue necesario reanudar el archivo de resultados y continuar con una API key/proyecto con cuota disponible.
 
 ## Configuracion de ejecucion
 
@@ -132,77 +132,28 @@ La tarea 19 fue el caso mas dificil. Aunque se agregaron reglas para tratar "com
 
 Este caso muestra una limitacion importante: cuando la instruccion del usuario combina comparacion, condicion y palabra "compra", el modelo prioriza el verbo comercial fuerte aunque el prompt intente restringirlo.
 
-## Resultado final parcial
+## Resultado final
 
 Archivo: `data/simulations/sim_e3_final.json`
 
-Estado: parcial por errores externos de API.
+Estado: completo, 50/50 simulaciones.
 
-| Tarea | Resultado parcial |
+| Tarea | Resultado final |
 | --- | ---: |
-| 1 | 3/3 |
-| 3 | 0/3 |
-| 7 | 0/3 |
-| 10 | 3/3 |
-| 11 | 3/3 |
-| 12 | 3/3 |
-| 14 | 0/3 |
-| 15 | 2/2 |
-| 18 | 3/3 |
-| 19 | 0/2 |
+| 1 | 5/5 |
+| 3 | 0/5 |
+| 7 | 0/5 |
+| 10 | 5/5 |
+| 11 | 5/5 |
+| 12 | 5/5 |
+| 14 | 0/5 |
+| 15 | 5/5 |
+| 18 | 5/5 |
+| 19 | 0/5 |
 
-Total parcial: 17/28 exitosas, pass rate parcial 60.7%.
+Total final: 30/50 exitosas, pass rate final 60%.
 
-La ejecucion se interrumpio por:
-
-- `litellm.InternalServerError`: Google AI Studio devolvio `500 Internal error encountered`.
-- `litellm.RateLimitError`: Google AI Studio devolvio `429 RESOURCE_EXHAUSTED`, cuota gratuita agotada para `gemma-4-26b`.
-
-## Comando para reanudar la corrida final
-
-Cuando la cuota se libere o se configure una nueva API key, se puede reanudar el archivo `sim_e3_final.json` con:
-
-```powershell
-chcp 65001 > $null
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$env:PYTHONUTF8='1'
-$env:PYTHONIOENCODING='utf-8'
-
-Get-Content .env | ForEach-Object {
-  if ($_ -match '^\s*([^#=]+)=(.*)$') {
-    $name=$matches[1].Trim()
-    $value=$matches[2].Trim().Trim('"').Trim("'")
-    [Environment]::SetEnvironmentVariable($name, $value, 'Process')
-  }
-}
-if (-not $env:GEMINI_API_KEY -and $env:GOOGLE_API_KEY) {
-  $env:GEMINI_API_KEY=$env:GOOGLE_API_KEY
-}
-
-$llmArgs = @{
-  temperature = 0.0
-  rate_limit_requests_per_minute = 3
-  rate_limit_requests_per_day = 1000
-  rate_limit_tokens_per_minute = 150000
-  rate_limit_bucket = "google-free-tier-26b-slow"
-  rate_limit_token_reserve = 750
-} | ConvertTo-Json -Compress
-$llmArgsEscaped = $llmArgs.Replace('"','\"')
-
-python -m tau2.cli run `
-  --domain divemotor_santiago `
-  --agent-llm gemini/gemma-4-26b-a4b-it `
-  --user-llm gemini/gemma-4-26b-a4b-it `
-  --num-trials 5 `
-  --task-split-name base_top10hard `
-  --max-concurrency 1 `
-  --save-to sim_e3_final `
-  --log-level ERROR `
-  --agent-llm-args $llmArgsEscaped `
-  --user-llm-args $llmArgsEscaped
-```
-
-Si pregunta si se desea reanudar, responder `y`.
+Comparacion contra baseline: el resultado agregado se mantuvo en 60%. Sin embargo, la distribucion de fallos cambio despues de los experimentos: algunas tareas originalmente fallidas fueron corregidas en experimentos aislados, pero la corrida final completa mostro que el prompt final introdujo regresiones en tareas 7 y 14. Esto refuerza que las mejoras de prompt deben validarse sobre el conjunto completo, no solo sobre una tarea puntual.
 
 ## Conclusiones
 
