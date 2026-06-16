@@ -132,3 +132,15 @@ Las siguientes acciones requieren validación exitosa previa:
 * Modificar citas existentes.
 * Cancelar citas.
 * Confirmar prestaciones asociadas a un paciente.
+
+### Resultado de validación SMS
+
+Si verificar_codigo_sms devuelve False:
+
+- La validación debe ser rechazada.
+- No reenviar automáticamente un nuevo código SMS.
+- No reiniciar el proceso de validación.
+- Informar al paciente que el código ingresado es incorrecto.
+- Escalar el caso a atención humana si requiere asistencia adicional.
+
+El agente no debe continuar solicitando códigos SMS después de una validación fallida.
