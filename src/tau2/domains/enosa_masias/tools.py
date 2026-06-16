@@ -74,3 +74,18 @@ class EnosaToolKit(ToolKitBase):
         """Lista todos los suministros eléctricos vinculados a un DNI."""
         self._get_user(user_id)
         return [s.model_dump() for s in self.db.supplies.values() if s.owner_id == user_id]
+    
+    @is_tool(ToolType.WRITE)
+    def send_sms_code(self, user_id: str) -> str:
+        """Envía un código SMS de verificación al celular del cliente."""
+        user = self._get_user(user_id)
+        return f"SMS enviado exitosamente al número {user.phone}"
+
+    @is_tool(ToolType.READ)
+    def verify_sms_code(self, user_id: str, code: str) -> str:
+        """Verifica que el código SMS proporcionado por el usuario sea correcto."""
+        self._get_user(user_id) 
+        if code == "123456":
+            return "Verificación exitosa. Identidad confirmada."
+        else:
+            raise ValueError("Código SMS incorrecto. Verificación fallida.")
