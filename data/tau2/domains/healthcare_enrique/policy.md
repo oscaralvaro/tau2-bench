@@ -108,3 +108,27 @@ El agente debe:
 - Justificar rechazos  
 - Confirmar acciones realizadas  
 - Usar lenguaje claro y empático  
+
+## 🔐 Verificación de Identidad
+
+Antes de realizar cualquier acción administrativa o clínica sobre un paciente, el agente debe completar exitosamente el proceso de verificación de identidad cuando corresponda.
+
+### Validación SMS
+
+Cuando se utilice verificación mediante código SMS:
+
+1. El agente debe enviar un código SMS al paciente.
+2. El agente debe verificar que el código proporcionado coincida con el código registrado.
+3. Si el código es incorrecto, la validación debe ser rechazada.
+4. No se deben realizar reservas, modificaciones o cancelaciones de agenda antes de completar exitosamente la validación.
+5. El agente no debe reiniciar indefinidamente el proceso de validación tras un código incorrecto.
+6. Ante fallas repetidas de validación, el agente debe escalar el caso a atención humana.
+
+### Operaciones sensibles
+
+Las siguientes acciones requieren validación exitosa previa:
+
+* Reservar bloques de agenda.
+* Modificar citas existentes.
+* Cancelar citas.
+* Confirmar prestaciones asociadas a un paciente.
