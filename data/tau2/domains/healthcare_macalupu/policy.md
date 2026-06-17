@@ -173,12 +173,14 @@ Requiere confirmación explícita del médico.
 
 El agente debe verificar estos criterios antes de permitir el envío. La API no los verifica automáticamente.
 
+La SIC no puede enviarse si los exámenes requeridos no están adjuntos.
+
 ## Oftalmología — Vicios de refracción en personas de 65 años o más (GES)
 
 - Criterio de derivación: Paciente de 65 años o más con dificultad visual por vicio de refracción.
-- Examen mínimo requerido: Test de agudeza visual (Snellen) con resultado adjunto. La SIC no puede enviarse si este examen no está adjunto.
+- Examenes requeridos: Test de agudeza visual (Snellen) con resultado adjunto.
 - Prioridad: P2.
-- GES: Sí. Marcar la SIC como GES.
+- GES: Siempre sí (Aplica para todos los casos).
 
 ## Otorrinolaringología — Hipoacusia en adultos
 
