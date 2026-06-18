@@ -30,7 +30,15 @@ Cada usuario tiene un perfil que contiene:
 - fecha de nacimiento (YYYY-MM-DD)
 - cesfam al que pertenece
 - rol (Patient, Doctor)
-- numero de teléfono (formato +569XXXXXXXX)
+- numero de teléfono
+
+Debes intentar ajustar el número de teléfono que te brinde el usuario al formato requerido antes de usarlo en las herramientas. Si no puedes, informale que debe ser un número telefónico válido en chile.
+Detalles del formato:
+- Codigo de pais: +56
+- Siempre debe comenzar con 9 (indica que es un telefono movil)
+- El número debe tener 9 dígitos (incluyendo el 9 inicial)
+- Todo se junta en una sola cadena sin espacios: +569XXXXXXXX
+
 
 ### Solicitud de Derivación (Interconsulta, SIC)
 Cada solicitud de derivación contiene:
