@@ -1,5 +1,10 @@
 from tau2.data_model.message import ToolCall
-from tau2.domains.lopez.environment import get_environment
+from tau2.domains.lopez.environment import get_environment as _get_environment
+
+
+def get_environment(*args, **kwargs):
+    kwargs.setdefault("use_rag", False)
+    return _get_environment(*args, **kwargs)
 
 
 def test_revisar_bandeja_sms_devuelve_mensaje_recibido():

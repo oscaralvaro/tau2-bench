@@ -9,10 +9,12 @@ from tau2.domains.lopez.user_tools import LopezUserTools
 from tau2.domains.lopez.utils import (
     GAMERBIT_STORE_DB_PATH,
     GAMERBIT_STORE_POLICY_PATH,
+    GAMERBIT_STORE_POLICY_RAG_PATH,
     GAMERBIT_STORE_TASK_SET_PATH,
     GAMERBIT_STORE_USER_DB_PATH,
 )
 from tau2.environment.environment import Environment
+from tau2.environment.rag import THINK_INSTRUCTION, ChromaPolicyIndex
 from tau2.utils import load_file
 
 
@@ -66,6 +68,10 @@ def get_environment(
     db: Optional[GamerBitStoreDB] = None,
     user_db: Optional[LopezUserDB] = None,
     solo_mode: bool = False,
+    chunking_strategy: str = "headers",
+    retrieval_k: int = 3,
+    use_think: bool = False,
+    use_rag: bool = True,
 ) -> Environment:
     if solo_mode:
         raise ValueError("lopez no soporta solo_mode")
@@ -76,10 +82,24 @@ def get_environment(
             user_db = LopezUserDB.load(GAMERBIT_STORE_USER_DB_PATH)
         else:
             user_db = LopezUserDB()
-    tools = GamerBitStoreTools(db)
+    if use_rag:
+        with open(GAMERBIT_STORE_POLICY_PATH, "r", encoding="utf-8") as fp:
+            policy_text = fp.read()
+        policy_index = ChromaPolicyIndex(policy_text, strategy=chunking_strategy)
+        tools = GamerBitStoreTools(
+            db,
+            policy_index=policy_index,
+            retrieval_k=retrieval_k,
+        )
+        with open(GAMERBIT_STORE_POLICY_RAG_PATH, "r", encoding="utf-8") as fp:
+            policy = fp.read()
+        if use_think:
+            policy = policy + THINK_INSTRUCTION
+    else:
+        tools = GamerBitStoreTools(db)
+        with open(GAMERBIT_STORE_POLICY_PATH, "r", encoding="utf-8") as fp:
+            policy = fp.read()
     user_tools = LopezUserTools(user_db)
-    with open(GAMERBIT_STORE_POLICY_PATH, "r") as fp:
-        policy = fp.read()
     return LopezEnvironment(
         domain_name="lopez",
         policy=policy,

@@ -1,5 +1,46 @@
 from tau2.data_model.message import ToolCall
-from tau2.domains.lopez.environment import get_environment
+from tau2.domains.lopez.environment import get_environment as _get_environment
+from tau2.domains.lopez.tools import GamerBitStoreTools
+from tau2.environment.rag import ChromaPolicyIndex
+
+
+def get_environment(*args, **kwargs):
+    kwargs.setdefault("use_rag", False)
+    return _get_environment(*args, **kwargs)
+
+
+def _fake_embed(texts):
+    import math
+    import random
+
+    def make_vec(text, dim=8):
+        rng = random.Random(hash(text) & 0xFFFFFFFF)
+        v = [rng.gauss(0, 1) for _ in range(dim)]
+        n = math.sqrt(sum(x * x for x in v)) or 1.0
+        return [x / n for x in v]
+
+    return [make_vec(t) for t in texts]
+
+
+SAMPLE_POLICY = """
+## Devoluciones
+Puedes devolver cualquier articulo en 30 dias con recibo.
+
+## Cancelaciones
+Puedes cancelar dentro de las 24 horas sin cargo.
+"""
+
+
+def test_retrieve_policy_returns_text():
+    index = ChromaPolicyIndex(SAMPLE_POLICY, strategy="headers", _embed_fn=_fake_embed)
+    kit = GamerBitStoreTools(db=None, policy_index=index)
+    result = kit.retrieve_policy(query="puedo cancelar mi pedido?")
+    assert isinstance(result, str) and len(result) > 0
+
+
+def test_toolkit_has_think_tool():
+    kit = GamerBitStoreTools(db=None)
+    assert "think" in kit.tools
 
 
 def test_buscar_productos_por_categoria_y_presupuesto():

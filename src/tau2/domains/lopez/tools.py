@@ -12,16 +12,21 @@ from tau2.domains.lopez.data_model import (
     TipoGarantia,
     VerificacionSMS,
 )
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.toolkit import RAGToolKit, ToolType, is_tool
 
 
-class GamerBitStoreTools(ToolKitBase):
-    """Tools for GamerBit Store sales, support, and warranty workflows."""
+class GamerBitStoreTools(RAGToolKit):
+    """Tools for GamerBit Store sales, support, warranty, and policy retrieval."""
 
     db: GamerBitStoreDB
 
-    def __init__(self, db: GamerBitStoreDB) -> None:
-        super().__init__(db)
+    def __init__(
+        self,
+        db: GamerBitStoreDB = None,
+        policy_index=None,
+        retrieval_k: int = 3,
+    ) -> None:
+        super().__init__(db, policy_index=policy_index, retrieval_k=retrieval_k)
 
     def _get_cliente(self, cliente_id: str) -> Cliente:
         if cliente_id not in self.db.clientes:
