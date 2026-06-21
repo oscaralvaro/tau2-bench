@@ -63,8 +63,8 @@ Write-Host "Estrategia: $strategy"
 Write-Host "Think: $useThink"
 Write-Host "Archivo: data/simulations/$saveName.json"
 
-# La respuesta y permite reanudar el checkpoint si el archivo ya existe.
-"y" | python -m tau2.cli run `
+# Las respuestas permiten reanudar aunque el checkpoint tenga un commit anterior.
+"y`ny`ny" | python -m tau2.cli run `
     --domain divemotor_santiago `
     --agent-llm gemini/gemma-4-26b-a4b-it `
     --user-llm gemini/gemma-4-26b-a4b-it `
