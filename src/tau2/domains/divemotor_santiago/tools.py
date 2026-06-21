@@ -1,8 +1,15 @@
-from tau2.environment.toolkit import ToolKitBase, is_tool, ToolType
+from tau2.environment.toolkit import RAGToolKit, is_tool, ToolType
 from .data_model import CodigoSMS, Cotizacion, Pedido
 
 
-class DivemotorTools(ToolKitBase):
+class DivemotorTools(RAGToolKit):
+    def __init__(self, db=None, policy_index=None, retrieval_k: int = 3):
+        super().__init__(
+            db=db,
+            policy_index=policy_index,
+            retrieval_k=retrieval_k,
+        )
+
     def _codigo_para_cliente(self, cliente_id: str) -> str:
         return f"{sum(ord(c) for c in cliente_id) + 482000}"
 
