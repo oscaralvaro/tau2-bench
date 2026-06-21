@@ -4,9 +4,9 @@ import uuid
 import random
 
 from tau2.domains.academico_jefersoncorrea.data_model import AcademicDB, Student, Course, Enrollment
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.toolkit import RAGToolKit, ToolType, is_tool
 
-class AcademicTools(ToolKitBase):
+class AcademicTools(RAGToolKit):
     """
     Herramientas para el agente de Orientación Académica.
     Usa estas herramientas para consultar información del estudiante, buscar cursos disponibles, 
@@ -15,8 +15,8 @@ class AcademicTools(ToolKitBase):
 
     db: AcademicDB
 
-    def __init__(self, db: AcademicDB) -> None:
-        super().__init__(db)
+    def __init__(self, db: AcademicDB = None, policy_index=None, retrieval_k: int = 3) -> None:
+        super().__init__(db, policy_index=policy_index, retrieval_k=retrieval_k)
 
     # --- Métodos Privados Auxiliares ---
     def _get_student(self, student_id: str) -> Student:

@@ -1,8 +1,12 @@
+import math
+import random
+
 import pytest
 from tau2.domains.academico_jefersoncorrea.data_model import AcademicDB, Student, Course, Enrollment
 from tau2.domains.academico_jefersoncorrea.environment import get_environment
 from tau2.domains.academico_jefersoncorrea.tools import AcademicTools
 from tau2.domains.academico_jefersoncorrea.user_tools import AcademicUserTools
+from tau2.environment.rag import ChromaPolicyIndex
 
 @pytest.fixture
 def tools():
@@ -171,3 +175,37 @@ def test_sms_verification_rejects_wrong_role(tools):
 
     assert "Autorizaci" in verification_result
     assert tools.db.students["u2024001"].current_sms_code == code
+
+def _fake_embed(texts):
+    def make_vec(text, dim=8):
+        rng = random.Random(hash(text) & 0xFFFFFFFF)
+        vec = [rng.gauss(0, 1) for _ in range(dim)]
+        norm = math.sqrt(sum(x * x for x in vec)) or 1.0
+        return [x / norm for x in vec]
+
+    return [make_vec(text) for text in texts]
+
+
+SAMPLE_POLICY = """
+## Matriculas
+Antes de matricular un curso, valida prerrequisitos, vacantes y cruce de horario.
+
+## Retiros
+Antes de retirar un curso activo, verifica identidad y clave dinamica.
+"""
+
+
+def test_retrieve_policy_returns_text():
+    index = ChromaPolicyIndex(SAMPLE_POLICY, strategy="headers", _embed_fn=_fake_embed)
+    kit = AcademicTools(db=None, policy_index=index)
+
+    result = kit.retrieve_policy(query="puedo matricular un curso con cruce de horario")
+
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+
+def test_toolkit_has_think_tool():
+    kit = AcademicTools(db=None)
+
+    assert "think" in kit.tools
