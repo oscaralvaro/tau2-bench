@@ -1,3 +1,6 @@
+import math
+import random
+
 import pytest
 
 from tau2.data_model.message import ToolCall
@@ -10,7 +13,28 @@ from tau2.domains.hotel_calle.data_model import (
     User,
 )
 from tau2.domains.hotel_calle.environment import get_environment
+from tau2.domains.hotel_calle.tools import HotelCalleTools
 from tau2.environment.environment import Environment
+from tau2.environment.rag import ChromaPolicyIndex
+
+
+SAMPLE_POLICY = """
+## Reservas
+Las reservas nuevas requieren nombre, habitacion, fechas y numero de huespedes.
+
+## Cancelaciones
+Las cancelaciones de reservas existentes requieren verificar la identidad.
+"""
+
+
+def _fake_embed(texts):
+    def make_vec(text, dim=8):
+        rng = random.Random(hash(text) & 0xFFFFFFFF)
+        vector = [rng.gauss(0, 1) for _ in range(dim)]
+        norm = math.sqrt(sum(value * value for value in vector)) or 1.0
+        return [value / norm for value in vector]
+
+    return [make_vec(text) for text in texts]
 
 
 @pytest.fixture
@@ -69,7 +93,23 @@ def hotel_db() -> HotelCalleDB:
 
 @pytest.fixture
 def environment(hotel_db: HotelCalleDB) -> Environment:
-    return get_environment(hotel_db)
+    return get_environment(hotel_db, use_rag=False)
+
+
+def test_retrieve_policy_returns_text():
+    index = ChromaPolicyIndex(
+        SAMPLE_POLICY,
+        strategy="headers",
+        _embed_fn=_fake_embed,
+    )
+    kit = HotelCalleTools(db=None, policy_index=index)
+    result = kit.retrieve_policy(query="Puedo cancelar una reserva?")
+    assert isinstance(result, str) and len(result) > 0
+
+
+def test_toolkit_has_think_tool():
+    kit = HotelCalleTools(db=None)
+    assert "think" in kit.tools
 
 
 def test_create_reservation(environment: Environment):

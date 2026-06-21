@@ -8,16 +8,25 @@ from tau2.domains.hotel_calle.data_model import (
     User,
     VerificationCode,
 )
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.toolkit import RAGToolKit, ToolType, is_tool
 
 
-class HotelCalleTools(ToolKitBase):
-    """Tools for a simple hotel reception chatbox."""
+class HotelCalleTools(RAGToolKit):
+    """Hotel reception tools with RAG-based policy retrieval."""
 
     db: HotelCalleDB
 
-    def __init__(self, db: HotelCalleDB) -> None:
-        super().__init__(db)
+    def __init__(
+        self,
+        db: HotelCalleDB = None,
+        policy_index=None,
+        retrieval_k: int = 3,
+    ) -> None:
+        super().__init__(
+            db,
+            policy_index=policy_index,
+            retrieval_k=retrieval_k,
+        )
 
     def _get_room_type(self, room_type_id: str) -> RoomType:
         if room_type_id not in self.db.room_types:
