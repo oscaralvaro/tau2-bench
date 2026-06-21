@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Optional
 
 from tau2.data_model.tasks import Task
@@ -46,6 +47,16 @@ class HotelCalleEnvironment(Environment):
             )
 
 
+@lru_cache(maxsize=4)
+def _get_policy_index(chunking_strategy: str) -> ChromaPolicyIndex:
+    with open(HOTEL_CALLE_POLICY_PATH, "r", encoding="utf-8") as fp:
+        policy_text = fp.read()
+    return ChromaPolicyIndex(
+        policy_text,
+        strategy=chunking_strategy,
+    )
+
+
 def get_environment(
     db: Optional[HotelCalleDB] = None,
     solo_mode: bool = False,
@@ -60,12 +71,7 @@ def get_environment(
         db = HotelCalleDB.load(HOTEL_CALLE_DB_PATH)
 
     if use_rag:
-        with open(HOTEL_CALLE_POLICY_PATH, "r", encoding="utf-8") as fp:
-            policy_text = fp.read()
-        policy_index = ChromaPolicyIndex(
-            policy_text,
-            strategy=chunking_strategy,
-        )
+        policy_index = _get_policy_index(chunking_strategy)
         tools = HotelCalleTools(
             db,
             policy_index=policy_index,
