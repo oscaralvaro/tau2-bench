@@ -17,10 +17,12 @@ from tau2.domains.estaciondeservicio_Rivera.user_tools import (
 from tau2.domains.estaciondeservicio_Rivera.utils import (
     ESTACIONDESERVICIO_RIVERA_DB_PATH,
     ESTACIONDESERVICIO_RIVERA_POLICY_PATH,
+    ESTACIONDESERVICIO_RIVERA_POLICY_RAG_PATH,
     ESTACIONDESERVICIO_RIVERA_TASK_SET_PATH,
     ESTACIONDESERVICIO_RIVERA_USER_DB_PATH,
 )
 from tau2.environment.environment import Environment
+from tau2.environment.rag import THINK_INSTRUCTION, ChromaPolicyIndex
 from tau2.utils import get_dict_hash, load_file
 
 
@@ -84,6 +86,10 @@ def get_environment(
     db: Optional[GrifoDB] = None,
     user_db: Optional[RiveraUserDB] = None,
     solo_mode: bool = False,
+    chunking_strategy: str = "headers",
+    retrieval_k: int = 3,
+    use_think: bool = False,
+    use_rag: bool = True,
 ) -> Environment:
     if solo_mode:
         raise ValueError("estaciondeservicio_Rivera domain does not support solo mode")
@@ -94,10 +100,24 @@ def get_environment(
             user_db = RiveraUserDB.load(ESTACIONDESERVICIO_RIVERA_USER_DB_PATH)
         else:
             user_db = RiveraUserDB()
-    tools = EstacionDeServicioRiveraTools(db)
+
+    if use_rag:
+        with open(ESTACIONDESERVICIO_RIVERA_POLICY_PATH, "r", encoding="utf-8") as fp:
+            policy_text = fp.read()
+        policy_index = ChromaPolicyIndex(policy_text, strategy=chunking_strategy)
+        tools = EstacionDeServicioRiveraTools(
+            db, policy_index=policy_index, retrieval_k=retrieval_k
+        )
+        with open(ESTACIONDESERVICIO_RIVERA_POLICY_RAG_PATH, "r", encoding="utf-8") as fp:
+            policy = fp.read()
+        if use_think:
+            policy = policy + THINK_INSTRUCTION
+    else:
+        tools = EstacionDeServicioRiveraTools(db)
+        with open(ESTACIONDESERVICIO_RIVERA_POLICY_PATH, "r", encoding="utf-8") as fp:
+            policy = fp.read()
+
     user_tools = EstacionDeServicioRiveraUserTools(user_db)
-    with open(ESTACIONDESERVICIO_RIVERA_POLICY_PATH, "r") as fp:
-        policy = fp.read()
     return EstacionDeServicioRiveraEnvironment(
         domain_name="estaciondeservicio_Rivera",
         policy=policy,

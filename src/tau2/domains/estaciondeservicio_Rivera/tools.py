@@ -22,7 +22,8 @@ from tau2.domains.estaciondeservicio_Rivera.data_model import (
     SMSVerification,
     VirtualInvoice,
 )
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.rag import ChromaPolicyIndex
+from tau2.environment.toolkit import RAGToolKit, ToolType, is_tool
 
 
 class StockInfo(BaseModel):
@@ -108,13 +109,18 @@ class SMSVerificationResult(BaseModel):
     verified: bool = Field(description="Whether the code was verified successfully")
 
 
-class EstacionDeServicioRiveraTools(ToolKitBase):
+class EstacionDeServicioRiveraTools(RAGToolKit):
     """Toolkit for the fuel-station delivery-order domain."""
 
     db: FuelStationDB
 
-    def __init__(self, db: FuelStationDB) -> None:
-        super().__init__(db)
+    def __init__(
+        self,
+        db: FuelStationDB,
+        policy_index: Optional[ChromaPolicyIndex] = None,
+        retrieval_k: int = 3,
+    ) -> None:
+        super().__init__(db, policy_index=policy_index, retrieval_k=retrieval_k)
 
     def _get_now(self) -> datetime.datetime:
         # Keep simulations deterministic and aligned with the task dates.
