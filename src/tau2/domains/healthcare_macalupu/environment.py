@@ -10,24 +10,12 @@ from tau2.domains.healthcare_macalupu.user_tools import HealthcareUserTools
 from tau2.domains.healthcare_macalupu.utils import (
     HEALTHCARE_DB_PATH,
     HEALTHCARE_POLICY_PATH,
+    HEALTHCARE_POLICY_RAG_PATH,
     HEALTHCARE_TASK_SET_PATH,
 )
 from tau2.environment.environment import Environment
+from tau2.environment.rag import THINK_INSTRUCTION, ChromaPolicyIndex, ChunkingStrategy
 from tau2.utils import load_file
-
-
-class HealthcareEnvironment(Environment):
-    tools: HealthcareTools
-    user_tools: HealthcareUserTools
-
-    def __init__(
-        self,
-        domain_name: str,
-        policy: str,
-        tools: HealthcareTools,
-        user_tools: HealthcareUserTools,
-    ):
-        super().__init__(domain_name, policy, tools, user_tools)
 
 
 # ---------------------------------------------------------------------------
@@ -37,6 +25,9 @@ def get_environment(
     db: Optional[HealthcareDB] = None,
     user_db: Optional[HealthcareUserDB] = None,
     solo_mode: bool = False,
+    chunking_strategy: ChunkingStrategy = "headers",
+    retrieval_k: int = 3,
+    use_think: bool = False,
 ) -> Environment:
 
     if solo_mode:
@@ -50,13 +41,24 @@ def get_environment(
     auth_service = AuthCodeService()
     auth_service.add_observer(user_db)
 
-    tools = HealthcareTools(db, auth_service)  # pyright: ignore[reportArgumentType]
+    with open(HEALTHCARE_POLICY_PATH, "r", encoding="utf-8") as fp:
+        policy_text = fp.read()
+    policy_index = ChromaPolicyIndex(policy_text, strategy=chunking_strategy)
+
+    tools = HealthcareTools(
+        db=db,  # pyright: ignore[reportArgumentType]
+        auth_service=auth_service,
+        policy_index=policy_index,
+        retrieval_k=retrieval_k,
+    )
     user_tools = HealthcareUserTools(user_db)
 
-    with open(HEALTHCARE_POLICY_PATH, "r", encoding="utf-8") as fp:
+    with open(HEALTHCARE_POLICY_RAG_PATH, "r", encoding="utf-8") as fp:
         policy = fp.read()
+    if use_think:
+        policy = policy + f"\n\n{THINK_INSTRUCTION}"
 
-    return HealthcareEnvironment(
+    return Environment(
         domain_name="healthcare_macalupu",
         policy=policy,
         tools=tools,

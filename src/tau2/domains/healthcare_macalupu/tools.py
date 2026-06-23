@@ -12,7 +12,7 @@ from tau2.domains.healthcare_macalupu.data_model import (
     User,
     UserRole,
 )
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.toolkit import ChromaPolicyIndex, RAGToolKit, ToolType, is_tool
 
 # States from which a SIC can be cancelled
 _CANCELLABLE_STATES: set[ReferralRequestStatus] = {
@@ -28,14 +28,20 @@ _SENT_STATES: set[ReferralRequestStatus] = {
 }
 
 
-class HealthcareTools(ToolKitBase):
+class HealthcareTools(RAGToolKit):
     """Tools for the Healthcare (Chilean health referral) domain."""
 
     db: HealthcareDB
     auth_service: AuthCodeService
 
-    def __init__(self, db: HealthcareDB, auth_service: AuthCodeService) -> None:
-        super().__init__(db)
+    def __init__(
+        self,
+        db: HealthcareDB,
+        auth_service: AuthCodeService,
+        policy_index: Optional[ChromaPolicyIndex] = None,
+        retrieval_k: int = 3,
+    ) -> None:
+        super().__init__(db, policy_index, retrieval_k)
         self.auth_service = auth_service
 
     def _verify_valid_run(self, run: str) -> None:
