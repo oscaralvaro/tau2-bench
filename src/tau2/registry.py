@@ -16,6 +16,11 @@ from tau2.domains.airline.environment import (
 )
 
 # START Domain: Burger environment
+from tau2.domains.salud_mendoza_lista.environment import (
+    get_environment as salud_lista_get_env,
+    get_tasks as salud_lista_get_tasks,
+    get_tasks_split as salud_lista_get_splits,
+)
 from tau2.domains.burger.environment import (
     get_environment as burger_domain_get_environment,
 )
@@ -323,6 +328,12 @@ class Registry:
 # Create a global registry instance
 try:
     registry = Registry()
+    registry.register_domain(salud_lista_get_env, "salud_mendoza_lista")
+    registry.register_tasks(
+        salud_lista_get_tasks,
+        "salud_mendoza_lista",
+        get_task_splits=salud_lista_get_splits,
+    )
     logger.debug("Registering default components...")
     registry.register_user(UserSimulator, "user_simulator")
     registry.register_user(DummyUser, "dummy_user")
