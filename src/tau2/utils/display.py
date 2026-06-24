@@ -22,6 +22,10 @@ from tau2.registry import registry
 from tau2.metrics.agent_metrics import AgentMetrics, is_successful
 
 
+def _status_marker(ok: bool) -> str:
+    return "[OK]" if ok else "[X]"
+
+
 def _extract_tool_calls(messages: list[Message]) -> list[dict[str, Any]]:
     tool_calls = []
     for message in messages:
@@ -198,7 +202,8 @@ class ConsoleDisplay:
 
         settings_content = Panel(
             f"[white]Save To:[/] {config.save_to or 'Not specified'}\n"
-            f"[white]Max Concurrency:[/] {config.max_concurrency}",
+            f"[white]Max Concurrency:[/] {config.max_concurrency}\n"
+            f"[white]Env Args:[/]\n{json.dumps(config.env_args, indent=2)}",
             title="[bold cyan]Additional Settings",
             border_style="cyan",
         )
@@ -340,7 +345,7 @@ class ConsoleDisplay:
             sim_info.append("User Cost: ", style="bold cyan")
             sim_info.append(f"${simulation.user_cost:.4f}\n")
         if simulation.reward_info:
-            marker = "✅" if is_successful(simulation.reward_info.reward) else "❌"
+            marker = _status_marker(is_successful(simulation.reward_info.reward))
             sim_info.append("Reward: ", style="bold cyan")
             if simulation.reward_info.reward_breakdown:
                 breakdown = sorted(
@@ -360,7 +365,7 @@ class ConsoleDisplay:
             if simulation.reward_info.db_check:
                 sim_info.append("\nDB Check:", style="bold magenta")
                 sim_info.append(
-                    f"{'✅' if simulation.reward_info.db_check.db_match else '❌'} {simulation.reward_info.db_check.db_reward}\n"
+                    f"{_status_marker(simulation.reward_info.db_check.db_match)} {simulation.reward_info.db_check.db_reward}\n"
                 )
 
             # Add env assertions if present
@@ -368,7 +373,7 @@ class ConsoleDisplay:
                 sim_info.append("\nEnv Assertions:\n", style="bold magenta")
                 for i, assertion in enumerate(simulation.reward_info.env_assertions):
                     sim_info.append(
-                        f"- {i}: {assertion.env_assertion.env_type} {assertion.env_assertion.func_name} {'✅' if assertion.met else '❌'} {assertion.reward}\n"
+                        f"- {i}: {assertion.env_assertion.env_type} {assertion.env_assertion.func_name} {_status_marker(assertion.met)} {assertion.reward}\n"
                     )
 
             # Add action checks if present
@@ -376,7 +381,7 @@ class ConsoleDisplay:
                 sim_info.append("\nAction Checks:\n", style="bold magenta")
                 for i, check in enumerate(simulation.reward_info.action_checks):
                     sim_info.append(
-                        f"- {i}: {check.action.name} {'✅' if check.action_match else '❌'} {check.action_reward}\n"
+                        f"- {i}: {check.action.name} {_status_marker(check.action_match)} {check.action_reward}\n"
                     )
 
             # Add communication checks if present
@@ -384,7 +389,7 @@ class ConsoleDisplay:
                 sim_info.append("\nCommunicate Checks:\n", style="bold magenta")
                 for i, check in enumerate(simulation.reward_info.communicate_checks):
                     sim_info.append(
-                        f"- {i}: {check.info} {'✅' if check.met else '❌'}\n"
+                        f"- {i}: {check.info} {_status_marker(check.met)}\n"
                     )
 
             # Add NL assertions if present
@@ -392,7 +397,7 @@ class ConsoleDisplay:
                 sim_info.append("\nNL Assertions:\n", style="bold magenta")
                 for i, assertion in enumerate(simulation.reward_info.nl_assertions):
                     sim_info.append(
-                        f"- {i}: {assertion.nl_assertion} {'✅' if assertion.met else '❌'}\n\t{assertion.justification}\n"
+                        f"- {i}: {assertion.nl_assertion} {_status_marker(assertion.met)}\n\t{assertion.justification}\n"
                     )
 
             # Add additional info if present
@@ -424,7 +429,7 @@ class ConsoleDisplay:
                         ):
                             matched_call = call
                             break
-                    status = "✅" if matched_call else "❌"
+                    status = _status_marker(matched_call is not None)
                     expected_str = action.get_func_format()
                     sim_info.append(
                         f"- {i}: {action.requestor}::{expected_str} {status}\n"
@@ -451,7 +456,7 @@ class ConsoleDisplay:
                     simulation.messages, expected_comm
                 )
                 for i, check in enumerate(comm_checks):
-                    status = "✅" if check.met else "❌"
+                    status = _status_marker(check.met)
                     sim_info.append(f"- {i}: {check.info} {status}\n")
                     sim_info.append(f"  {check.justification}\n")
 
@@ -627,7 +632,7 @@ class MarkdownDisplay:
             if sim.reward_info.db_check:
                 output.append("\n**DB Check**")
                 output.append(
-                    f"- Status: {'✅' if sim.reward_info.db_check.db_match else '❌'} {sim.reward_info.db_check.db_reward}"
+                    f"- Status: {_status_marker(sim.reward_info.db_check.db_match)} {sim.reward_info.db_check.db_reward}"
                 )
 
             # Add env assertions if present
@@ -635,7 +640,7 @@ class MarkdownDisplay:
                 output.append("\n**Env Assertions**")
                 for i, assertion in enumerate(sim.reward_info.env_assertions):
                     output.append(
-                        f"- {i}: {assertion.env_assertion.env_type} {assertion.env_assertion.func_name} {'✅' if assertion.met else '❌'} {assertion.reward}"
+                        f"- {i}: {assertion.env_assertion.env_type} {assertion.env_assertion.func_name} {_status_marker(assertion.met)} {assertion.reward}"
                     )
 
             # Add action checks if present
@@ -643,7 +648,7 @@ class MarkdownDisplay:
                 output.append("\n**Action Checks**")
                 for i, check in enumerate(sim.reward_info.action_checks):
                     output.append(
-                        f"- {i}: {check.action.name} {'✅' if check.action_match else '❌'} {check.action_reward}"
+                        f"- {i}: {check.action.name} {_status_marker(check.action_match)} {check.action_reward}"
                     )
 
             # Add communication checks if present
@@ -651,7 +656,7 @@ class MarkdownDisplay:
                 output.append("\n**Communicate Checks**")
                 for i, check in enumerate(sim.reward_info.communicate_checks):
                     output.append(
-                        f"- {i}: {check.info} {'✅' if check.met else '❌'} {check.justification}"
+                        f"- {i}: {check.info} {_status_marker(check.met)} {check.justification}"
                     )
 
             # Add NL assertions if present
@@ -659,7 +664,7 @@ class MarkdownDisplay:
                 output.append("\n**NL Assertions**")
                 for i, assertion in enumerate(sim.reward_info.nl_assertions):
                     output.append(
-                        f"- {i}: {assertion.nl_assertion} {'✅' if assertion.met else '❌'} {assertion.justification}"
+                        f"- {i}: {assertion.nl_assertion} {_status_marker(assertion.met)} {assertion.justification}"
                     )
 
             # Add additional info if present

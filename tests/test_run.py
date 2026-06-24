@@ -34,6 +34,7 @@ def run_config() -> RunConfig:
         llm_args_agent={},
         llm_user="gpt-3.5-turbo",
         llm_args_user={},
+        env_args={},
         num_trials=3,
         max_steps=20,
         max_errors=10,
@@ -54,6 +55,7 @@ def run_config_solo() -> RunConfig:
         llm_args_agent={},
         llm_user="gpt-3.5-turbo",
         llm_args_user={},
+        env_args={},
         num_trials=3,
         max_steps=20,
         max_errors=10,
@@ -80,6 +82,39 @@ def test_get_tasks():
     tasks = get_tasks("mock", task_ids=["create_task_1"])
     assert len(tasks) == 1
     assert tasks[0].id == "create_task_1"
+
+
+def test_get_environment_info_passes_env_args(monkeypatch):
+    captured = {}
+
+    class DummyEnvironment:
+        def get_info(self, include_tool_info: bool = False):
+            return {"include_tool_info": include_tool_info, "kwargs": captured.copy()}
+
+    def fake_env_constructor(_domain):
+        def _build(**kwargs):
+            captured["env_kwargs"] = kwargs
+            return DummyEnvironment()
+
+        return _build
+
+    monkeypatch.setattr(
+        "tau2.run.registry.get_env_constructor",
+        fake_env_constructor,
+    )
+
+    from tau2.run import get_environment_info
+
+    result = get_environment_info(
+        "mock",
+        include_tool_info=True,
+        env_args={"chunking_strategy": "headers", "retrieval_k": 3},
+    )
+    assert result["include_tool_info"] is True
+    assert result["kwargs"]["env_kwargs"] == {
+        "chunking_strategy": "headers",
+        "retrieval_k": 3,
+    }
 
 
 def test_simplified_run(domain_name: str):

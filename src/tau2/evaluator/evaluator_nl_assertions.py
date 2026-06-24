@@ -1,4 +1,6 @@
 import json
+import os
+import re
 
 from tau2.config import DEFAULT_LLM_NL_ASSERTIONS, DEFAULT_LLM_NL_ASSERTIONS_ARGS
 from tau2.data_model.message import Message, SystemMessage, UserMessage
@@ -112,12 +114,15 @@ class NLAssertionsEvaluator:
             UserMessage(role="user", content=user_prompt),
         ]
 
+        evaluator_model = cls._get_evaluator_model()
+
         assistant_message = generate(
-            model=DEFAULT_LLM_NL_ASSERTIONS,
+            model=evaluator_model,
             messages=messages,
+            response_format={"type": "json_object"},
             **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
         )
-        result_data = json.loads(assistant_message.content)
+        result_data = cls._parse_result_json(assistant_message.content)
         return [
             NLAssertionCheck(
                 nl_assertion=result["expectedOutcome"],
@@ -126,3 +131,41 @@ class NLAssertionsEvaluator:
             )
             for result in result_data.get("results", [])
         ]
+
+    @classmethod
+    def _get_evaluator_model(cls) -> str:
+        """
+        Prefer the configured NL evaluator model, but fall back to Gemma when the
+        environment only has Google AI Studio credentials available.
+        """
+        has_openai_key = bool(
+            os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_ADMIN_KEY")
+        )
+        has_google_key = bool(
+            os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        )
+        if not has_openai_key and has_google_key:
+            return os.getenv(
+                "TAU2_NL_ASSERTIONS_MODEL",
+                "gemini/gemma-4-26b-a4b-it",
+            )
+        return DEFAULT_LLM_NL_ASSERTIONS
+
+    @classmethod
+    def _parse_result_json(cls, content: str | None) -> dict:
+        if not content:
+            raise ValueError("NL assertion evaluator returned empty content.")
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            pass
+
+        fenced_match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", content, re.DOTALL)
+        if fenced_match:
+            return json.loads(fenced_match.group(1))
+
+        object_match = re.search(r"(\{.*\})", content, re.DOTALL)
+        if object_match:
+            return json.loads(object_match.group(1))
+
+        raise ValueError(f"Could not parse evaluator JSON: {content}")

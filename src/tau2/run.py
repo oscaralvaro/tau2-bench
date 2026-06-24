@@ -2,9 +2,10 @@ import json
 import multiprocessing
 import random
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from loguru import logger
 
@@ -12,9 +13,11 @@ from tau2.agent.llm_agent import LLMAgent, LLMGTAgent, LLMSoloAgent
 from tau2.data_model.simulation import (
     AgentInfo,
     Info,
+    RewardInfo,
     Results,
     RunConfig,
     SimulationRun,
+    TerminationReason,
     UserInfo,
 )
 from tau2.data_model.tasks import Task
@@ -38,12 +41,16 @@ def get_options() -> RegistryInfo:
 
 
 def get_environment_info(
-    domain_name: str, include_tool_info: bool = False, env_args: Optional[dict] = None
+    domain_name: str,
+    include_tool_info: bool = False,
+    env_args: Optional[dict[str, Any]] = None,
 ) -> EnvironmentInfo:
     """Get information about the environment for a registered Domain"""
     global registry
     env_constructor = registry.get_env_constructor(domain_name)
-    return env_constructor(**(env_args or {})).get_info(include_tool_info=include_tool_info)
+    return _build_environment(env_constructor, env_args).get_info(
+        include_tool_info=include_tool_info
+    )
 
 
 def load_task_splits(task_set_name: str) -> Optional[dict[str, list[str]]]:
@@ -109,6 +116,13 @@ def make_run_name(config: RunConfig) -> str:
     return f"{get_now()}_{config.domain}_{agent_name}_{user_name}"
 
 
+def _build_environment(env_constructor, env_args=None, solo_mode: bool = False):
+    env_kwargs = dict(env_args or {})
+    if solo_mode:
+        env_kwargs["solo_mode"] = True
+    return env_constructor(**env_kwargs)
+
+
 def run_domain(config: RunConfig) -> Results:
     """
     Run simulations for a domain
@@ -125,7 +139,6 @@ def run_domain(config: RunConfig) -> Results:
         task_ids=config.task_ids,
         num_tasks=config.num_tasks,
     )
-    env_args = config.env_args or {}
     if "gt" in config.agent:
         total_num_tasks = len(tasks)
         tasks = [task for task in tasks if LLMGTAgent.check_valid_task(task)]
@@ -159,6 +172,7 @@ def run_domain(config: RunConfig) -> Results:
         llm_args_agent=config.llm_args_agent,
         llm_user=config.llm_user,
         llm_args_user=config.llm_args_user,
+        env_args=config.env_args,
         num_trials=num_trials,
         max_steps=config.max_steps,
         max_errors=config.max_errors,
@@ -169,7 +183,6 @@ def run_domain(config: RunConfig) -> Results:
         seed=config.seed,
         log_level=config.log_level,
         enforce_communication_protocol=config.enforce_communication_protocol,
-        env_args=env_args,
     )
     metrics = compute_metrics(simulation_results)
     ConsoleDisplay.display_agent_metrics(metrics)
@@ -186,6 +199,7 @@ def run_tasks(
     llm_args_agent: Optional[dict] = None,
     llm_user: Optional[str] = None,
     llm_args_user: Optional[dict] = None,
+    env_args: Optional[dict] = None,
     num_trials: int = 1,
     max_steps: int = 100,
     max_errors: int = 10,
@@ -196,7 +210,6 @@ def run_tasks(
     seed: Optional[int] = 300,
     log_level: Optional[str] = "INFO",
     enforce_communication_protocol: bool = False,
-    env_args: Optional[dict] = None,
 ) -> Results:
     """
     Runs tasks for a given domain.
@@ -224,7 +237,7 @@ def run_tasks(
     """
     if isinstance(save_to, str):
         save_to = Path(save_to)
-    # Set log level from config
+    env_args = dict(env_args or {})
     logger.remove()
     logger.add(lambda msg: print(msg), level=log_level)
     if len(tasks) == 0:
@@ -239,6 +252,8 @@ def run_tasks(
         raise ValueError("Max concurrency must be greater than 0")
 
     random.seed(seed)
+    llm_args_agent = dict(llm_args_agent or {})
+    llm_args_user = dict(llm_args_user or {})
 
     seeds = [random.randint(0, 1000000) for _ in range(num_trials)]
     if "seed" in llm_args_agent:
@@ -249,7 +264,6 @@ def run_tasks(
 
     lock = multiprocessing.Lock()
 
-    env_args = env_args or {}
     info = get_info(
         domain=domain,
         agent=agent,
@@ -258,11 +272,11 @@ def run_tasks(
         llm_args_agent=llm_args_agent,
         llm_user=llm_user,
         llm_args_user=llm_args_user,
+        env_args=env_args,
         num_trials=num_trials,
         max_steps=max_steps,
         max_errors=max_errors,
         seed=seed,
-        env_args=env_args,
     )
     simulation_results = Results(
         info=info,
@@ -271,24 +285,25 @@ def run_tasks(
     )
     done_runs = set()
     if save_to is not None:
-        # If save_to already exists, check if the user wants to resume the run.
         if save_to.exists():
-            response = (
-                ConsoleDisplay.console.input(
-                    "[yellow]File [bold]{}[/bold] already exists. Do you want to resume the run? (y/n)[/yellow] ".format(
-                        save_to
+            if console_display:
+                response = (
+                    ConsoleDisplay.console.input(
+                        "[yellow]File [bold]{}[/bold] already exists. Do you want to resume the run? (y/n)[/yellow] ".format(
+                            save_to
+                        )
                     )
+                    .lower()
+                    .strip()
                 )
-                .lower()
-                .strip()
-            )
+            else:
+                response = "y"
             if response != "y":
                 raise FileExistsError(
                     f"File {save_to} already exists. Please delete it or use a different save_to name."
                 )
             with open(save_to, "r", encoding="utf-8") as fp:
                 prev_simulation_results = Results.model_validate_json(fp.read())
-                # Check if the run config has changed
                 if get_pydantic_hash(prev_simulation_results.info) != get_pydantic_hash(
                     simulation_results.info
                 ):
@@ -296,23 +311,25 @@ def run_tasks(
                         prev_simulation_results.info.model_dump(),
                         simulation_results.info.model_dump(),
                     )
-                    ConsoleDisplay.console.print(
-                        f"The run config has changed.\n\n{diff}\n\nDo you want to resume the run? (y/n)"
-                    )
-                    response = (
-                        ConsoleDisplay.console.input(
-                            "[yellow]File [bold]{}[/bold] already exists. Do you want to resume the run? (y/n)[/yellow] ".format(
-                                save_to
-                            )
+                    if console_display:
+                        ConsoleDisplay.console.print(
+                            f"The run config has changed.\n\n{diff}\n\nDo you want to resume the run? (y/n)"
                         )
-                        .lower()
-                        .strip()
-                    )
+                        response = (
+                            ConsoleDisplay.console.input(
+                                "[yellow]File [bold]{}[/bold] already exists. Do you want to resume the run? (y/n)[/yellow] ".format(
+                                    save_to
+                                )
+                            )
+                            .lower()
+                            .strip()
+                        )
+                    else:
+                        response = "y"
                     if response != "y":
                         raise ValueError(
                             "The run config has changed. Please delete the existing file or use a different save_to name."
                         )
-                # Check if the task set has changed
                 if not all(
                     get_pydantic_hash(task) == get_pydantic_hash(prev_task)
                     for task, prev_task in zip(
@@ -323,22 +340,17 @@ def run_tasks(
                     raise ValueError(
                         "The task set has changed. Please delete the existing file or use a different save_to name."
                     )
-                # Check which of the runs have already been done
-                done_runs = set(
-                    [
-                        (sim.trial, sim.task_id, sim.seed)
-                        for sim in prev_simulation_results.simulations
-                    ]
-                )
+                done_runs = {
+                    (sim.trial, sim.task_id, sim.seed)
+                    for sim in prev_simulation_results.simulations
+                }
                 simulation_results = prev_simulation_results
                 console_text = Text(
                     text=f"Resuming run from {len(done_runs)} runs. {len(tasks) * num_trials - len(done_runs)} runs remaining.",
                     style="bold yellow",
                 )
                 ConsoleDisplay.console.print(console_text)
-        # Create new save file
         else:
-            # Check if save_to exists and create parent directories if needed
             if not save_to.parent.exists():
                 save_to.parent.mkdir(parents=True, exist_ok=True)
             logger.info(f"Saving simulation batch to {save_to}")
@@ -350,54 +362,91 @@ def run_tasks(
             return
         with lock:
             with open(save_to, "r", encoding="utf-8") as fp:
-                ckpt = json.load(fp)
-            ckpt["simulations"].append(simulation.model_dump())
+                checkpoint = json.load(fp)
+            checkpoint["simulations"].append(simulation.model_dump())
             with open(save_to, "w", encoding="utf-8") as fp:
-                json.dump(ckpt, fp, indent=2)
+                json.dump(checkpoint, fp, indent=2)
 
-    def _run(task: Task, trial: int, seed: int, progress_str: str) -> Optional[SimulationRun]:
+    def _make_failed_simulation(
+        task: Task,
+        trial: int,
+        seed: int,
+        start_time: str,
+        exc: Exception,
+    ) -> SimulationRun:
+        end_time = get_now()
+        return SimulationRun(
+            id=str(uuid.uuid4()),
+            task_id=task.id,
+            start_time=start_time,
+            end_time=end_time,
+            duration=0.0,
+            termination_reason=TerminationReason.AGENT_ERROR,
+            agent_cost=0.0,
+            user_cost=0.0,
+            reward_info=RewardInfo(
+                reward=0.0,
+                reward_basis=None,
+                info={
+                    "note": "Simulation failed before completion.",
+                    "error": str(exc),
+                    "error_type": exc.__class__.__name__,
+                },
+            ),
+            messages=[],
+            trial=trial,
+            seed=seed,
+        )
+
+    def _run(task: Task, trial: int, seed: int, progress_str: str) -> SimulationRun:
         console_text = Text(
             text=f"{progress_str}. Running task {task.id}, trial {trial + 1}",
             style="bold green",
         )
         ConsoleDisplay.console.print(console_text)
-        try:
-            simulation = run_task(
-                domain=domain,
-                task=task,
-                agent=agent,
-                user=user,
-                llm_agent=llm_agent,
-                llm_args_agent=llm_args_agent,
-                llm_user=llm_user,
-                llm_args_user=llm_args_user,
-                max_steps=max_steps,
-                max_errors=max_errors,
-                evaluation_type=evaluation_type,
-                seed=seed,
-                enforce_communication_protocol=enforce_communication_protocol,
-                env_args=env_args,
-            )
-            simulation.trial = trial
-            if console_display:
-                ConsoleDisplay.display_simulation(simulation, show_details=False)
-            _save(simulation)
-            return simulation
-        except Exception as e:
-            logger.error(
-                f"Task {task.id}, trial {trial} failed and will be skipped: {e}"
-            )
-            ConsoleDisplay.console.print(
-                Text(
-                    text=f"[SKIPPED] Task {task.id}, trial {trial + 1} — {type(e).__name__}: {e}",
-                    style="bold red",
+        start_time = get_now()
+        max_attempts = 3
+        retry_delay_seconds = 5
+        last_error: Exception | None = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                simulation = run_task(
+                    domain=domain,
+                    task=task,
+                    agent=agent,
+                    user=user,
+                    llm_agent=llm_agent,
+                    llm_args_agent=llm_args_agent,
+                    llm_user=llm_user,
+                    llm_args_user=llm_args_user,
+                    env_args=env_args,
+                    max_steps=max_steps,
+                    max_errors=max_errors,
+                    evaluation_type=evaluation_type,
+                    seed=seed,
+                    enforce_communication_protocol=enforce_communication_protocol,
                 )
-            )
-            return None
+                simulation.trial = trial
+                if console_display:
+                    ConsoleDisplay.display_simulation(simulation, show_details=False)
+                _save(simulation)
+                return simulation
+            except Exception as exc:
+                last_error = exc
+                logger.error(
+                    f"Error running task {task.id}, trial {trial}, attempt {attempt}/{max_attempts}: {exc}"
+                )
+                if attempt < max_attempts:
+                    time.sleep(retry_delay_seconds)
+
+        assert last_error is not None
+        simulation = _make_failed_simulation(task, trial, seed, start_time, last_error)
+        _save(simulation)
+        return simulation
 
     args = []
     for trial in range(num_trials):
-        for i, task in enumerate(tasks):
+        for index, task in enumerate(tasks):
             if (trial, task.id, seeds[trial]) in done_runs:
                 console_text = Text(
                     text=f"Skipping task {task.id}, trial {trial} because it has already been run.",
@@ -405,24 +454,15 @@ def run_tasks(
                 )
                 ConsoleDisplay.console.print(console_text)
                 continue
-            progress_str = f"{i}/{len(tasks)} (trial {trial + 1}/{num_trials})"
+            progress_str = f"{index}/{len(tasks)} (trial {trial + 1}/{num_trials})"
             args.append((task, trial, seeds[trial], progress_str))
 
     if args:
         with ThreadPoolExecutor(max_workers=max_concurrency) as executor:
             res = list(executor.map(_run, *zip(*args)))
-        completed = [s for s in res if s is not None]
-        skipped = len(res) - len(completed)
-        if skipped:
-            ConsoleDisplay.console.print(
-                Text(
-                    text=f"⚠️  {skipped} simulation(s) were skipped due to errors.",
-                    style="bold yellow",
-                )
-            )
-        simulation_results.simulations.extend(completed)
+            simulation_results.simulations.extend(res)
     ConsoleDisplay.console.print(
-        "\n✨ [bold green]Successfully completed all simulations![/bold green]\n"
+        "\n[bold green]Successfully completed all simulations![/bold green]\n"
         "To review the simulations, run: [bold blue]tau2 view[/bold blue]"
     )
     return simulation_results
@@ -437,35 +477,18 @@ def run_task(
     llm_args_agent: Optional[dict] = None,
     llm_user: Optional[str] = None,
     llm_args_user: Optional[dict] = None,
+    env_args: Optional[dict] = None,
     max_steps: int = 100,
     max_errors: int = 10,
     evaluation_type: EvaluationType = EvaluationType.ALL,
     seed: Optional[int] = None,
     enforce_communication_protocol: bool = False,
-    env_args: Optional[dict] = None,
 ) -> SimulationRun:
     """
     Runs tasks for a given domain.
      If llm_as_judge is True, the LLM will be used to annotate the simulation run.
      Calculates the reward for the simulation run.
-     Args:
-         domain (str): The domain to run the simulation on.
-         task (Task): The task to run.
-         agent (str): The agent to run the simulation on.
-         user (str): The user to run the simulation on.
-         llm_agent (str): The model to use for the agent.
-         llm_args_agent (dict): The arguments to pass to the LLM for the agent.
-         llm_user (str): The model to use for the user.
-         llm_args_user (dict): The arguments to pass to the LLM for the user.
-         max_steps (int): The maximum number of steps to run the simulation.
-         max_errors (int): The maximum number of errors to allow in the simulation.
-         evaluation_type (EvaluationType): The type of evaluation to use.
-         seed (int): The seed to use for the simulation.
-         enforce_communication_protocol (bool): Whether to enforce communication protocol rules.
-     Returns:
-         The simulation run.
     """
-
     if max_steps <= 0:
         raise ValueError("Max steps must be greater than 0")
     if max_errors <= 0:
@@ -475,7 +498,8 @@ def run_task(
         f"STARTING SIMULATION: Domain: {domain}, Task: {task.id}, Agent: {agent}, User: {user}"
     )
     environment_constructor = registry.get_env_constructor(domain)
-    environment = environment_constructor(**(env_args or {}))
+    env_args = dict(env_args or {})
+    environment = _build_environment(environment_constructor, env_args)
     AgentConstructor = registry.get_agent_constructor(agent)
 
     solo_mode = False
@@ -496,7 +520,9 @@ def run_task(
         )
     elif issubclass(AgentConstructor, LLMSoloAgent):
         solo_mode = True
-        environment: Environment = environment_constructor(solo_mode=True)
+        environment = _build_environment(
+            environment_constructor, env_args, solo_mode=True
+        )
         user_tools = environment.get_user_tools() if environment.user_tools else []
         agent = AgentConstructor(
             tools=environment.get_tools() + user_tools,
@@ -552,6 +578,7 @@ def run_task(
         simulation=simulation,
         evaluation_type=evaluation_type,
         solo_mode=solo_mode,
+        env_args=env_args,
     )
 
     simulation.reward_info = reward_info
@@ -570,11 +597,11 @@ def get_info(
     llm_args_agent: Optional[dict] = None,
     llm_user: Optional[str] = None,
     llm_args_user: Optional[dict] = None,
+    env_args: Optional[dict] = None,
     num_trials: int = 1,
     max_steps: int = 100,
     max_errors: int = 10,
     seed: Optional[int] = None,
-    env_args: Optional[dict] = None,
 ) -> Info:
     user_info = UserInfo(
         implementation=user,
@@ -588,8 +615,10 @@ def get_info(
         llm_args=llm_args_agent,
     )
     environment_info = get_environment_info(
-        domain, include_tool_info=False, env_args=env_args
-    )  # NOTE: Not saving tool info to avoid clutter.
+        domain,
+        include_tool_info=False,
+        env_args=env_args,
+    )
     return Info(
         git_commit=get_commit_hash(),
         num_trials=num_trials,
@@ -598,5 +627,6 @@ def get_info(
         user_info=user_info,
         agent_info=agent_info,
         environment_info=environment_info,
+        env_args=env_args or {},
         seed=seed,
     )
