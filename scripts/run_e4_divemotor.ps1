@@ -50,7 +50,7 @@ $saveName = switch ($Condicion) {
     "D" { "sim_e4_D_${strategy}_k3_think" }
 }
 
-$llmArgs = '{\"temperature\":0.0,\"timeout\":120,\"rate_limit_requests_per_minute\":14,\"rate_limit_requests_per_day\":14000,\"rate_limit_tokens_per_minute\":150000,\"rate_limit_bucket\":\"gemma4-free-tier-e4\",\"rate_limit_token_reserve\":750}'
+$llmArgs = '{\"temperature\":0.0,\"timeout\":300,\"rate_limit_requests_per_minute\":14,\"rate_limit_requests_per_day\":14000,\"rate_limit_tokens_per_minute\":150000,\"rate_limit_bucket\":\"gemma4-free-tier-e4\",\"rate_limit_token_reserve\":750}'
 $envArgs = @{
     chunking_strategy = $strategy
     retrieval_k = 3
