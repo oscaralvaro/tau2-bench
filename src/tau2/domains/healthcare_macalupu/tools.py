@@ -12,7 +12,8 @@ from tau2.domains.healthcare_macalupu.data_model import (
     User,
     UserRole,
 )
-from tau2.environment.toolkit import ChromaPolicyIndex, RAGToolKit, ToolType, is_tool
+from tau2.environment.rag import ChromaPolicyIndex
+from tau2.environment.toolkit import RAGToolKit, ToolType, is_tool
 
 # States from which a SIC can be cancelled
 _CANCELLABLE_STATES: set[ReferralRequestStatus] = {

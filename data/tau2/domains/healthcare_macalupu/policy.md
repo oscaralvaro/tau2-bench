@@ -170,13 +170,6 @@ ESTA ACCIÓN SOLO SE PUEDE REALIZAR POR USUARIOS AUTENTICADOS.
 Una SIC solo puede anularse si su estado es 0, 1 o 2.
 Requiere confirmación explícita del médico.
 
-
-
-
-
-
-
-
 # Criterios Clínicos de Derivación por Especialidad
 
 El agente debe verificar estos criterios antes de permitir el envío. La API no los verifica automáticamente.
@@ -213,8 +206,6 @@ La SIC no puede enviarse si los exámenes requeridos no están adjuntos.
 
 - Prioridad: P2 en la mayoría de los casos. Usar P1 si hay sospecha de pie diabético con lesión activa.
 - GES: No.
-
-
 
 
 # Privacidad y confidencialidad de terceros
