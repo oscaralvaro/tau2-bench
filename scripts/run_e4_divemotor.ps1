@@ -4,7 +4,10 @@ param(
     [string]$Condicion,
 
     [ValidateSet("headers", "fixed_200")]
-    [string]$EstrategiaD = "headers"
+    [string]$EstrategiaD = "headers",
+
+    [ValidateSet("Completa", "Sin12", "Solo12")]
+    [string]$Recuperacion = "Completa"
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,6 +52,15 @@ $saveName = switch ($Condicion) {
     "C" { "sim_e4_C_fixed200_k3" }
     "D" { "sim_e4_D_${strategy}_k3_think" }
 }
+$taskIds = @("1", "3", "7", "10", "11", "12", "14", "15", "18", "19")
+if ($Condicion -eq "C" -and $Recuperacion -eq "Sin12") {
+    $taskIds = @("1", "3", "7", "10", "11", "14", "15", "18", "19")
+    $saveName = "sim_e4_C_no12_work"
+}
+if ($Condicion -eq "C" -and $Recuperacion -eq "Solo12") {
+    $taskIds = @("12")
+    $saveName = "sim_e4_C_task12_work"
+}
 
 $llmArgs = '{\"temperature\":0.0,\"timeout\":300,\"rate_limit_requests_per_minute\":14,\"rate_limit_requests_per_day\":14000,\"rate_limit_tokens_per_minute\":150000,\"rate_limit_bucket\":\"gemma4-free-tier-e4\",\"rate_limit_token_reserve\":750}'
 $envArgs = @{
@@ -62,13 +74,14 @@ Write-Host "Condicion: $Condicion"
 Write-Host "Estrategia: $strategy"
 Write-Host "Think: $useThink"
 Write-Host "Archivo: data/simulations/$saveName.json"
+Write-Host "Tareas: $($taskIds -join ', ')"
 
 # Las respuestas permiten reanudar aunque el checkpoint tenga un commit anterior.
 "y`ny`ny" | python -m tau2.cli run `
     --domain divemotor_santiago `
     --agent-llm gemini/gemma-4-26b-a4b-it `
     --user-llm gemini/gemma-4-26b-a4b-it `
-    --task-ids 1 3 7 10 11 12 14 15 18 19 `
+    --task-ids $taskIds `
     --num-trials 5 `
     --max-steps 30 `
     --max-concurrency 1 `
