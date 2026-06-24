@@ -1,14 +1,16 @@
 from typing import Optional
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.toolkit import RAGToolKit, ToolType, is_tool
 from tau2.domains.cable_calderon.data_model import CableCalderonDB
 
 
 
 
-class CableCalderonToolKit(ToolKitBase):
+class CableCalderonToolKit(RAGToolKit):
     """Herramientas del agente para el dominio CableHogar"""
 
     db: CableCalderonDB
+    def __init__(self, db, policy_index=None, retrieval_k=3):
+        super().__init__(db, policy_index=policy_index, retrieval_k=retrieval_k)
 
     @is_tool(ToolType.READ)
     def get_client_details(self, cliente_id: str) -> dict:

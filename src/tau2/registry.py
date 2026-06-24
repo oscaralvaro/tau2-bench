@@ -129,7 +129,11 @@ from tau2.domains.burger.environment import (
 
 
 # START DOMAIN IMPORT: Maria Jose Calderon Samaniego
-
+from tau2.domains.cable_calderon.environment import (
+    get_environment as cable_calderon_get_environment,
+    get_tasks as cable_calderon_get_tasks,
+    get_tasks_split as cable_calderon_get_tasks_split,
+)
 # END DOMAIN IMPORT: Maria Jose Calderon Samaniego
 
 
@@ -322,167 +326,172 @@ class Registry:
 
 # Create a global registry instance
 try:
-    registry = Registry()
-    logger.debug("Registering default components...")
-    registry.register_user(UserSimulator, "user_simulator")
-    registry.register_user(DummyUser, "dummy_user")
-    registry.register_agent(LLMAgent, "llm_agent")
-    registry.register_agent(LLMGTAgent, "llm_agent_gt")
-    registry.register_agent(LLMSoloAgent, "llm_agent_solo")
+        registry = Registry()
+        logger.debug("Registering default components...")
+        registry.register_user(UserSimulator, "user_simulator")
+        registry.register_user(DummyUser, "dummy_user")
+        registry.register_agent(LLMAgent, "llm_agent")
+        registry.register_agent(LLMGTAgent, "llm_agent_gt")
+        registry.register_agent(LLMSoloAgent, "llm_agent_solo")
 
-    registry.register_domain(mock_domain_get_environment, "mock")
-    registry.register_tasks(mock_domain_get_tasks, "mock")
+        registry.register_domain(mock_domain_get_environment, "mock")
+        registry.register_tasks(mock_domain_get_tasks, "mock")
 
-    # START DOMAIN REGISTRATION: burger
-    registry.register_domain(burger_domain_get_environment, "burger")
-    registry.register_tasks(
-        burger_domain_get_tasks,
-        "burger",
-        get_task_splits=burger_domain_get_tasks_split,
-    )
-    # END DOMAIN REGISTRATION: burger
+        # START DOMAIN REGISTRATION: burger
+        registry.register_domain(burger_domain_get_environment, "burger")
+        registry.register_tasks(
+            burger_domain_get_tasks,
+            "burger",
+            get_task_splits=burger_domain_get_tasks_split,
+        )
+        # END DOMAIN REGISTRATION: burger
 
 
-    # START DOMAIN REGISTRATION: Martin Alonso Masias Cerro
+        # START DOMAIN REGISTRATION: Martin Alonso Masias Cerro
 
-    # END DOMAIN REGISTRATION: Martin Alonso Masias Cerro
+        # END DOMAIN REGISTRATION: Martin Alonso Masias Cerro
 
 
 
-    # START DOMAIN REGISTRATION: Sebastian Martin Castro Pacahuala
+        # START DOMAIN REGISTRATION: Sebastian Martin Castro Pacahuala
 
-    # END DOMAIN REGISTRATION: Sebastian Martin Castro Pacahuala
+        # END DOMAIN REGISTRATION: Sebastian Martin Castro Pacahuala
 
 
 
-    # START DOMAIN REGISTRATION: Juana Cristina Mendoza Pacheco
+        # START DOMAIN REGISTRATION: Juana Cristina Mendoza Pacheco
 
-    # END DOMAIN REGISTRATION: Juana Cristina Mendoza Pacheco
+        # END DOMAIN REGISTRATION: Juana Cristina Mendoza Pacheco
 
 
 
-    # START DOMAIN REGISTRATION: Nicolás Calle Seminario
+        # START DOMAIN REGISTRATION: Nicolás Calle Seminario
 
-    # END DOMAIN REGISTRATION: Nicolás Calle Seminario
+        # END DOMAIN REGISTRATION: Nicolás Calle Seminario
 
 
 
-    # START DOMAIN REGISTRATION: Maricielo Nicolle Irigoin Cabrera
+        # START DOMAIN REGISTRATION: Maricielo Nicolle Irigoin Cabrera
 
-    # END DOMAIN REGISTRATION: Maricielo Nicolle Irigoin Cabrera
+        # END DOMAIN REGISTRATION: Maricielo Nicolle Irigoin Cabrera
 
 
 
-    # START DOMAIN REGISTRATION: Jorge Luis Calle Cardoza
+        # START DOMAIN REGISTRATION: Jorge Luis Calle Cardoza
 
-    # END DOMAIN REGISTRATION: Jorge Luis Calle Cardoza
+        # END DOMAIN REGISTRATION: Jorge Luis Calle Cardoza
 
 
 
-    # START DOMAIN REGISTRATION: Dany Joel Farfan Moscol
+        # START DOMAIN REGISTRATION: Dany Joel Farfan Moscol
 
-    # END DOMAIN REGISTRATION: Dany Joel Farfan Moscol
+        # END DOMAIN REGISTRATION: Dany Joel Farfan Moscol
 
 
 
-    # START DOMAIN REGISTRATION: Jeferson Lennin Correa Sunción
+        # START DOMAIN REGISTRATION: Jeferson Lennin Correa Sunción
 
-    # END DOMAIN REGISTRATION: Jeferson Lennin Correa Sunción
+        # END DOMAIN REGISTRATION: Jeferson Lennin Correa Sunción
 
 
 
-    # START DOMAIN REGISTRATION: Carlos Angelo Coronado Diaz
+        # START DOMAIN REGISTRATION: Carlos Angelo Coronado Diaz
 
-    # END DOMAIN REGISTRATION: Carlos Angelo Coronado Diaz
+        # END DOMAIN REGISTRATION: Carlos Angelo Coronado Diaz
 
 
 
-    # START DOMAIN REGISTRATION: Diego Eduardo Rivera Rodriguez
+        # START DOMAIN REGISTRATION: Diego Eduardo Rivera Rodriguez
 
-    # END DOMAIN REGISTRATION: Diego Eduardo Rivera Rodriguez
+        # END DOMAIN REGISTRATION: Diego Eduardo Rivera Rodriguez
 
 
-    # START DOMAIN REGISTRATION: Joaquin Matias Garbich Rabinovich
+        # START DOMAIN REGISTRATION: Joaquin Matias Garbich Rabinovich
 
-    # END DOMAIN REGISTRATION: Joaquin Matias Garbich Rabinovich
+        # END DOMAIN REGISTRATION: Joaquin Matias Garbich Rabinovich
 
 
 
-    # START DOMAIN REGISTRATION: Santiago Azur Núñez Arcaya
+        # START DOMAIN REGISTRATION: Santiago Azur Núñez Arcaya
 
-    # END DOMAIN REGISTRATION: Santiago Azur Núñez Arcaya
+        # END DOMAIN REGISTRATION: Santiago Azur Núñez Arcaya
 
 
 
-    # START DOMAIN REGISTRATION: Joaquin Cachay Cornejo
+        # START DOMAIN REGISTRATION: Joaquin Cachay Cornejo
 
-    # END DOMAIN REGISTRATION: Joaquin Cachay Cornejo
+        # END DOMAIN REGISTRATION: Joaquin Cachay Cornejo
 
 
 
-    # START DOMAIN REGISTRATION: Santiago Emilio Macalupú Rivas
+        # START DOMAIN REGISTRATION: Santiago Emilio Macalupú Rivas
 
-    # END DOMAIN REGISTRATION: Santiago Emilio Macalupú Rivas
+        # END DOMAIN REGISTRATION: Santiago Emilio Macalupú Rivas
 
 
 
-    # START DOMAIN REGISTRATION: Enrique José Castillo Ancajima
+        # START DOMAIN REGISTRATION: Enrique José Castillo Ancajima
 
-    # END DOMAIN REGISTRATION: Enrique José Castillo Ancajima
+        # END DOMAIN REGISTRATION: Enrique José Castillo Ancajima
 
 
 
-    # START DOMAIN REGISTRATION: Francesco Eduardo Gastelo Boulangger
+        # START DOMAIN REGISTRATION: Francesco Eduardo Gastelo Boulangger
 
-    # END DOMAIN REGISTRATION: Francesco Eduardo Gastelo Boulangger
+        # END DOMAIN REGISTRATION: Francesco Eduardo Gastelo Boulangger
 
 
 
-    # START DOMAIN REGISTRATION: Zulema Isbet López Roa
+        # START DOMAIN REGISTRATION: Zulema Isbet López Roa
 
-    # END DOMAIN REGISTRATION: Zulema Isbet López Roa
+        # END DOMAIN REGISTRATION: Zulema Isbet López Roa
 
 
 
-    # START DOMAIN REGISTRATION: Maria Jose Calderon Samaniego
+        # START DOMAIN REGISTRATION: Maria Jose Calderon Samaniego
+        registry.register_domain(cable_calderon_get_environment, "cable_calderon")
+        registry.register_tasks(
+            cable_calderon_get_tasks,
+            "cable_calderon",
+            get_task_splits=cable_calderon_get_tasks_split,
+        )
+        # END DOMAIN REGISTRATION: Maria Jose Calderon Samaniego
 
-    # END DOMAIN REGISTRATION: Maria Jose Calderon Samaniego
 
 
+        registry.register_domain(airline_domain_get_environment, "airline")
+        registry.register_tasks(
+            airline_domain_get_tasks,
+            "airline",
+            get_task_splits=airline_domain_get_tasks_split,
+        )
 
-    registry.register_domain(airline_domain_get_environment, "airline")
-    registry.register_tasks(
-        airline_domain_get_tasks,
-        "airline",
-        get_task_splits=airline_domain_get_tasks_split,
-    )
+        registry.register_domain(retail_domain_get_environment, "retail")
+        registry.register_tasks(
+            retail_domain_get_tasks,
+            "retail",
+            get_task_splits=retail_domain_get_tasks_split,
+        )
 
-    registry.register_domain(retail_domain_get_environment, "retail")
-    registry.register_tasks(
-        retail_domain_get_tasks,
-        "retail",
-        get_task_splits=retail_domain_get_tasks_split,
-    )
+        registry.register_domain(telecom_domain_get_environment_manual_policy, "telecom")
+        registry.register_domain(
+            telecom_domain_get_environment_workflow_policy, "telecom-workflow"
+        )
+        registry.register_tasks(telecom_domain_get_tasks_full, "telecom_full")
+        registry.register_tasks(telecom_domain_get_tasks_small, "telecom_small")
+        registry.register_tasks(
+            telecom_domain_get_tasks,
+            "telecom",
+            get_task_splits=telecom_domain_get_tasks_split,
+        )
+        registry.register_tasks(
+            telecom_domain_get_tasks,
+            "telecom-workflow",
+            get_task_splits=telecom_domain_get_tasks_split,
+        )
 
-    registry.register_domain(telecom_domain_get_environment_manual_policy, "telecom")
-    registry.register_domain(
-        telecom_domain_get_environment_workflow_policy, "telecom-workflow"
-    )
-    registry.register_tasks(telecom_domain_get_tasks_full, "telecom_full")
-    registry.register_tasks(telecom_domain_get_tasks_small, "telecom_small")
-    registry.register_tasks(
-        telecom_domain_get_tasks,
-        "telecom",
-        get_task_splits=telecom_domain_get_tasks_split,
-    )
-    registry.register_tasks(
-        telecom_domain_get_tasks,
-        "telecom-workflow",
-        get_task_splits=telecom_domain_get_tasks_split,
-    )
-
-    logger.debug(
-        f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
-    )
+        logger.debug(
+            f"Default components registered successfully. Registry info: {json.dumps(registry.get_info().model_dump(), indent=2)}"
+        )
 except Exception as e:
-    logger.error(f"Error initializing registry: {str(e)}")
+        logger.error(f"Error initializing registry: {str(e)}")

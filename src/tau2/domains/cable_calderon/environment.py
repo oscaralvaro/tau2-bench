@@ -2,6 +2,7 @@ from typing import Optional
 import json
 
 from tau2.environment.environment import Environment
+from tau2.environment.rag import ChromaPolicyIndex, THINK_INSTRUCTION
 from tau2.data_model.tasks import Task
 from tau2.domains.cable_calderon.data_model import CableCalderonDB
 from tau2.domains.cable_calderon.tools import CableCalderonToolKit
@@ -11,12 +12,17 @@ from tau2.domains.cable_calderon.utils import (
     CABLE_CALDERON_TASKS_PATH,
     CABLE_CALDERON_SPLIT_TASKS_PATH,
     CABLE_CALDERON_POLICY_PATH,
+    CABLE_CALDERON_POLICY_RAG_PATH,
 )
 
 
 def get_environment(
     db: Optional[CableCalderonDB] = None,
     solo_mode: bool = False,
+    chunking_strategy: str = "headers",
+    retrieval_k: int = 3,
+    use_think: bool = False,
+    use_rag: bool = True,
 ) -> Environment:
     if solo_mode:
         raise ValueError("Cable Calderon domain does not support solo mode")
@@ -24,9 +30,22 @@ def get_environment(
     if db is None:
         db = CableCalderonDB.load()
 
-    policy = CABLE_CALDERON_POLICY_PATH.read_text(encoding="utf-8")
+    if use_rag:
+        policy_text = CABLE_CALDERON_POLICY_PATH.read_text(encoding="utf-8")
+        policy_index = ChromaPolicyIndex(policy_text, strategy=chunking_strategy)
+        policy = CABLE_CALDERON_POLICY_RAG_PATH.read_text(encoding="utf-8")
+        toolkit = CableCalderonToolKit(
+            db=db,
+            policy_index=policy_index,
+            retrieval_k=retrieval_k,
+        )
+    else:
+        policy = CABLE_CALDERON_POLICY_PATH.read_text(encoding="utf-8")
+        toolkit = CableCalderonToolKit(db=db)
 
-    toolkit = CableCalderonToolKit(db=db)
+    if use_think:
+        policy = policy + THINK_INSTRUCTION
+
     user_toolkit = CableUserToolKit(db=db)
 
     return Environment(
