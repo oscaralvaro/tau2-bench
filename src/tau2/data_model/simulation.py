@@ -111,6 +111,13 @@ class RunConfig(BaseModel):
             default_factory=lambda: deepcopy(DEFAULT_LLM_ARGS_USER),
         ),
     ]
+    env_args: Annotated[
+        dict,
+        Field(
+            description="The arguments to pass to the domain environment constructor",
+            default_factory=dict,
+        ),
+    ]
     num_trials: Annotated[
         int,
         Field(
@@ -317,6 +324,10 @@ class Info(BaseModel):
     user_info: UserInfo = Field(description="User information.")
     agent_info: AgentInfo = Field(description="Agent information.")
     environment_info: EnvironmentInfo = Field(description="Environment information.")
+    env_args: dict = Field(
+        description="Arguments passed to the environment constructor.",
+        default_factory=dict,
+    )
     seed: Optional[int] = Field(
         description="The seed used for the simulation.", default=None
     )
@@ -455,6 +466,7 @@ class Results(BaseModel):
                 "info_agent_implementation": self.info.agent_info.implementation,
                 "info_agent_llm": self.info.agent_info.llm,
                 "info_agent_llm_args": self.info.agent_info.llm_args,
+                "info_env_args": self.info.env_args,
             }
             task = next(t for t in self.tasks if t.id == sim.task_id)
             row.update(get_task_metrics(task))

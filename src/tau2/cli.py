@@ -75,6 +75,12 @@ def add_run_args(parser):
         help=f"The arguments to pass to the LLM for the user. Default is '{{\"temperature\": {DEFAULT_LLM_TEMPERATURE_USER}}}'.",
     )
     parser.add_argument(
+        "--env-args",
+        type=json.loads,
+        default={},
+        help='JSON arguments passed to the domain environment constructor. Default is "{}".',
+    )
+    parser.add_argument(
         "--task-set-name",
         type=str,
         default=None,
@@ -173,6 +179,7 @@ def main():
                 user=args.user,
                 llm_user=args.user_llm,
                 llm_args_user=args.user_llm_args,
+                env_args=args.env_args,
                 num_trials=args.num_trials,
                 max_steps=args.max_steps,
                 max_errors=args.max_errors,

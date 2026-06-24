@@ -24,10 +24,17 @@ def evaluate_simulation(
     evaluation_type: EvaluationType,
     solo_mode: bool,
     domain: str,
+    env_args: dict | None = None,
 ) -> RewardInfo:
     """
     Evaluate the simulation based on the evaluation type.
     """
+    env_args = env_args or {}
+
+    def environment_constructor(**kwargs):
+        merged_kwargs = {**env_args, **kwargs}
+        return registry.get_env_constructor(domain)(**merged_kwargs)
+
     if simulation.termination_reason not in {
         TerminationReason.AGENT_STOP,
         TerminationReason.USER_STOP,
@@ -47,7 +54,7 @@ def evaluate_simulation(
         )
     if evaluation_type == EvaluationType.ENV:
         reward_info = EnvironmentEvaluator.calculate_reward(
-            environment_constructor=registry.get_env_constructor(domain),
+            environment_constructor=environment_constructor,
             task=task,
             full_trajectory=simulation.messages,
             solo_mode=solo_mode,
@@ -69,7 +76,7 @@ def evaluate_simulation(
         )
     elif evaluation_type in {EvaluationType.ALL, EvaluationType.ALL_WITH_NL_ASSERTIONS}:
         env_reward_info = EnvironmentEvaluator.calculate_reward(
-            environment_constructor=registry.get_env_constructor(domain),
+            environment_constructor=environment_constructor,
             task=task,
             full_trajectory=simulation.messages,
             solo_mode=solo_mode,
@@ -83,7 +90,12 @@ def evaluate_simulation(
             full_trajectory=simulation.messages,
         )
         nl_reward_info = None
-        if evaluation_type == EvaluationType.ALL_WITH_NL_ASSERTIONS:
+        task_reward_basis = set(task.evaluation_criteria.reward_basis)
+        should_evaluate_nl = evaluation_type == EvaluationType.ALL_WITH_NL_ASSERTIONS
+        should_evaluate_nl = should_evaluate_nl or (
+            RewardType.NL_ASSERTION in task_reward_basis
+        )
+        if should_evaluate_nl:
             nl_reward_info = NLAssertionsEvaluator.calculate_reward(
                 task=task,
                 full_trajectory=simulation.messages,
@@ -95,7 +107,6 @@ def evaluate_simulation(
         action_bases = {RewardType.ACTION}
         nl_bases = {RewardType.NL_ASSERTION}
         comm_bases = {RewardType.COMMUNICATE}
-        task_reward_basis = set(task.evaluation_criteria.reward_basis)
 
         reward_breakdown = {}
         if task_reward_basis & env_bases:
@@ -107,10 +118,6 @@ def evaluate_simulation(
                 reward_breakdown.update(action_reward_info.reward_breakdown)
             reward *= action_reward_info.reward
         if task_reward_basis & nl_bases:
-            if evaluation_type != EvaluationType.ALL_WITH_NL_ASSERTIONS:
-                raise ValueError(
-                    "NL assertions are part of the reward basis, but they are not being evaluated."
-                )
             if nl_reward_info.reward_breakdown is not None:
                 reward_breakdown.update(nl_reward_info.reward_breakdown)
             reward *= nl_reward_info.reward
