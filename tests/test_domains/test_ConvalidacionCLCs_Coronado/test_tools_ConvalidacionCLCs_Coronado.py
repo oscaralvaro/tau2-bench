@@ -10,7 +10,9 @@ from tau2.domains.ConvalidacionCLCs_Coronado.data_model import (
     Solicitud,
 )
 from tau2.domains.ConvalidacionCLCs_Coronado.environment import get_environment
+from tau2.domains.ConvalidacionCLCs_Coronado.tools import ConvalidacionCLCTools
 from tau2.environment.environment import Environment
+from tau2.environment.rag import ChromaPolicyIndex
 
 
 @pytest.fixture
@@ -91,7 +93,9 @@ def convalidacion_db() -> ConvalidacionCLCDB:
 
 @pytest.fixture
 def environment(convalidacion_db: ConvalidacionCLCDB) -> Environment:
-    return get_environment(convalidacion_db)
+    # use_rag=False: los tests de tools usan la política completa y no construyen
+    # el índice ChromaDB (que requeriría API key). Mismo patrón que el dominio burger.
+    return get_environment(convalidacion_db, use_rag=False)
 
 
 @pytest.fixture
@@ -434,3 +438,41 @@ def test_receive_sms_code(environment: Environment):
     assert result_after == stored_code
     assert len(result_after) == 6
     assert result_after.isdigit()
+
+
+# ---------------------------------------------------------------------------
+# E4: tests de integración RAG (no requieren API key — usan _fake_embed)
+# ---------------------------------------------------------------------------
+
+SAMPLE_POLICY = """
+## Devoluciones
+Puedes devolver cualquier artículo en 30 días con recibo.
+
+## Cancelaciones
+Puedes cancelar dentro de las 24 horas sin cargo.
+"""
+
+
+def _fake_embed(texts):
+    import math
+    import random
+
+    def make_vec(text, dim=8):
+        rng = random.Random(hash(text) & 0xFFFFFFFF)
+        v = [rng.gauss(0, 1) for _ in range(dim)]
+        n = math.sqrt(sum(x * x for x in v)) or 1.0
+        return [x / n for x in v]
+
+    return [make_vec(t) for t in texts]
+
+
+def test_retrieve_policy_returns_text():
+    index = ChromaPolicyIndex(SAMPLE_POLICY, strategy="headers", _embed_fn=_fake_embed)
+    kit = ConvalidacionCLCTools(db=None, policy_index=index)
+    result = kit.retrieve_policy(query="¿puedo convalidar una actividad externa?")
+    assert isinstance(result, str) and len(result) > 0
+
+
+def test_toolkit_has_think_tool():
+    kit = ConvalidacionCLCTools(db=None)
+    assert "think" in kit.tools

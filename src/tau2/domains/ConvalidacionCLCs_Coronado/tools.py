@@ -14,16 +14,21 @@ from tau2.domains.ConvalidacionCLCs_Coronado.data_model import (
 from tau2.domains.ConvalidacionCLCs_Coronado.utils import (
     CONVALIDACION_TRANSFER_MESSAGE,
 )
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.toolkit import RAGToolKit, ToolType, is_tool
 
 
-class ConvalidacionCLCTools(ToolKitBase):
+class ConvalidacionCLCTools(RAGToolKit):
     """All tools available for the CLC validation domain."""
 
     db: ConvalidacionCLCDB
 
-    def __init__(self, db: ConvalidacionCLCDB) -> None:
-        super().__init__(db)
+    def __init__(
+        self,
+        db: ConvalidacionCLCDB = None,
+        policy_index=None,
+        retrieval_k: int = 3,
+    ) -> None:
+        super().__init__(db, policy_index=policy_index, retrieval_k=retrieval_k)
         self._sms_codes: dict[str, str] = {}
         self._sms_counters: dict[str, int] = {}
 
