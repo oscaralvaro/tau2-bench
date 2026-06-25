@@ -1,4 +1,5 @@
 from pathlib import Path
+import hashlib
 from typing import Optional
 
 from tau2.data_model.tasks import Task
@@ -14,6 +15,20 @@ from tau2.domains.academico_jefersoncorrea.utils import (
 from tau2.environment.environment import Environment
 from tau2.environment.rag import THINK_INSTRUCTION, ChromaPolicyIndex
 from tau2.utils import load_file
+
+_POLICY_INDEX_CACHE: dict[tuple[str, str], ChromaPolicyIndex] = {}
+
+
+def _get_policy_index(policy_text: str, chunking_strategy: str) -> ChromaPolicyIndex:
+    """Reuse the policy index during a run to avoid repeated embedding calls."""
+    policy_hash = hashlib.sha256(policy_text.encode("utf-8")).hexdigest()
+    cache_key = (chunking_strategy, policy_hash)
+    if cache_key not in _POLICY_INDEX_CACHE:
+        _POLICY_INDEX_CACHE[cache_key] = ChromaPolicyIndex(
+            policy_text,
+            strategy=chunking_strategy,
+        )
+    return _POLICY_INDEX_CACHE[cache_key]
 
 
 def get_environment(
@@ -37,7 +52,7 @@ def get_environment(
     if use_rag:
         with open(ACADEMICO_POLICY_PATH, "r", encoding="utf-8") as fp:
             policy_text = fp.read()
-        policy_index = ChromaPolicyIndex(policy_text, strategy=chunking_strategy)
+        policy_index = _get_policy_index(policy_text, chunking_strategy)
         tools = AcademicTools(db, policy_index=policy_index, retrieval_k=retrieval_k)
         with open(ACADEMICO_POLICY_RAG_PATH, "r", encoding="utf-8") as fp:
             policy = fp.read()

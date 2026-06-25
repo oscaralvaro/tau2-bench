@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import re
-import uuid
+import hashlib
 from typing import Literal
 
 import chromadb
@@ -165,28 +165,54 @@ class ChromaPolicyIndex:
     ):
         self.strategy = strategy
         self._embed_fn = _embed_fn or _make_gemini_embed_fn()
+        self._search_cache: dict[tuple[str, int], str] = {}
 
         self.chunks = get_chunks(policy_text, strategy)
         if not self.chunks:
             raise ValueError("Policy text produced zero chunks. Check the policy file.")
 
         self._client = chromadb.Client()
-        # Unique name to avoid collisions when running multiple instances in tests
-        collection_name = f"policy_{uuid.uuid4().hex[:8]}"
-        self._collection = self._client.create_collection(
+        policy_hash = hashlib.sha256(policy_text.encode("utf-8")).hexdigest()[:12]
+        collection_name = f"policy_{strategy}_{policy_hash}"
+        self._collection = self._client.get_or_create_collection(
             name=collection_name,
             metadata={"hnsw:space": "cosine"},
         )
-        embeddings = self._embed_fn(self.chunks)
-        self._collection.add(
-            ids=[f"chunk_{i}" for i in range(len(self.chunks))],
-            embeddings=embeddings,
-            documents=self.chunks,
-        )
+        self._chunk_ids = [
+            f"chunk_{i:04d}_{hashlib.sha256(chunk.encode('utf-8')).hexdigest()[:10]}"
+            for i, chunk in enumerate(self.chunks)
+        ]
+        if self._collection.count() == 0:
+            embeddings = self._embed_fn(self.chunks)
+            self._collection.add(
+                ids=self._chunk_ids,
+                embeddings=embeddings,
+                documents=self.chunks,
+            )
 
     def search(self, query: str, k: int = 3) -> str:
         """Return the top-k most relevant policy chunks as a single string."""
         k = min(k, len(self.chunks))
+        cache_key = (query.strip(), k)
+        if cache_key in self._search_cache:
+            return self._search_cache[cache_key]
+
         emb = self._embed_fn([query])
-        result = self._collection.query(query_embeddings=emb, n_results=k)
-        return "\n\n---\n\n".join(result["documents"][0])
+        result = self._collection.query(
+            query_embeddings=emb,
+            n_results=k,
+            include=["documents", "distances"],
+        )
+        rows = list(
+            zip(
+                result["ids"][0],
+                result["documents"][0],
+                result["distances"][0],
+            )
+        )
+        rows.sort(key=lambda row: (round(float(row[2]), 12), row[0]))
+        response = "\n\n---\n\n".join(
+            f"[{chunk_id}]\n{document}" for chunk_id, document, _ in rows
+        )
+        self._search_cache[cache_key] = response
+        return response

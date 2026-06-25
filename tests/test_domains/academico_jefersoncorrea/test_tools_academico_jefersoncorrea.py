@@ -61,7 +61,7 @@ def test_search_courses_success(tools):
 
 def test_search_courses_exposes_end_date():
     """El catalogo real debe exponer la fecha de fin usada por tareas con plazo."""
-    environment = get_environment()
+    environment = get_environment(use_rag=False)
     courses = environment.tools.search_courses("SIS201")
 
     assert courses[0].end_date == "2026-05-15"
@@ -69,7 +69,7 @@ def test_search_courses_exposes_end_date():
 
 def test_real_db_uses_one_enrollment_per_course():
     """Las matriculas activas no deben compactar varios cursos en un course_id."""
-    environment = get_environment()
+    environment = get_environment(use_rag=False)
     details = environment.tools.get_student_details("u2024002")
     active_course_ids = {
         enrollment["course_id"] for enrollment in details["active_enrollments"]
@@ -142,7 +142,7 @@ def test_cancel_enrollment_error_not_found(tools):
 
 
 def test_academic_environment_exposes_user_sms_tools():
-    environment = get_environment()
+    environment = get_environment(use_rag=False)
 
     user_tool_names = {tool.name for tool in environment.get_user_tools()}
 
