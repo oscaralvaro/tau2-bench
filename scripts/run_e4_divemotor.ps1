@@ -7,7 +7,11 @@ param(
     [string]$EstrategiaD = "headers",
 
     [ValidateSet("Completa", "Sin12", "Solo12")]
-    [string]$Recuperacion = "Completa"
+    [string]$Recuperacion = "Completa",
+
+    [int]$MaxSteps = 30,
+
+    [int]$LlmTimeout = 300
 )
 
 $ErrorActionPreference = "Stop"
@@ -62,7 +66,16 @@ if ($Condicion -eq "C" -and $Recuperacion -eq "Solo12") {
     $saveName = "sim_e4_C_task12_work"
 }
 
-$llmArgs = '{\"temperature\":0.0,\"timeout\":300,\"rate_limit_requests_per_minute\":14,\"rate_limit_requests_per_day\":14000,\"rate_limit_tokens_per_minute\":150000,\"rate_limit_bucket\":\"gemma4-free-tier-e4\",\"rate_limit_token_reserve\":750}'
+$llmArgsObject = @{
+    temperature = 0.0
+    timeout = $LlmTimeout
+    rate_limit_requests_per_minute = 14
+    rate_limit_requests_per_day = 14000
+    rate_limit_tokens_per_minute = 150000
+    rate_limit_bucket = "gemma4-free-tier-e4"
+    rate_limit_token_reserve = 750
+}
+$llmArgs = ($llmArgsObject | ConvertTo-Json -Compress).Replace('"', '\"')
 $envArgs = @{
     chunking_strategy = $strategy
     retrieval_k = 3
@@ -75,6 +88,8 @@ Write-Host "Estrategia: $strategy"
 Write-Host "Think: $useThink"
 Write-Host "Archivo: data/simulations/$saveName.json"
 Write-Host "Tareas: $($taskIds -join ', ')"
+Write-Host "Max steps: $MaxSteps"
+Write-Host "LLM timeout: $LlmTimeout"
 
 # Las respuestas permiten reanudar aunque el checkpoint tenga un commit anterior.
 "y`ny`ny" | python -m tau2.cli run `
@@ -83,7 +98,7 @@ Write-Host "Tareas: $($taskIds -join ', ')"
     --user-llm gemini/gemma-4-26b-a4b-it `
     --task-ids $taskIds `
     --num-trials 5 `
-    --max-steps 30 `
+    --max-steps $MaxSteps `
     --max-concurrency 1 `
     --save-to $saveName `
     --agent-llm-args $llmArgs `
