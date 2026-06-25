@@ -5,6 +5,7 @@ DATA_DIR = Path(__file__).parents[4] / "data" / "tau2" / "domains" / "sanita_iri
 
 DB_PATH = DATA_DIR / "db.json"
 POLICY_PATH = DATA_DIR / "policy.md"
+POLICY_RAG_PATH = DATA_DIR / "policy_rag.md"
 TASKS_PATH = DATA_DIR / "tasks.json"
 SPLIT_TASKS_PATH = DATA_DIR / "split_tasks.json"
 

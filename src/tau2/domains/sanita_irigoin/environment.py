@@ -8,25 +8,41 @@ from tau2.domains.sanita_irigoin.user_tools import ArrozUserToolKit
 from tau2.domains.sanita_irigoin.utils import (
     DB_PATH,
     POLICY_PATH,
+    POLICY_RAG_PATH,
     TASKS_PATH,
     SPLIT_TASKS_PATH,
 )
 from tau2.environment.environment import Environment
+from tau2.environment.rag import ChromaPolicyIndex, THINK_INSTRUCTION
 from tau2.utils import load_file
 
 
 def get_environment(
     db: Optional[ArrozDB] = None,
     solo_mode: bool = False,
+    use_rag: bool = True,
+    chunking_strategy: str = "headers",
+    retrieval_k: int = 3,
+    use_think: bool = False,
 ) -> Environment:
     if solo_mode:
         raise ValueError("sanita_irigoin domain does not support solo mode")
     if db is None:
         db = ArrozDB.load(DB_PATH)
-    tools = ArrozToolKit(db)
     user_tools = ArrozUserToolKit(db)
     with open(POLICY_PATH, "r", encoding="utf-8") as fp:
-        policy = fp.read()
+        policy_text = fp.read()
+    policy_index = None
+    if use_rag:
+        policy_index = ChromaPolicyIndex(policy_text, strategy=chunking_strategy)
+        tools = ArrozToolKit(db, policy_index=policy_index, retrieval_k=retrieval_k)
+        with open(POLICY_RAG_PATH, "r", encoding="utf-8") as fp:
+            policy = fp.read()
+    else:
+        tools = ArrozToolKit(db)
+        policy = policy_text
+    if use_think:
+        policy = policy + THINK_INSTRUCTION
     return Environment(
         domain_name="sanita_irigoin",
         policy=policy,

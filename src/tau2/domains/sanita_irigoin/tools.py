@@ -1,13 +1,13 @@
 from tau2.domains.sanita_irigoin.data_model import ArrozDB
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.toolkit import RAGToolKit, ToolType, is_tool
 
 
-class ArrozToolKit(ToolKitBase):
+class ArrozToolKit(RAGToolKit):
     """Herramientas para el dominio de insumos agricolas para arroz."""
     db: ArrozDB
 
-    def __init__(self, db: ArrozDB) -> None:
-        super().__init__(db)
+    def __init__(self, db: ArrozDB, policy_index=None, retrieval_k: int = 3) -> None:
+        super().__init__(db, policy_index=policy_index, retrieval_k=retrieval_k)
 
     @is_tool(ToolType.READ)
     def get_user_details(self, user_id: str) -> dict:
