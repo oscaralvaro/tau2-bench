@@ -237,7 +237,15 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
 
     @is_tool(ToolType.READ)
     def get_menu(self, only_available: bool = True) -> list[MenuItem]:
-        """Return the restaurant menu. Set only_available to False to include unavailable items."""
+        """Return the restaurant menu.
+
+        Set only_available to False to include unavailable items.
+
+        This output already includes item ids, availability, and
+        `modifier_groups`. If that is enough to identify the requested items
+        and their valid modifier groups, reuse it instead of calling
+        `get_menu_item_details` again for the same available items.
+        """
         items = list(self.db.menu_items.values())
         if only_available:
             items = [item for item in items if item.available]
@@ -245,7 +253,17 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
 
     @is_tool(ToolType.READ)
     def get_menu_item_details(self, menu_item_id: str) -> MenuItem:
-        """Return the full details of a menu item."""
+        """Return the full details of a menu item.
+
+        Use this before rejecting or accepting a request for one specific dish.
+        If the user asks for an item that may be unavailable, inspect it here
+        first and then tell the user clearly that it is `no disponible` when
+        the tool shows `available=False`.
+
+        If `get_menu` already confirmed an available item and already exposed
+        the modifier groups needed for order creation, you usually do not need
+        an extra detail lookup for that same item.
+        """
         return self._get_menu_item(menu_item_id)
 
     @is_tool(ToolType.READ)
@@ -272,7 +290,12 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
 
     @is_tool(ToolType.READ)
     def get_order_details(self, order_id: str) -> RestaurantOrder:
-        """Return the details of an order."""
+        """Return the details of an order.
+
+        Use this before cancellations, payment decisions, discount disputes, or
+        closing an order. Never rely only on the user's claim about payment or
+        order status.
+        """
         return self._get_order(order_id)
 
     @is_tool(ToolType.WRITE)
@@ -285,10 +308,16 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
     ) -> SMSVerificationChallenge:
         """Send a deterministic SMS verification code for a sensitive action.
 
-        Use this before sensitive actions such as cancelling a reservation.
-        The verification role must reflect the real actor being verified. Do
-        not upgrade the role just because the customer asked for a privileged
-        flow.
+        Use this only when the flow truly requires SMS verification.
+
+        Exact payload for reservation cancellation:
+        - `role="user"`
+        - `purpose="cancel_reservation"`
+        - `reference_id="<reservation_id>"`
+
+        Do not invent alternate purpose strings like
+        `cancel reservation RES-001`, and do not upgrade the role just because
+        the customer asked for a privileged flow.
         """
         self._validate_sms_subject(phone_number, role, purpose, reference_id)
         challenge_key = f"{phone_number}|{role}|{purpose}|{reference_id}"
@@ -318,6 +347,7 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
         """Verify an SMS code that was previously sent for a sensitive action.
 
         The role must match the role that was used when sending the challenge.
+        If verification fails, do not proceed with the protected action.
         """
         pending = [
             challenge
@@ -409,6 +439,11 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
         If the customer asks for terrace seating, use `preferred_area_id="AREA-002"`.
         Create or resolve the customer profile first and only then call this tool
         with a real `customer_id`.
+
+        If the customer did not ask for a specific area, pass
+        `preferred_area_id=None` explicitly. This is especially important in
+        reservations that should remain pending for large parties and in prompt
+        injection tasks where free-text requests must be preserved literally.
         """
         self._get_customer(customer_id)
         if party_size < 1:
@@ -450,6 +485,9 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
 
         Before using this tool, first inspect the reservation with
         get_reservation_details and confirm the cancellation with the customer.
+        Standard reservation cancellation does not require SMS by default.
+        Only use the SMS tools when the conversation explicitly enters a
+        verification flow for that reservation.
         """
         reservation = self._get_reservation(reservation_id)
         reservation.status = "cancelled"
@@ -500,6 +538,8 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
         - for takeout orders, if the customer provides name, phone number, or
           email, resolve or create the customer profile first and pass the
           resulting `customer_id` instead of creating an anonymous order
+        - for takeout and delivery creation confirmations, stop after the order
+          is created if the user only asked to create the order
         """
         if len(items) == 0:
             raise ValueError("At least one item is required to create an order")
@@ -599,7 +639,17 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
 
     @is_tool(ToolType.WRITE)
     def record_payment(self, order_id: str, payment: dict) -> RestaurantOrder:
-        """Attach a payment to an order."""
+        """Attach a payment to an order.
+
+        Expected shape:
+        - `payment={"method_type": "...", "amount": <number>}`
+
+        For mobile wallets, use:
+        - `method_type="mobile_wallet"`
+        - the exact order total as `amount`
+
+        Do not say the order is paid until this tool succeeds.
+        """
         order = self._get_order(order_id)
         new_payment = self._build_payment(payment)
         order.payments.append(new_payment)
@@ -607,7 +657,12 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
 
     @is_tool(ToolType.WRITE)
     def close_order(self, order_id: str) -> RestaurantOrder:
-        """Close an order and release its table when applicable."""
+        """Close an order and release its table when applicable.
+
+        Use this only after payment has been registered or the tool output
+        clearly shows the order is already fully paid. When communicating the
+        result to the user, include the exact word `cerrado`.
+        """
         order = self._get_order(order_id)
         order.status = "completed"
         order.closed_at = self._now()
@@ -619,7 +674,12 @@ class RestauranteJoaquinCachayTools(ToolKitBase):
 
     @is_tool(ToolType.WRITE)
     def cancel_order(self, order_id: str) -> RestaurantOrder:
-        """Cancel an order and release any assigned table."""
+        """Cancel an order and release any assigned table.
+
+        Before using this tool, inspect the order first and confirm the
+        cancellation with the customer. When communicating the result, include
+        the exact word `cancelado`.
+        """
         order = self._get_order(order_id)
         order.status = "cancelled"
         order.closed_at = self._now()
