@@ -3,7 +3,8 @@ from tau2.domains.cable_calderon.tools import CableCalderonToolKit
 
 
 def _fake_embed(texts):
-    import math, random
+    import math
+    import random
 
     def make_vec(text, dim=8):
         rng = random.Random(hash(text) & 0xFFFFFFFF)
