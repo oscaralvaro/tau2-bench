@@ -58,6 +58,12 @@ class FakeRateLimitError(Exception):
         self.status_code = status_code
 
 
+class FakeTransientProviderError(Exception):
+    def __init__(self, message="500 Internal Server Error", status_code=500):
+        super().__init__(message)
+        self.status_code = status_code
+
+
 @pytest.fixture(autouse=True)
 def reset_rate_limiters(monkeypatch):
     monkeypatch.setattr(llm_utils, "_ROLLING_RATE_LIMITERS", {})
@@ -124,6 +130,26 @@ def test_generate_no_tool_call(monkeypatch, model: str, messages: list[Message])
     response = generate(model, messages)
     assert isinstance(response, AssistantMessage)
     assert response.content == "Moonbase Alpha"
+
+
+def test_generate_retries_empty_message_then_succeeds(
+    monkeypatch, model: str, messages: list[Message]
+):
+    monkeypatch.setattr(
+        llm_utils,
+        "completion",
+        make_offline_generate_stub(
+            [FakeResponse(content="   "), FakeResponse(content="Respuesta valida")]
+        ),
+    )
+    monkeypatch.setattr(llm_utils, "get_response_cost", lambda response: 0.0)
+    monkeypatch.setattr(llm_utils, "get_response_usage", lambda response: None)
+    monkeypatch.setattr(llm_utils.time, "sleep", lambda seconds: None)
+
+    response = generate(model, messages)
+
+    assert isinstance(response, AssistantMessage)
+    assert response.content == "Respuesta valida"
 
 
 def test_generate_tool_call(
@@ -682,6 +708,54 @@ def test_generate_retries_on_provider_429_then_succeeds(
     )
 
     assert response.content == "ok after retry"
+    assert fake_clock.sleeps == [1.0]
+
+
+def test_generate_retries_on_transient_provider_500_then_succeeds(
+    monkeypatch, model: str, messages: list[Message]
+):
+    class FakeClock:
+        def __init__(self):
+            self.now = 0.0
+            self.sleeps = []
+
+        def monotonic(self):
+            return self.now
+
+        def sleep(self, seconds: float):
+            self.sleeps.append(seconds)
+            self.now += seconds
+
+    fake_clock = FakeClock()
+    calls = iter(
+        [
+            FakeTransientProviderError(),
+            FakeResponse(content="ok after transient retry"),
+        ]
+    )
+
+    def flaky_completion(**kwargs):
+        result = next(calls)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    monkeypatch.setattr(llm_utils.time, "monotonic", fake_clock.monotonic)
+    monkeypatch.setattr(llm_utils.time, "sleep", fake_clock.sleep)
+    monkeypatch.setattr(llm_utils, "completion", flaky_completion)
+    monkeypatch.setattr(llm_utils, "get_response_cost", lambda response: 0.0)
+    monkeypatch.setattr(llm_utils, "get_response_usage", lambda response: None)
+
+    response = generate(
+        model,
+        messages,
+        transient_error_max_retries=2,
+        transient_error_backoff_initial_seconds=1,
+        transient_error_backoff_multiplier=2,
+        transient_error_backoff_jitter_seconds=0,
+    )
+
+    assert response.content == "ok after transient retry"
     assert fake_clock.sleeps == [1.0]
 
 
