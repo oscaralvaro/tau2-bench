@@ -1,8 +1,10 @@
 # Copyright Sierra
+import json
 from pathlib import Path
 from typing import Optional
 
-from tau2.data_model.tasks import Task
+from tau2.data_model.message import AssistantMessage, ToolMessage, UserMessage
+from tau2.data_model.tasks import InitializationData, Task
 from tau2.domains.estaciondeservicio_Rivera.data_model import GrifoDB
 from tau2.domains.estaciondeservicio_Rivera.user_data_model import (
     RiveraUserDB,
@@ -22,8 +24,27 @@ from tau2.domains.estaciondeservicio_Rivera.utils import (
     ESTACIONDESERVICIO_RIVERA_USER_DB_PATH,
 )
 from tau2.environment.environment import Environment
-from tau2.environment.rag import THINK_INSTRUCTION, ChromaPolicyIndex
+from tau2.environment.rag import THINK_INSTRUCTION, ChromaPolicyIndex, _make_gemini_embed_fn
 from tau2.utils import get_dict_hash, load_file
+
+_NON_DETERMINISTIC_READ_TOOLS = {"retrieve_policy", "think"}
+
+_POLICY_EMBED_CACHE: dict[str, list[float]] = {}
+
+
+def _cached_policy_embed_fn(texts: list[str]) -> list[list[float]]:
+    """Memoizes embeddings by exact text so identical chunks/queries always
+    get the same vector within a process. Without this, the evaluator's
+    replay of the agent's tool calls (which rebuilds the policy index from
+    scratch) can re-embed the same text and get a slightly different vector
+    from the API, occasionally flipping which near-tied chunk ranks first in
+    retrieve_policy and breaking the replay consistency check."""
+    missing = [text for text in texts if text not in _POLICY_EMBED_CACHE]
+    if missing:
+        embed_fn = _make_gemini_embed_fn()
+        for text, vector in zip(missing, embed_fn(missing)):
+            _POLICY_EMBED_CACHE[text] = vector
+    return [_POLICY_EMBED_CACHE[text] for text in texts]
 
 
 class EstacionDeServicioRiveraEnvironment(Environment):
@@ -81,6 +102,85 @@ class EstacionDeServicioRiveraEnvironment(Environment):
             )
         self.user_tools.db.sms_inbox = inbox
 
+    def set_state(
+        self,
+        initialization_data: Optional[InitializationData],
+        initialization_actions,
+        message_history: list,
+    ):
+        """Same as Environment.set_state, but does not enforce that replayed
+        calls to non-deterministic, read-only tools (retrieve_policy, think)
+        return the exact same content recorded live.
+
+        The evaluator rebuilds this environment from scratch to replay the
+        agent's tool calls (registry.get_env_constructor never receives the
+        --env-args used for the live run, so the replay always uses this
+        function's default chunking_strategy). retrieve_policy's output
+        depends on chunking_strategy/retrieval_k, so a replay built with a
+        different strategy than the live run would otherwise raise a false
+        mismatch. Neither tool mutates the DB, so skipping the equality
+        check here cannot affect the DB-based reward.
+        """
+
+        def get_actions_from_messages(messages: list):
+            messages = list(reversed(messages))
+            actions = []
+            while messages:
+                message = messages.pop()
+                if isinstance(message, ToolMessage):
+                    raise ValueError(
+                        "Tool message not expected. Tool messages should always follow a tool call."
+                    )
+                if (
+                    isinstance(message, (AssistantMessage, UserMessage))
+                    and message.is_tool_call()
+                ):
+                    for tc in message.tool_calls:
+                        if len(messages) == 0:
+                            raise ValueError("Tool message expected. Got None.")
+                        tm = messages.pop()
+                        if not isinstance(tm, ToolMessage):
+                            raise ValueError(f"Tool message expected. Got {type(tm)}")
+                        if tc.id != tm.id:
+                            raise ValueError(
+                                f"Tool call id mismatch. Got {tc.id} and {tm.id}"
+                            )
+                        actions.append((tc, tm))
+            return actions
+
+        if self.solo_mode:
+            assert all(
+                not isinstance(message, UserMessage) for message in message_history
+            ), "User messages are not allowed in solo mode"
+
+        if initialization_data is not None:
+            if initialization_data.agent_data is not None:
+                self.tools.update_db(initialization_data.agent_data)
+            if initialization_data.user_data is not None:
+                self.user_tools.update_db(initialization_data.user_data)
+
+        if initialization_actions is not None:
+            for action in initialization_actions:
+                self.run_env_function_call(action)
+
+        for tool_call, expected_response in get_actions_from_messages(message_history):
+            if tool_call.name in _NON_DETERMINISTIC_READ_TOOLS:
+                continue
+            response = self.get_response(tool_call)
+            try:
+                content = json.loads(response.content)
+            except Exception:
+                content = response.content
+            try:
+                expected_content = json.loads(expected_response.content)
+            except Exception:
+                expected_content = expected_response.content
+            if content != expected_content:
+                raise ValueError(
+                    f"Tool call:\n{tool_call}\n\nReturned:\n{response}\n\nExpected:\n{expected_response}"
+                )
+        self.sync_tools()
+
 
 def get_environment(
     db: Optional[GrifoDB] = None,
@@ -104,7 +204,9 @@ def get_environment(
     if use_rag:
         with open(ESTACIONDESERVICIO_RIVERA_POLICY_PATH, "r", encoding="utf-8") as fp:
             policy_text = fp.read()
-        policy_index = ChromaPolicyIndex(policy_text, strategy=chunking_strategy)
+        policy_index = ChromaPolicyIndex(
+            policy_text, strategy=chunking_strategy, _embed_fn=_cached_policy_embed_fn
+        )
         tools = EstacionDeServicioRiveraTools(
             db, policy_index=policy_index, retrieval_k=retrieval_k
         )
