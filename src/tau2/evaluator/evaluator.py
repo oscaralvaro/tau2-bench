@@ -1,3 +1,5 @@
+from functools import partial
+
 from enum import Enum
 
 from tau2.data_model.simulation import RewardInfo, SimulationRun, TerminationReason
@@ -18,12 +20,20 @@ class EvaluationType(str, Enum):
     ALL_WITH_NL_ASSERTIONS = "all_with_nl_assertions"  # WIP
 
 
+def _get_environment_constructor(domain: str, env_args: dict | None = None):
+    constructor = registry.get_env_constructor(domain)
+    if not env_args:
+        return constructor
+    return partial(constructor, **env_args)
+
+
 def evaluate_simulation(
     simulation: SimulationRun,
     task: Task,
     evaluation_type: EvaluationType,
     solo_mode: bool,
     domain: str,
+    env_args: dict | None = None,
 ) -> RewardInfo:
     """
     Evaluate the simulation based on the evaluation type.
@@ -45,9 +55,11 @@ def evaluate_simulation(
             reward_basis=None,
             info={"note": "No evaluation criteria"},
         )
+    environment_constructor = _get_environment_constructor(domain, env_args)
+
     if evaluation_type == EvaluationType.ENV:
         reward_info = EnvironmentEvaluator.calculate_reward(
-            environment_constructor=registry.get_env_constructor(domain),
+            environment_constructor=environment_constructor,
             task=task,
             full_trajectory=simulation.messages,
             solo_mode=solo_mode,
@@ -69,7 +81,7 @@ def evaluate_simulation(
         )
     elif evaluation_type in {EvaluationType.ALL, EvaluationType.ALL_WITH_NL_ASSERTIONS}:
         env_reward_info = EnvironmentEvaluator.calculate_reward(
-            environment_constructor=registry.get_env_constructor(domain),
+            environment_constructor=environment_constructor,
             task=task,
             full_trajectory=simulation.messages,
             solo_mode=solo_mode,

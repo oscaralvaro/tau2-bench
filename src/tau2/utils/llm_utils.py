@@ -393,6 +393,30 @@ def _is_rate_limit_error(error: Exception) -> bool:
     return "429" in message or "rate limit" in message or "too many requests" in message
 
 
+def _is_transient_provider_error(error: Exception) -> bool:
+    status_code = getattr(error, "status_code", None)
+    if status_code in {500, 502, 503, 504}:
+        return True
+
+    response = getattr(error, "response", None)
+    if response is not None and getattr(response, "status_code", None) in {
+        500,
+        502,
+        503,
+        504,
+    }:
+        return True
+
+    message = str(error).lower()
+    return (
+        "internal server error" in message
+        or "internal error" in message
+        or "service unavailable" in message
+        or "high demand" in message
+        or "temporarily unavailable" in message
+    )
+
+
 def _compute_backoff_seconds(
     attempt: int, rate_limit_config: _RateLimitConfig
 ) -> float:
@@ -738,6 +762,7 @@ def generate(
     if kwargs.get("num_retries") is None:
         kwargs["num_retries"] = DEFAULT_MAX_RETRIES
 
+    empty_response_retries = kwargs.pop("empty_response_retries", DEFAULT_MAX_RETRIES)
     rate_limit_config = _extract_rate_limit_config(kwargs)
 
     if model.startswith("claude") and not ALLOW_SONNET_THINKING:
@@ -794,9 +819,10 @@ def generate(
                 if limiter is not None and limiter_entry is not None:
                     limiter.finalize(limiter_entry, limiter_entry.token_count)
 
+                retryable_error = _is_rate_limit_error(e) or _is_transient_provider_error(e)
                 if (
                     rate_limit_config is None
-                    or not _is_rate_limit_error(e)
+                    or not retryable_error
                     or attempt >= max_attempts - 1
                 ):
                     logger.error(e)
@@ -804,7 +830,7 @@ def generate(
 
                 backoff_seconds = _compute_backoff_seconds(attempt, rate_limit_config)
                 logger.warning(
-                    f"Received rate limit error from provider; retrying in {backoff_seconds:.2f}s "
+                    f"Received retryable provider error; retrying in {backoff_seconds:.2f}s "
                     f"(attempt {attempt + 1}/{max_attempts - 1})"
                 )
                 time.sleep(backoff_seconds)
@@ -931,6 +957,25 @@ def generate(
         usage=usage,
         raw_data=response.to_dict(),
     )
+    if not (message.has_text_content() or message.is_tool_call()):
+        if empty_response_retries > 0:
+            logger.warning(
+                "Provider returned an empty assistant message; retrying "
+                f"({empty_response_retries} retries remaining)"
+            )
+            retry_kwargs = dict(kwargs)
+            retry_kwargs["empty_response_retries"] = empty_response_retries - 1
+            return generate(
+                model=model,
+                messages=messages,
+                tools=tools,
+                tool_choice=tool_choice,
+                **retry_kwargs,
+            )
+        raise ValueError(
+            "AssistantMessage must have either content or tool calls. "
+            f"Got empty response from provider for model {model}"
+        )
     return message
 
 

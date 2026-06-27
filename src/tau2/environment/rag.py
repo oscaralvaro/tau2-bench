@@ -11,8 +11,11 @@ import re
 import threading
 import time
 import uuid
+import hashlib
+import json
 from collections import deque
 from datetime import date
+from pathlib import Path
 from typing import Literal
 
 import chromadb
@@ -207,21 +210,50 @@ def _make_gemini_embed_fn(
         )
 
     client = genai.Client(api_key=api_key)
+    cache_dir = Path(".cache") / "tau2_embeddings"
+    cache_dir.mkdir(parents=True, exist_ok=True)
 
     def embed_fn(texts: list[str]) -> list[list[float]]:
+        embeddings: list[list[float] | None] = []
+        missing_texts: list[str] = []
+        missing_positions: list[int] = []
+        missing_paths: list[Path] = []
+
+        for i, text in enumerate(texts):
+            key = hashlib.sha256(
+                f"{model}|{output_dimensionality}|{text}".encode("utf-8")
+            ).hexdigest()
+            cache_path = cache_dir / f"{key}.json"
+            if cache_path.exists():
+                embeddings.append(json.loads(cache_path.read_text(encoding="utf-8")))
+            else:
+                embeddings.append(None)
+                missing_texts.append(text)
+                missing_positions.append(i)
+                missing_paths.append(cache_path)
+
+        if not missing_texts:
+            return [embedding for embedding in embeddings if embedding is not None]
+
         last_error: Exception | None = None
         for attempt in range(_EMBED_MAX_RETRIES + 1):
             _embed_rate_limit_acquire()
             try:
                 resp = client.models.embed_content(
                     model=model,
-                    contents=texts,
+                    contents=missing_texts,
                     config=types.EmbedContentConfig(
                         task_type="RETRIEVAL_DOCUMENT",
                         output_dimensionality=output_dimensionality,
                     ),
                 )
-                return [list(map(float, e.values)) for e in resp.embeddings]
+                for pos, cache_path, embedding in zip(
+                    missing_positions, missing_paths, resp.embeddings
+                ):
+                    values = list(map(float, embedding.values))
+                    cache_path.write_text(json.dumps(values), encoding="utf-8")
+                    embeddings[pos] = values
+                return [embedding for embedding in embeddings if embedding is not None]
             except Exception as e:
                 last_error = e
                 if not _is_embed_rate_limit_error(e) or attempt >= _EMBED_MAX_RETRIES:

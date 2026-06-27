@@ -552,6 +552,7 @@ def run_task(
         simulation=simulation,
         evaluation_type=evaluation_type,
         solo_mode=solo_mode,
+        env_args=env_args,
     )
 
     simulation.reward_info = reward_info
