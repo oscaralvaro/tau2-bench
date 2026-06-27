@@ -6,24 +6,51 @@ from tau2.domains.salud_mendoza_lista.tools import SaludToolkit
 from tau2.domains.salud_mendoza_lista.user_tools import SaludUserToolkit
 from tau2.domains.salud_mendoza_lista.utils import DATA_DIR
 from tau2.environment.environment import Environment
+from tau2.environment.rag import ChromaPolicyIndex, THINK_INSTRUCTION
 from tau2.utils import load_file
 
 
-def get_environment(solo_mode: bool = False) -> Environment:
+def get_environment(
+    db: Optional[SaludDB] = None,
+    solo_mode: bool = False,
+    chunking_strategy: str = "headers",
+    retrieval_k: int = 3,
+    use_rag: bool = False,
+    use_think: bool = False,
+) -> Environment:
     """
     Punto de entrada: carga la DB y la politica, y retorna el Environment.
+    Soporta RAG de politica con ChromaDB y think tool.
     """
     if solo_mode:
         raise ValueError("salud_mendoza_lista does not support solo mode")
 
-    db = SaludDB.load(str(DATA_DIR / "db.json"))
+    if db is None:
+        db = SaludDB.load(str(DATA_DIR / "db.json"))
+
     with open(DATA_DIR / "policy.md", "r", encoding="utf-8") as f:
-        policy = f.read()
+        policy_text = f.read()
+
+    if use_rag:
+        policy_index = ChromaPolicyIndex(policy_text, strategy=chunking_strategy)
+        tools = SaludToolkit(db, policy_index=policy_index, retrieval_k=retrieval_k)
+        rag_policy_path = DATA_DIR / "policy_rag.md"
+        if rag_policy_path.exists():
+            with open(rag_policy_path, "r", encoding="utf-8") as f:
+                policy = f.read()
+        else:
+            policy = policy_text
+    else:
+        tools = SaludToolkit(db)
+        policy = policy_text
+
+    if use_think:
+        policy = policy + THINK_INSTRUCTION
 
     return Environment(
         domain_name="salud_mendoza_lista",
         policy=policy,
-        tools=SaludToolkit(db),
+        tools=tools,
         user_tools=SaludUserToolkit(db),
     )
 

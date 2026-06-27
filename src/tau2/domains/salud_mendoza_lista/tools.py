@@ -1,15 +1,15 @@
 import hashlib
 
 from tau2.domains.salud_mendoza_lista.data_model import SaludDB
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.toolkit import RAGToolKit, ToolType, is_tool
 
 
-class SaludToolkit(ToolKitBase):
-    def __init__(self, db: SaludDB):
-        super().__init__(db)
+class SaludToolkit(RAGToolKit):
+    def __init__(self, db: SaludDB = None, policy_index=None, retrieval_k=3):
+        super().__init__(db, policy_index=policy_index, retrieval_k=retrieval_k)
 
     # ─────────────────────────────────────────────
-    # HERRAMIENTAS ORIGINALES (Entrega 1)
+    # HERRAMIENTAS ORIGINALES
     # ─────────────────────────────────────────────
 
     @is_tool(ToolType.READ)
@@ -69,8 +69,8 @@ class SaludToolkit(ToolKitBase):
     @is_tool(ToolType.WRITE)
     def update_interconsulta_as_resolved_externally(self, id_interconsulta: str) -> str:
         """
-        Marca la interconsulta como resuelta externamente (paciente se atendio de forma privada).
-        Requiere verificacion SMS previa para operaciones sensibles.
+        Marca la interconsulta como resuelta externamente.
+        Requiere verificacion SMS previa.
         """
         if id_interconsulta in self.db.interconsultas:
             self.db.interconsultas[id_interconsulta].estado = "Resuelto Externo"
@@ -83,7 +83,8 @@ class SaludToolkit(ToolKitBase):
     @is_tool(ToolType.WRITE)
     def cancel_interconsulta_by_unreachability(self, id_interconsulta: str) -> str:
         """
-        Cancela o suspende una interconsulta por inubicabilidad del paciente.
+        Cancela la interconsulta por inubicabilidad del paciente.
+        Usar cuando el paciente no responde o es incoherente tras 2 intentos.
         """
         if id_interconsulta in self.db.interconsultas:
             self.db.interconsultas[id_interconsulta].estado = "Inubicable"
@@ -94,9 +95,7 @@ class SaludToolkit(ToolKitBase):
         return "ERROR: ID de interconsulta no valida para cancelacion."
 
     @is_tool(ToolType.WRITE)
-    def update_priority(
-        self, id_interconsulta: str, nueva_prioridad: str
-    ) -> str:
+    def update_priority(self, id_interconsulta: str, nueva_prioridad: str) -> str:
         """
         Actualiza la prioridad administrativa de una interconsulta.
         Valores validos: Normal, Alta, Urgente.
@@ -121,9 +120,7 @@ class SaludToolkit(ToolKitBase):
             if slot.especialidad.lower() == especialidad.lower()
         ]
         if not slots:
-            return (
-                f"CONSULTA: Actualmente no hay cupos disponibles para la especialidad: {especialidad}."
-            )
+            return f"CONSULTA: Actualmente no hay cupos disponibles para la especialidad: {especialidad}."
 
         res = f"CUPOS DISPONIBLES PARA {especialidad.upper()}:\n"
         for slot in slots:
@@ -136,17 +133,15 @@ class SaludToolkit(ToolKitBase):
     @is_tool(ToolType.GENERIC)
     def transfer_to_human_agents(self, summary: str) -> str:
         """
-        Escala el caso a un agente humano cuando hay un reclamo agresivo o una
-        situacion que requiere atencion manual.
+        Escala el caso a un agente humano cuando hay un reclamo agresivo o
+        una situacion que requiere atencion manual.
         """
         return "YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON."
 
     @is_tool(ToolType.READ)
     def get_interconsulta_details(self, rut: str) -> str:
         """
-        Obtiene los detalles completos de la interconsulta activa de un paciente,
-        incluyendo estado, prioridad y dias de espera. Usar para verificar el
-        estado real antes de responder afirmaciones del paciente.
+        Obtiene los detalles completos de la interconsulta activa de un paciente.
         """
         for interconsulta in self.db.interconsultas.values():
             if interconsulta.rut_paciente == rut:
@@ -160,21 +155,19 @@ class SaludToolkit(ToolKitBase):
         return f"RESULTADO: No se encontro interconsulta activa para el RUT {rut}."
 
     # ─────────────────────────────────────────────
-    # HERRAMIENTAS NUEVAS: SMS (Entrega 2)
+    # HERRAMIENTAS SMS
     # ─────────────────────────────────────────────
 
     @is_tool(ToolType.WRITE)
     def send_sms_verification_code(self, rut: str) -> str:
         """
         Envia un codigo de verificacion de 6 digitos al telefono registrado del paciente.
-        Debe llamarse ANTES de ejecutar operaciones sensibles como cerrar o cancelar
-        una interconsulta por solicitud del paciente. Retorna confirmacion del envio.
+        Debe llamarse ANTES de ejecutar operaciones sensibles.
         """
         paciente = self.db.pacientes.get(rut)
         if paciente is None:
             return f"ERROR: No se encontro un paciente con RUT {rut}."
 
-        # Codigo deterministico basado en el RUT (reproducible para testing)
         codigo = hashlib.md5(rut.encode()).hexdigest()[:6].upper()
         self.db.sms_verification_codes[rut] = codigo
 
@@ -191,8 +184,6 @@ class SaludToolkit(ToolKitBase):
     def verify_sms_code(self, rut: str, codigo: str) -> str:
         """
         Verifica si el codigo SMS proporcionado por el paciente es correcto.
-        Solo proceder con la operacion sensible si la verificacion es exitosa.
-        Si el codigo es incorrecto, informar al paciente y ofrecer reenviar.
         """
         codigo_esperado = self.db.sms_verification_codes.get(rut)
 
@@ -212,14 +203,13 @@ class SaludToolkit(ToolKitBase):
             )
 
     # ─────────────────────────────────────────────
-    # HERRAMIENTAS NUEVAS: RAG Clinico (Entrega 2)
+    # HERRAMIENTAS RAG CLINICO
     # ─────────────────────────────────────────────
 
     @is_tool(ToolType.READ)
     def get_medico_details(self, codigo_medico: str) -> str:
         """
         Obtiene los datos de un medico de APS registrado en el sistema.
-        Usar para verificar la identidad del medico antes de procesar derivaciones.
         """
         medico = self.db.medicos_aps.get(codigo_medico)
         if medico is None:
@@ -232,9 +222,8 @@ class SaludToolkit(ToolKitBase):
     @is_tool(ToolType.READ)
     def search_derivation_protocol(self, especialidad: str, condicion: str) -> str:
         """
-        Busca en la base de conocimiento el protocolo de derivacion vigente para
-        una especialidad y condicion clinica. SIEMPRE usar esta herramienta antes
-        de informar requisitos de derivacion. Nunca responder de memoria.
+        Busca en la base de conocimiento el protocolo de derivacion vigente.
+        SIEMPRE usar antes de informar requisitos de derivacion.
         """
         especialidad_lower = especialidad.lower().strip()
         condicion_lower = condicion.lower().strip()
@@ -287,8 +276,7 @@ class SaludToolkit(ToolKitBase):
     ) -> str:
         """
         Crea y envia una interconsulta desde un medico de APS al nivel secundario.
-        Solo ejecutar si el medico confirmo que tiene todos los examenes requeridos
-        segun el protocolo de derivacion vigente.
+        Solo ejecutar si el medico confirmo que tiene todos los examenes requeridos.
         """
         medico = self.db.medicos_aps.get(codigo_medico)
         if medico is None:
