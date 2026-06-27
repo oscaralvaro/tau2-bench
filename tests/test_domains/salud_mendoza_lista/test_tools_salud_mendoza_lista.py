@@ -81,3 +81,33 @@ def test_create_appointment_reservation_rejects_wrong_specialty():
     assert "no corresponde a la especialidad" in res
     assert env.tools.db.interconsultas["IC-002"].estado == "En Espera"
     assert "SLOT-1" in env.tools.db.agenda_disponible
+
+def _fake_embed(texts):
+    import math, random
+    def make_vec(text, dim=8):
+        rng = random.Random(hash(text) & 0xFFFFFFFF)
+        v = [rng.gauss(0, 1) for _ in range(dim)]
+        n = math.sqrt(sum(x*x for x in v)) or 1.0
+        return [x/n for x in v]
+    return [make_vec(t) for t in texts]
+
+SAMPLE_POLICY = """
+## Inubicabilidad
+Si el paciente no responde tras 2 intentos, usar cancel_interconsulta_by_unreachability.
+
+## Dolor Agudo
+Si el paciente reporta dolor agudo, usar update_priority con valor Urgente.
+"""
+
+def test_retrieve_policy_returns_text():
+    from tau2.environment.rag import ChromaPolicyIndex
+    from tau2.domains.salud_mendoza_lista.tools import SaludToolkit
+    index = ChromaPolicyIndex(SAMPLE_POLICY, strategy="headers", _embed_fn=_fake_embed)
+    kit = SaludToolkit(db=None, policy_index=index)
+    result = kit.retrieve_policy(query="que hacer con paciente inubicable")
+    assert isinstance(result, str) and len(result) > 0
+
+def test_toolkit_has_think_tool():
+    from tau2.domains.salud_mendoza_lista.tools import SaludToolkit
+    kit = SaludToolkit(db=None)
+    assert "think" in kit.get_tools()
