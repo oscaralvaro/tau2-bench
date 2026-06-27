@@ -2,10 +2,11 @@
 
 ## Configuración del experimento
 
-- Política fuente: policy.md (721 palabras, 4 secciones)
+- Política fuente: policy.md (721 palabras, 5 secciones `##`)
 - Modelo: gemini/gemma-4-26b-a4b-it
 - Estrategia de tamaño fijo elegida para C: fixed_200
 - Motivo: La politica presenta 721 palabras si se aplicaba un chunck 400 solo se iban a generar 2 chuncks, por lo que se iba a llamar, practicamente, a toda la politica. Es por esto, que se opto por un fixed_200, puesto que se ibana generar 4 chuncks lo que a su vez era mas comparable con el separador de headers que generaba 6 chuncks.
+- Limite de pasos: B, C y D se ejecutaron con `max_steps=30`. A conserva `max_steps=200` porque es la simulacion E3 reutilizada, sin una ejecucion nueva, como indica el entregable.
 
 ## Tabla de chunks por estrategia
 

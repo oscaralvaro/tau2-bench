@@ -1,5 +1,5 @@
 
-# Hallazgos acumulados E1–E4 — [Nombre del dominio]
+# Hallazgos acumulados E1–E4 — Estación de Servicio Rivera
 
 ## 1. Descripción del dominio y las tareas
 1-2 párrafos: tipo de empresa, público objetivo; número de
