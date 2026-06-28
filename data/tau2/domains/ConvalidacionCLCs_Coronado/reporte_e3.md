@@ -71,11 +71,11 @@ Las cinco tareas con 100 % de fallo inicial son clc-006, clc-010, clc-011, clc-0
 
 Conteo sobre las 5 tareas que fallaron en la línea base E2 (fuente: `failure_taxonomy.json`):
 
-| Categoría | # Tareas | Tareas |
-|-----------|----------|--------|
-| POLICY_MISS | 4 | clc-006, clc-010, clc-011, clc-012 |
-| OTHER / DATA_BUG | 1 | clc-021 |
-| **Total** | **5** | |
+|     Categoría    | # Tareas | Tareas                             |
+|------------------|----------|------------------------------------|
+| POLICY_MISS      |     4    | clc-006, clc-010, clc-011, clc-012 |
+| OTHER / DATA_BUG |     1    | clc-021                            |
+| **Total**        |   **5**  |                                    |
 
 > Las regresiones aparentes clc-008 y clc-020 **no** se contabilizan aquí porque no son fallos del agente E3 sino artefactos de datos (§5).
 
