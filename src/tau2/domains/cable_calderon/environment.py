@@ -14,7 +14,24 @@ from tau2.domains.cable_calderon.utils import (
     CABLE_CALDERON_POLICY_PATH,
     CABLE_CALDERON_POLICY_RAG_PATH,
 )
+_POLICY_INDEX_CACHE = {}
 
+
+def get_cached_policy_index(chunking_strategy: str):
+    cache_key = (
+        str(CABLE_CALDERON_POLICY_PATH),
+        CABLE_CALDERON_POLICY_PATH.stat().st_mtime_ns,
+        chunking_strategy,
+    )
+
+    if cache_key not in _POLICY_INDEX_CACHE:
+        policy_text = CABLE_CALDERON_POLICY_PATH.read_text(encoding="utf-8")
+        _POLICY_INDEX_CACHE[cache_key] = ChromaPolicyIndex(
+            policy_text,
+            strategy=chunking_strategy,
+        )
+
+    return _POLICY_INDEX_CACHE[cache_key]
 
 def get_environment(
     db: Optional[CableCalderonDB] = None,
@@ -31,8 +48,7 @@ def get_environment(
         db = CableCalderonDB.load()
 
     if use_rag:
-        policy_text = CABLE_CALDERON_POLICY_PATH.read_text(encoding="utf-8")
-        policy_index = ChromaPolicyIndex(policy_text, strategy=chunking_strategy)
+        policy_index = get_cached_policy_index(chunking_strategy)
         policy = CABLE_CALDERON_POLICY_RAG_PATH.read_text(encoding="utf-8")
         toolkit = CableCalderonToolKit(
             db=db,
