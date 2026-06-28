@@ -1,14 +1,14 @@
 from typing import Optional, List
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.toolkit import RAGToolKit, ToolType, is_tool
 from tau2.domains.enosa_masias.data_model import EnosaDB, Ticket, User, Supply
 
-class EnosaToolKit(ToolKitBase):
+class EnosaToolKit(RAGToolKit):
     """Herramientas del asistente de atención al cliente de ENOSA."""
 
     db: EnosaDB
 
-    def __init__(self, db: EnosaDB) -> None:
-        super().__init__(db)
+    def __init__(self, db: EnosaDB, policy_index=None, retrieval_k=3) -> None:
+        super().__init__(db, policy_index=policy_index, retrieval_k=retrieval_k)
 
     # --- MÉTODOS PRIVADOS ---
     def _get_user(self, user_id: str) -> User:
