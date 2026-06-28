@@ -3,7 +3,31 @@ import pytest
 from tau2.data_model.message import ToolCall
 from tau2.domains.fishtrader_garbich.data_model import FishTraderDB
 from tau2.domains.fishtrader_garbich.environment import get_environment
+from tau2.domains.fishtrader_garbich.tools import FishTraderTools
 from tau2.environment.environment import Environment
+from tau2.environment.rag import ChromaPolicyIndex
+
+
+def _fake_embed(texts):
+    import math
+    import random
+
+    def make_vec(text, dim=8):
+        rng = random.Random(hash(text) & 0xFFFFFFFF)
+        v = [rng.gauss(0, 1) for _ in range(dim)]
+        n = math.sqrt(sum(x * x for x in v)) or 1.0
+        return [x / n for x in v]
+
+    return [make_vec(t) for t in texts]
+
+
+SAMPLE_POLICY = """
+## Devoluciones
+Puedes devolver cualquier artículo en 30 días con recibo.
+
+## Cancelaciones
+Puedes cancelar dentro de las 24 horas sin cargo.
+"""
 
 
 @pytest.fixture
@@ -405,8 +429,8 @@ def fishtrader_db() -> FishTraderDB:
 def test_make_payment_is_deterministic_for_evaluation_replay(
     fishtrader_db: FishTraderDB,
 ) -> None:
-    env_one = get_environment(db=fishtrader_db.model_copy(deep=True))
-    env_two = get_environment(db=fishtrader_db.model_copy(deep=True))
+    env_one = get_environment(db=fishtrader_db.model_copy(deep=True), use_rag=False)
+    env_two = get_environment(db=fishtrader_db.model_copy(deep=True), use_rag=False)
     tool_call = ToolCall(
         id="call_payment",
         name="make_payment",
@@ -426,7 +450,7 @@ def test_make_payment_is_deterministic_for_evaluation_replay(
 
 @pytest.fixture
 def environment(fishtrader_db: FishTraderDB) -> Environment:
-    return get_environment(fishtrader_db)
+    return get_environment(fishtrader_db, use_rag=False)
 
 
 def test_register_customer(environment: Environment):
@@ -704,7 +728,7 @@ def env_with_employees(fishtrader_db: FishTraderDB) -> Environment:
             department="Operations",
         )
     }
-    return get_environment(fishtrader_db)
+    return get_environment(fishtrader_db, use_rag=False)
 
 
 def test_send_verification_code_user(env_with_employees: Environment):
@@ -777,3 +801,17 @@ def test_check_sms_after_sync(env_with_employees: Environment):
 
     code = env_with_employees.tools._pending_verification["code"]
     assert code in sms_result
+
+
+def test_retrieve_policy_returns_text():
+    index = ChromaPolicyIndex(
+        SAMPLE_POLICY, strategy="headers", _embed_fn=_fake_embed
+    )
+    kit = FishTraderTools(db=None, policy_index=index)
+    result = kit.retrieve_policy(query="¿puedo cancelar mi pedido?")
+    assert isinstance(result, str) and len(result) > 0
+
+
+def test_toolkit_has_think_tool():
+    kit = FishTraderTools(db=None)
+    assert "think" in kit.tools

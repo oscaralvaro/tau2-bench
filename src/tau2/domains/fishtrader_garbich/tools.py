@@ -23,17 +23,22 @@ from tau2.domains.fishtrader_garbich.data_model import (
     PaymentRecord,
     ProductStatus,
 )
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.toolkit import RAGToolKit, ToolType, is_tool
 
 
-class FishTraderTools(ToolKitBase):
-    """Tools for the fish trader domain."""
+class FishTraderTools(RAGToolKit):
+    """Tools for the fish trader domain with RAG-based policy retrieval."""
 
     CURRENT_TIME = datetime.datetime(2026, 3, 29, 12, 0, 0)
     db: FishTraderDB
 
-    def __init__(self, db: FishTraderDB) -> None:
-        super().__init__(db)
+    def __init__(
+        self,
+        db: Optional[FishTraderDB] = None,
+        policy_index=None,
+        retrieval_k: int = 3,
+    ) -> None:
+        super().__init__(db, policy_index=policy_index, retrieval_k=retrieval_k)
         self._pending_verification: Optional[dict] = None
         self._verified: Optional[dict] = None
 
