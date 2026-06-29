@@ -12,6 +12,7 @@ from tau2.domains.healthcare_macalupu.data_model import (
 from tau2.domains.healthcare_macalupu.tools import HealthcareTools
 from tau2.domains.healthcare_macalupu.user_data_model import HealthcareUserDB
 from tau2.domains.healthcare_macalupu.user_tools import HealthcareUserTools
+from tau2.environment.rag import ChromaPolicyIndex
 
 
 @pytest.fixture
@@ -215,3 +216,42 @@ class TestRequestLifecycle:
         assert tools.assert_request_not_sent("33333333-3") is False
         # Non-existent patient should return True
         assert tools.assert_request_not_sent("99999999-9") is True
+
+
+## E4 Tests
+
+
+def _fake_embed(texts):
+    import math
+    import random
+
+    def make_vec(text, dim=8):
+        rng = random.Random(hash(text) & 0xFFFFFFFF)
+        v = [rng.gauss(0, 1) for _ in range(dim)]
+        n = math.sqrt(sum(x * x for x in v)) or 1.0
+        return [x / n for x in v]
+
+    return [make_vec(t) for t in texts]
+
+
+SAMPLE_POLICY = """
+## Devoluciones
+Puedes devolver cualquier artículo en 30 días con recibo.
+
+## Cancelaciones
+Puedes cancelar dentro de las 24 horas sin cargo.
+"""
+
+
+def test_retrieve_policy_returns_text():
+    index = ChromaPolicyIndex(SAMPLE_POLICY, strategy="headers", _embed_fn=_fake_embed)
+    auth_service = AuthCodeService()
+    kit = HealthcareTools(db=None, policy_index=index, auth_service=auth_service)
+    result = kit.retrieve_policy(query="¿puedo cancelar mi pedido?")
+    assert isinstance(result, str) and len(result) > 0
+
+
+def test_toolkit_has_think_tool():
+    auth_service = AuthCodeService()
+    kit = HealthcareTools(db=None, auth_service=auth_service)
+    assert "think" in kit.tools
