@@ -4,7 +4,7 @@
 
 GamerBit Store es una tienda peruana ficticia de equipos de computo, perifericos y servicios postventa. El agente atiende ventas, consultas de pedido, cancelaciones, soporte tecnico, garantias y flujos de verificacion por SMS. El caso de uso realista es una mesa de atencion donde el usuario puede pedir acciones de lectura, acciones de escritura y decisiones sensibles con reglas de negocio.
 
-El dominio termino con 20 tareas en el split `base`. Las tareas cubren compras, stock, cancelaciones, soporte, garantia, consultas sensibles, verificacion SMS, usuarios adversariales, prompt injection y solicitudes fuera de alcance. En E2 se corrio pass^5 sobre las 20 tareas; E3 uso el subconjunto `base_top10hard` para diagnostico y luego una corrida final de 100 simulaciones sobre el split base; E4 reutilizo el baseline E3 de 50 simulaciones sobre las 10 tareas dificiles y corrio 49 simulaciones parciales de RAG con `headers`.
+El dominio termino con 20 tareas en el split `base`. Las tareas cubren compras, stock, cancelaciones, soporte, garantia, consultas sensibles, verificacion SMS, usuarios adversariales, prompt injection y solicitudes fuera de alcance. En E2 se corrio pass^5 sobre las 20 tareas; E3 uso el subconjunto `base_top10hard` para diagnostico y luego una corrida final de 100 simulaciones sobre el split base; E4 reutilizo el baseline E3 de 50 simulaciones sobre las 10 tareas dificiles, corrio 50 simulaciones de RAG con `headers` y 10 simulaciones parciales de RAG con `fixed_200`.
 
 ## 2. Evolucion del agente a lo largo de las entregas
 
@@ -13,9 +13,9 @@ El dominio termino con 20 tareas en el split `base`. Las tareas cubren compras, 
 | E1 | Baseline inicial del dominio | pass^1 | no comparable con pass^5 | - |
 | E2 | Prompt engineering, SMS y politica ampliada | pass^5 | 45/100 global en base | - |
 | E3 | Failure taxonomy y mejoras dirigidas | pass^5 | 58/100 global en base; 0/50 en `base_top10hard` baseline | - |
-| E4 | RAG con `headers` parcial | pass^5 parcial | 19/49 en B parcial; A fue 0/50 | +38.8 puntos sobre corridas disponibles |
+| E4 | RAG con `headers` | pass^5 | 19/50 en B; A fue 0/50 | +38.0 puntos |
 
-La comparacion mas justa para E4 es contra el baseline A de las mismas 10 tareas dificiles. Ese baseline fue 0/50. La condicion B parcial alcanzo 19/49. Aunque no sustituye el experimento completo, si muestra una senal fuerte: RAG mejora tareas operativas cuando la politica recuperada contiene el procedimiento exacto.
+La comparacion mas justa para E4 es contra el baseline A de las mismas 10 tareas dificiles. Ese baseline fue 0/50. La condicion B completa alcanzo 19/50. La condicion C parcial alcanzo 5/10 antes de volver a agotar la cuota de embeddings. La senal principal es clara: RAG mejora tareas operativas cuando la politica recuperada contiene el procedimiento exacto, pero no resuelve por si solo identidad, literalidad ni rechazos adversariales.
 
 ## 3. Categorias de fallo mas frecuentes
 
