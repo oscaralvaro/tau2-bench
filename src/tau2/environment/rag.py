@@ -89,8 +89,8 @@ DEFAULT_EMBED_MODEL = "gemini-embedding-001"
 DEFAULT_EMBED_DIM = 768  # Matryoshka truncation; full model outputs 3072
 
 # Google AI Studio free-tier limits for gemini-embedding-* models
-_EMBED_RPM_LIMIT = 100        # requests per minute
-_EMBED_DAILY_LIMIT = 1000     # requests per day
+_EMBED_RPM_LIMIT = 3000        # requests per minute
+_EMBED_DAILY_LIMIT = 10000     # requests per day
 _EMBED_WINDOW_SECONDS = 60.0
 
 # Module-level state shared across all ChromaPolicyIndex instances and threads
