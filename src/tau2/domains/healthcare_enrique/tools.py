@@ -1,12 +1,21 @@
-from tau2.environment.toolkit import ToolKitBase, is_tool, ToolType
+from tau2.environment.toolkit import RAGToolKit, is_tool, ToolType
 from .data_model import HealthcareDB, BloqueAgenda
 from typing import List
 
 
-class HealthcareToolkit(ToolKitBase):
+class HealthcareToolkit(RAGToolKit):
 
-    def __init__(self, db: HealthcareDB):
-        self.db = db
+    def __init__(
+        self,
+        db: HealthcareDB,
+        policy_index=None,
+        retrieval_k: int = 3,
+    ):
+        super().__init__(
+            db,
+            policy_index=policy_index,
+            retrieval_k=retrieval_k,
+        )
 
     # -------------------------
     # CONSULTAS

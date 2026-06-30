@@ -1,5 +1,6 @@
 import json
 from tau2.environment.environment import Environment
+from tau2.environment.rag import ChromaPolicyIndex, THINK_INSTRUCTION
 
 from .user_data_model import HealthcareUserDB
 from .user_tools import HealthcareUserTools
@@ -12,29 +13,60 @@ from .utils import get_data_path
 # CARGAR ENTORNO
 # -------------------------
 
-def get_environment(solo_mode=False):
+def get_environment(
+    db=None,
+    solo_mode=False,
+    chunking_strategy="headers",
+    retrieval_k=3,
+    use_think=False,
+    use_rag=True,
+):
 
     # cargar base de datos
-    db_path = get_data_path("db.json")
-    db = HealthcareDB.load(db_path)
+    if db is None:
+        db_path = get_data_path("db.json")
+        db = HealthcareDB.load(db_path)
+
     user_db = HealthcareUserDB()
     user_tools = HealthcareUserTools(user_db)
 
     # cargar policy
     policy_path = get_data_path("policy.md")
-    with open(policy_path, "r", encoding="utf-8") as f:
-        policy = f.read()
+    policy_rag_path = get_data_path("policy_rag.md")
 
-    # toolkit
-    toolkit = HealthcareToolkit(db)
+    if use_rag:
+        with open(policy_path, "r", encoding="utf-8") as f:
+            policy_text = f.read()
 
-    # crear entorno
+        policy_index = ChromaPolicyIndex(
+            policy_text,
+            strategy=chunking_strategy,
+        )
+
+        toolkit = HealthcareToolkit(
+            db,
+            policy_index=policy_index,
+            retrieval_k=retrieval_k,
+        )
+        
+        with open(policy_rag_path, "r", encoding="utf-8") as f:
+             policy = f.read()
+        
+        if use_think:
+            policy = policy + THINK_INSTRUCTION
+
+    else:
+        toolkit = HealthcareToolkit(db)
+
+        with open(policy_path, "r", encoding="utf-8") as f:
+            policy = f.read()
+
     env = Environment(
-    domain_name="healthcare_enrique",
-    tools=toolkit,
-    user_tools=user_tools,
-    policy=policy,
-    solo_mode=solo_mode,
+        domain_name="healthcare_enrique",
+        tools=toolkit,
+        user_tools=user_tools,
+        policy=policy,
+        solo_mode=solo_mode,
 )
 
     return env

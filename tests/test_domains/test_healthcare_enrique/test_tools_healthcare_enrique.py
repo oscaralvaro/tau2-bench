@@ -110,3 +110,13 @@ def test_verificar_codigo_sms_ok(toolkit):
 
 def test_verificar_codigo_sms_fail(toolkit):
     assert toolkit.verificar_codigo_sms("111", "999") is False
+
+def test_retrieve_policy(toolkit):
+    resultado = toolkit.retrieve_policy("¿Cuándo puedo agendar un paciente?")
+
+    assert isinstance(resultado, str)
+
+def test_think(toolkit):
+    resultado = toolkit.think("Analizando caso clínico")
+
+    assert resultado == ""
