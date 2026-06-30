@@ -65,6 +65,23 @@ class HealthcareToolkit(RAGToolKit):
             if ic.rut_paciente == rut and ic.estado in ["validada", "pendiente_examenes", "enviada"]:
                 return True
         return False
+    
+    @is_tool(ToolType.READ)
+    def get_bloques_disponibles(self, tipo: str | None = None):
+        """Obtiene los bloques de agenda disponibles."""
+
+        bloques = [
+            b for b in self.db.bloques_agenda.values()
+            if b.estado_cupo == "disponible"
+        ]  
+
+        if tipo is not None:
+            bloques = [
+               b for b in bloques
+               if b.tipo_prestacion == tipo
+        ]
+
+        return bloques
 
     # -------------------------
     # ACCIONES

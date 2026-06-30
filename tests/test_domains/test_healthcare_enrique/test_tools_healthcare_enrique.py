@@ -7,47 +7,53 @@ from tau2.domains.healthcare_enrique.tools import HealthcareToolkit
 def toolkit():
     db = HealthcareDB(
         pacientes={
-    "111": {
-        "rut": "111",
-        "nombre": "Juan Perez",
-        "edad": 58,
-        "sexo": "M",
-        "prevision": "FONASA",
-        "clasificacion_riesgo": "G2",
-        "riesgo_cardiovascular": "Moderado",
-        "estado_pscv": "Activo",
-        "cesfam": "CESFAM Central",
-        "inscrito": True
-    },
-    "222": {
-        "rut": "222",
-        "nombre": "Maria Soto",
-        "edad": 45,
-        "sexo": "F",
-        "prevision": "ISAPRE",
-        "clasificacion_riesgo": "G1",
-        "riesgo_cardiovascular": "Bajo",
-        "estado_pscv": "Activo",
-        "cesfam": "CESFAM Norte",
-        "inscrito": True
-             }
-},
-        interconsultas={
-    "ic1": {
-        "id": "ic1",
-        "rut_paciente": "111",
-        "especialidad_destino": "Oftalmologia",
-        "criterio_derivacion": "Control fondo de ojo",
-        "fecha_creacion": "2026-05-24",
-        "estado": "validada"
+            "111": {
+                "rut": "111",
+                "nombre": "Juan Perez",
+                "edad": 58,
+                "sexo": "M",
+                "prevision": "FONASA",
+                "clasificacion_riesgo": "G2",
+                "riesgo_cardiovascular": "Moderado",
+                "estado_pscv": "Activo",
+                "cesfam": "CESFAM Central",
+                "inscrito": True
+            },
+            "222": {
+                "rut": "222",
+                "nombre": "Maria Soto",
+                "edad": 45,
+                "sexo": "F",
+                "prevision": "ISAPRE",
+                "clasificacion_riesgo": "G1",
+                "riesgo_cardiovascular": "Bajo",
+                "estado_pscv": "Activo",
+                "cesfam": "CESFAM Norte",
+                "inscrito": True
             }
-
-},
+        },
+        interconsultas={
+            "ic1": {
+                "id": "ic1",
+                "rut_paciente": "111",
+                "especialidad_destino": "Oftalmologia",
+                "criterio_derivacion": "Control fondo de ojo",
+                "fecha_creacion": "2026-05-24",
+                "estado": "validada"
+            }
+        },
         registros_clinicos={},
-        bloques_agenda={}
+        bloques_agenda={
+            "b1": {
+                "id": "b1",
+                "tipo_prestacion": "Control",
+                "profesionales": ["p1"],
+                "duracion": 60,
+                "estado_cupo": "disponible"
+            }
+        }
     )
     return HealthcareToolkit(db)
-
 
 # -------------------------
 # TESTS
@@ -72,6 +78,12 @@ def test_validar_inscripcion(toolkit):
 
 def test_validar_interconsulta(toolkit):
     assert toolkit.validar_interconsulta("111") is True
+
+def test_get_bloques_disponibles(toolkit):
+    bloques = toolkit.get_bloques_disponibles()
+
+    assert len(bloques) > 0
+    assert bloques[0].estado_cupo == "disponible"
 
 
 def test_agendar_bloque(toolkit):
