@@ -11,6 +11,7 @@ from tau2.domains.restaurante_joaquin_cachay.user_data_model import (
     UserSMSMessage,
     UserMenuItemSnapshot,
 )
+from tau2.environment.tool import Tool
 from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
 
 
@@ -18,9 +19,30 @@ class RestauranteJoaquinCachayUserTools(ToolKitBase):
     """Customer-side tools for interacting with the restaurant."""
 
     db: RestaurantUserDB
+    _EXPOSED_SIMULATION_TOOLS = {
+        "view_sms_inbox",
+        "mark_sms_code_used",
+    }
 
     def __init__(self, db: RestaurantUserDB) -> None:
         super().__init__(db)
+
+    def get_tools(self) -> dict[str, Tool]:
+        """Expose only the SMS-facing tools to the user simulator.
+
+        The broader customer toolkit is useful for local/manual interactions, but
+        giving the simulator menu/cart/profile tools encourages unnecessary tool
+        use and can balloon the conversation context on tasks that should be
+        solved purely through dialogue. Keeping only the SMS tools preserves the
+        identity-verification flows required by the tasks while making the rest
+        of the benchmark substantially more stable.
+        """
+        tools = super().get_tools()
+        return {
+            name: tool
+            for name, tool in tools.items()
+            if name in self._EXPOSED_SIMULATION_TOOLS
+        }
 
     def _next_cart_item_id(self) -> str:
         return f"CART-{len(self.db.cart) + 1:03d}"

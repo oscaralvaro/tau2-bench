@@ -25,11 +25,13 @@ from tau2.domains.restaurante_joaquin_cachay.user_tools import (
 from tau2.domains.restaurante_joaquin_cachay.utils import (
     RESTAURANTE_JOAQUIN_CACHAY_DB_PATH,
     RESTAURANTE_JOAQUIN_CACHAY_POLICY_PATH,
+    RESTAURANTE_JOAQUIN_CACHAY_POLICY_RAG_PATH,
     RESTAURANTE_JOAQUIN_CACHAY_POLICY_SOLO_PATH,
     RESTAURANTE_JOAQUIN_CACHAY_TASK_SET_PATH,
     RESTAURANTE_JOAQUIN_CACHAY_USER_DB_PATH,
 )
 from tau2.environment.environment import Environment
+from tau2.environment.rag import THINK_INSTRUCTION, ChromaPolicyIndex
 from tau2.utils import load_file
 
 
@@ -299,7 +301,7 @@ class RestauranteJoaquinCachayEnvironment(Environment):
 
 def _load_text_or_default(path: Path, default_text: str) -> str:
     if path.exists():
-        return load_file(path)
+        return path.read_text(encoding="utf-8")
     return default_text
 
 
@@ -342,6 +344,10 @@ def get_environment(
     db: Optional[RestauranteJoaquinCachayDB] = None,
     user_db: Optional[RestaurantUserDB] = None,
     solo_mode: bool = False,
+    chunking_strategy: str = "headers",
+    retrieval_k: int = 3,
+    use_think: bool = False,
+    use_rag: bool = False,
 ) -> RestauranteJoaquinCachayEnvironment:
     if db is None:
         db = (
@@ -355,17 +361,46 @@ def get_environment(
             if RESTAURANTE_JOAQUIN_CACHAY_USER_DB_PATH.exists()
             else RestaurantUserDB()
         )
-    tools = RestauranteJoaquinCachayTools(db)
-    user_tools = RestauranteJoaquinCachayUserTools(user_db)
-    policy_path = (
+    policy_source_path = (
         RESTAURANTE_JOAQUIN_CACHAY_POLICY_SOLO_PATH
         if solo_mode
         else RESTAURANTE_JOAQUIN_CACHAY_POLICY_PATH
     )
-    policy = _load_text_or_default(
-        policy_path,
+    full_policy = _load_text_or_default(
+        policy_source_path,
         "You are the restaurant assistant. Help customers with menu questions, reservations, orders, and payments while keeping the restaurant database accurate.",
     )
+    policy = full_policy
+    if use_rag:
+        policy_index = ChromaPolicyIndex(
+            full_policy,
+            strategy=chunking_strategy,
+        )
+        tools = RestauranteJoaquinCachayTools(
+            db,
+            policy_index=policy_index,
+            policy_text=full_policy,
+            chunking_strategy=chunking_strategy,
+            retrieval_k=retrieval_k,
+            expose_policy_tools=True,
+            expose_think_tool=use_think,
+        )
+        if not solo_mode:
+            policy = _load_text_or_default(
+                RESTAURANTE_JOAQUIN_CACHAY_POLICY_RAG_PATH,
+                full_policy,
+            )
+        if use_think:
+            policy = policy + THINK_INSTRUCTION
+    else:
+        tools = RestauranteJoaquinCachayTools(
+            db,
+            policy_text=full_policy,
+            chunking_strategy=chunking_strategy,
+            expose_policy_tools=False,
+            expose_think_tool=False,
+        )
+    user_tools = RestauranteJoaquinCachayUserTools(user_db)
     env = RestauranteJoaquinCachayEnvironment(
         domain_name="restaurante_joaquin_cachay",
         policy=policy,

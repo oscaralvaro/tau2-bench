@@ -1,3 +1,6 @@
+import math
+import random
+
 import pytest
 
 from tau2.domains.restaurante_joaquin_cachay.data_model import (
@@ -14,9 +17,30 @@ from tau2.domains.restaurante_joaquin_cachay.user_data_model import (
 from tau2.domains.restaurante_joaquin_cachay.user_tools import (
     RestauranteJoaquinCachayUserTools,
 )
+from tau2.environment.rag import ChromaPolicyIndex
+from tau2.environment.toolkit import ToolType
 from tau2.domains.restaurante_joaquin_cachay.utils import (
     RESTAURANTE_JOAQUIN_CACHAY_DB_PATH,
 )
+
+
+SAMPLE_POLICY = """
+## Cancelaciones
+Cancela reservas solo despues de revisar el estado real y confirmar con el cliente.
+
+## SMS
+Si el flujo requiere SMS, usa role=user, purpose=cancel_reservation y luego verifica el codigo.
+"""
+
+
+def _fake_embed(texts):
+    def make_vec(text, dim=8):
+        rng = random.Random(hash(text) & 0xFFFFFFFF)
+        values = [rng.gauss(0, 1) for _ in range(dim)]
+        norm = math.sqrt(sum(x * x for x in values)) or 1.0
+        return [x / norm for x in values]
+
+    return [make_vec(text) for text in texts]
 
 
 @pytest.fixture
@@ -66,6 +90,15 @@ def test_get_menu_item_details_raises_for_missing_item(
 ) -> None:
     with pytest.raises(ValueError, match="not found"):
         assistant_tools.get_menu_item_details("MISSING")
+
+
+def test_get_tools_uses_short_descriptions(
+    assistant_tools: RestauranteJoaquinCachayTools,
+) -> None:
+    tool = assistant_tools.get_tools()["create_order"]
+
+    assert tool.long_desc
+    assert tool.openai_schema["function"]["description"] == tool.short_desc
 
 
 def test_get_available_tables_filters_by_party_size(
@@ -259,6 +292,23 @@ def test_update_order_item_status_updates_order(
     assert order.items[0].status == "ready"
 
 
+def test_retrieve_policy_returns_text() -> None:
+    index = ChromaPolicyIndex(SAMPLE_POLICY, strategy="headers", _embed_fn=_fake_embed)
+    tools = RestauranteJoaquinCachayTools(db=None, policy_index=index)
+
+    result = tools.retrieve_policy(query="Como debo manejar una cancelacion con SMS?")
+
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+
+def test_toolkit_has_think_tool() -> None:
+    tools = RestauranteJoaquinCachayTools(db=None)
+
+    assert "think" in tools.tools
+    assert tools.tool_type("think") == ToolType.THINK
+
+
 def test_record_payment_appends_payment(
     assistant_tools: RestauranteJoaquinCachayTools,
 ) -> None:
@@ -352,6 +402,15 @@ def test_user_tools_browse_menu_returns_visible_items(
 
     assert len(items) > 0
     assert all(item.available for item in items)
+
+
+def test_user_tools_expose_only_sms_tools(
+    user_tools: RestauranteJoaquinCachayUserTools,
+) -> None:
+    assert set(user_tools.get_tools().keys()) == {
+        "view_sms_inbox",
+        "mark_sms_code_used",
+    }
 
 
 def test_user_tools_add_and_remove_item_from_cart(

@@ -23,18 +23,75 @@ from tau2.domains.restaurante_joaquin_cachay.data_model import (
     SMSVerificationChallenge,
     SelectedModifier,
 )
-from tau2.environment.toolkit import ToolKitBase, ToolType, is_tool
+from tau2.environment.rag import ChromaPolicyIndex
+from tau2.environment.tool import Tool, as_tool
+from tau2.environment.toolkit import RAGToolKit, ToolType, is_tool
 
 
-class RestauranteJoaquinCachayTools(ToolKitBase):
+class RestauranteJoaquinCachayTools(RAGToolKit):
     """Operational tools for the restaurant domain."""
 
     db: RestauranteJoaquinCachayDB
 
-    def __init__(self, db: RestauranteJoaquinCachayDB) -> None:
-        super().__init__(db)
+    def __init__(
+        self,
+        db: RestauranteJoaquinCachayDB,
+        policy_index=None,
+        policy_text: Optional[str] = None,
+        chunking_strategy: str = "headers",
+        retrieval_k: int = 3,
+        expose_policy_tools: bool = True,
+        expose_think_tool: bool = True,
+    ) -> None:
+        super().__init__(db, policy_index=policy_index, retrieval_k=retrieval_k)
+        self._policy_text = policy_text
+        self._chunking_strategy = chunking_strategy
+        self._expose_policy_tools = expose_policy_tools
+        self._expose_think_tool = expose_think_tool
         self._clock_tick = 0
         self._sms_challenges: Dict[str, SMSVerificationChallenge] = {}
+
+    def get_tools(self) -> dict[str, Tool]:
+        """Expose compact tool descriptions to keep simulation prompts stable.
+
+        The restaurant domain has several nested payload schemas, especially for
+        order creation. Using each tool's short description preserves the same
+        tool names and parameters while reducing prompt bloat and lowering the
+        risk of token/rate-limit failures during long simulation runs.
+        """
+        return {
+            name: as_tool(tool, use_short_desc=True)
+            for name, tool in self.tools.items()
+            if (self._expose_policy_tools or name != "retrieve_policy")
+            and (self._expose_think_tool or name != "think")
+        }
+
+    def _ensure_policy_index(self) -> Optional[ChromaPolicyIndex]:
+        if self.policy_index is None and self._policy_text:
+            self.policy_index = ChromaPolicyIndex(
+                self._policy_text,
+                strategy=self._chunking_strategy,
+            )
+        return self.policy_index
+
+    @is_tool(ToolType.READ)
+    def retrieve_policy(self, query: str) -> str:
+        """
+        Query the agent policy for guidance on the situation described in `query`.
+        Call this before making any decision that involves business rules,
+        eligibility conditions, fees, or domain-specific procedures.
+
+        Args:
+            query: Natural-language description of the situation or question about policy.
+                   Example: "Can I cancel an order placed more than 48 hours ago?"
+
+        Returns:
+            The most relevant sections of the policy for this situation.
+        """
+        policy_index = self._ensure_policy_index()
+        if policy_index is None:
+            return "Policy index not available."
+        return policy_index.search(query, k=self.retrieval_k)
 
     def _now(self) -> str:
         base_time = datetime(2026, 4, 1, 12, 0, 0)
