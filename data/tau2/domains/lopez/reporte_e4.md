@@ -10,7 +10,7 @@
 - Limite de pasos: `--max-steps 30`
 - Trials por tarea: 5
 
-Nota de alcance: la condicion B se ejecuto completa. Las condiciones C y D se ejecutaron parcialmente por limites de cuota de Google AI Studio. El archivo `sim_e4_C_fixed_k3.json` contiene 21 de 50 simulaciones; `sim_e4_D_best_think.json` contiene 35 de 50 simulaciones. En D, las ultimas tareas no pudieron completarse porque se agoto la cuota diaria de `generate_content`.
+Nota de alcance: las condiciones A, B y D se ejecutaron completas. La condicion C se ejecuto parcialmente: el archivo `sim_e4_C_fixed_k3.json` contiene 21 de 50 simulaciones. La estrategia fixed_200 produjo muchas corridas omitidas por errores de protocolo/respuesta del modelo, por lo que no se logro completar las 50 simulaciones de C dentro de la cuota disponible.
 
 ## Tabla de chunks por estrategia
 
@@ -26,7 +26,7 @@ Nota de alcance: la condicion B se ejecuto completa. Las condiciones C y D se ej
 | A - Baseline E3 (sin RAG) | 0/50 | - |
 | B - headers, k=3 | 19/50 | - |
 | C - fixed_200, k=3 | 5/21 parcial | - |
-| D - headers, k=3 | - | 15/35 parcial |
+| D - headers, k=3 | - | 20/50 |
 
 ## Analisis
 
@@ -40,7 +40,7 @@ El RAG por encabezados no resolvio los casos donde la evaluacion dependia de una
 
 ### Think tool
 
-La condicion D se ejecuto parcialmente con `headers`, k=3 y `use_think=true`. En los 35 trials disponibles aparecen 90 llamadas a `think` en `tool_calls`. El resultado parcial fue 15/35: mejoro `conditional_cancel_or_status_delivered` frente a B (5/5 vs. 4/5) y mantuvo 5/5 en `order_cancel_pending` y `order_status_lookup`, pero empeoro `sales_laptop_budget` (0/5 vs. 5/5). Esto sugiere que `think` ayudo en razonamiento de politica para cancelaciones/estado, pero no garantizo ejecucion correcta en ventas.
+La condicion D se ejecuto completa con `headers`, k=3 y `use_think=true`. En los 50 trials aparecen 137 llamadas a `think` en `tool_calls`. El resultado fue 20/50: mejoro `conditional_cancel_or_status_delivered` frente a B (5/5 vs. 4/5), mantuvo 5/5 en `order_cancel_pending` y `order_status_lookup`, y ademas subio `warranty_valid_precheck` de 0/5 a 5/5. Sin embargo, empeoro `sales_laptop_budget` (0/5 vs. 5/5). Esto sugiere que `think` ayudo en razonamiento de politica para cancelaciones, estado y garantia vigente, pero no garantizo ejecucion correcta en ventas.
 
 ## Tarea por tarea
 
@@ -83,4 +83,4 @@ En D, una llamada real a `think` para `conditional_cancel_or_status_delivered` f
 
 ## Conclusion
 
-La evidencia indica que RAG por `headers` ayuda cuando la politica recuperada se puede traducir a una secuencia concreta de herramientas: ventas, cancelaciones y consultas de estado mejoraron de 0/5 en baseline a resultados fuertes en B. En cambio, RAG no resolvio automaticamente fallos de comunicacion literal, validacion de rol SMS ni preservacion exacta de texto contaminado. El think tool produjo razonamientos visibles y mejoro el caso condicional de pedido entregado, pero tambien degrado ventas en la muestra disponible. Para produccion, el dominio Lopez todavia necesitaria validadores deterministas alrededor de acciones sensibles, campos literales y mensajes de rechazo.
+La evidencia indica que RAG por `headers` ayuda cuando la politica recuperada se puede traducir a una secuencia concreta de herramientas: ventas, cancelaciones y consultas de estado mejoraron de 0/5 en baseline a resultados fuertes en B. En cambio, RAG no resolvio automaticamente fallos de comunicacion literal, validacion de rol SMS ni preservacion exacta de texto contaminado. El think tool produjo razonamientos visibles y mejoro el caso condicional de pedido entregado y garantia vigente, pero tambien degrado ventas. Para produccion, el dominio Lopez todavia necesitaria validadores deterministas alrededor de acciones sensibles, campos literales y mensajes de rechazo.
