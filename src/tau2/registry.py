@@ -123,6 +123,11 @@ from tau2.domains.burger.environment import (
 
 
 # START DOMAIN IMPORT: Zulema Isbet López Roa
+from tau2.domains.lopez.environment import (
+    get_environment as lopez_get_environment,
+    get_tasks as lopez_get_tasks,
+    get_tasks_split as lopez_get_tasks_split,
+)
 
 # END DOMAIN IMPORT: Zulema Isbet López Roa
 
@@ -439,6 +444,12 @@ try:
 
 
     # START DOMAIN REGISTRATION: Zulema Isbet López Roa
+    registry.register_domain(lopez_get_environment, "lopez")
+    registry.register_tasks(
+        lopez_get_tasks,
+        "lopez",
+        get_task_splits=lopez_get_tasks_split,
+    )
 
     # END DOMAIN REGISTRATION: Zulema Isbet López Roa
 
