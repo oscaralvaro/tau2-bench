@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from tau2.environment.environment import Environment
 from tau2.environment.rag import ChromaPolicyIndex, THINK_INSTRUCTION
 
@@ -8,10 +9,31 @@ from .data_model import HealthcareDB
 from .tools import HealthcareToolkit
 from .utils import get_data_path
 
+_POLICY_INDEX_CACHE = {}
 
 # -------------------------
 # CARGAR ENTORNO
 # -------------------------
+def get_cached_policy_index(policy_path, chunking_strategy):
+    policy_path = Path(policy_path)
+    cache_key = (
+        str(policy_path),
+        policy_path.stat().st_mtime_ns,
+        chunking_strategy,
+    )
+
+    if cache_key not in _POLICY_INDEX_CACHE:
+        print(">>> Construyendo índice RAG...")
+        with open(policy_path, "r", encoding="utf-8") as f:
+            policy_text = f.read()
+
+        _POLICY_INDEX_CACHE[cache_key] = ChromaPolicyIndex(
+            policy_text,
+            strategy=chunking_strategy,
+        )
+
+    return _POLICY_INDEX_CACHE[cache_key]
+
 
 def get_environment(
     db=None,
@@ -33,14 +55,10 @@ def get_environment(
     # cargar policy
     policy_path = get_data_path("policy.md")
     policy_rag_path = get_data_path("policy_rag.md")
-
     if use_rag:
-        with open(policy_path, "r", encoding="utf-8") as f:
-            policy_text = f.read()
-
-        policy_index = ChromaPolicyIndex(
-            policy_text,
-            strategy=chunking_strategy,
+        policy_index = get_cached_policy_index(
+            policy_path,
+            chunking_strategy,
         )
 
         toolkit = HealthcareToolkit(
@@ -48,10 +66,10 @@ def get_environment(
             policy_index=policy_index,
             retrieval_k=retrieval_k,
         )
-        
+
         with open(policy_rag_path, "r", encoding="utf-8") as f:
-             policy = f.read()
-        
+            policy = f.read()
+
         if use_think:
             policy = policy + THINK_INSTRUCTION
 
