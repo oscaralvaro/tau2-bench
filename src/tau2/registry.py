@@ -111,6 +111,11 @@ from tau2.domains.burger.environment import (
 
 
 # START DOMAIN IMPORT: Enrique José Castillo Ancajima
+from tau2.domains.healthcare_enrique.environment import (
+    get_environment as healthcare_enrique_get_environment,
+    get_tasks as healthcare_enrique_get_tasks,
+    get_tasks_split as healthcare_enrique_get_tasks_split,
+)
 
 # END DOMAIN IMPORT: Enrique José Castillo Ancajima
 
@@ -428,7 +433,20 @@ try:
 
     # START DOMAIN REGISTRATION: Enrique José Castillo Ancajima
 
-    # END DOMAIN REGISTRATION: Enrique José Castillo Ancajima
+    registry.register_domain(
+        healthcare_enrique_get_environment,
+        "healthcare_enrique"
+    )
+
+    registry.register_tasks(
+        healthcare_enrique_get_tasks,
+        "healthcare_enrique",
+        get_task_splits=healthcare_enrique_get_tasks_split,
+    )
+
+  
+
+# END DOMAIN REGISTRATION: Enrique José Castillo Ancajima
 
 
 
