@@ -1,7 +1,11 @@
+﻿import hashlib
+import json
 import math
 import random
+from pathlib import Path
+from shutil import rmtree
 
-from tau2.data_model.message import AssistantMessage, ToolCall
+from tau2.data_model.message import AssistantMessage, ToolCall, ToolMessage
 from tau2.domains.restaurante_joaquin_cachay.data_model import (
     RestauranteJoaquinCachayDB,
 )
@@ -147,4 +151,153 @@ def test_environment_replay_rehydrates_policy_index_without_env_args(monkeypatch
     )
 
     assert isinstance(replay_env.tools, RestauranteJoaquinCachayTools)
-    assert replay_env.tools.policy_index is not None
+    assert (
+        replay_env.tools.retrieve_policy("Como debo manejar una cancelacion con SMS?")
+        == tool_message.content
+    )
+
+
+def test_environment_replay_recovers_fixed_chunking_from_cached_tool_message(
+    monkeypatch,
+) -> None:
+    import tau2.domains.restaurante_joaquin_cachay.environment as env_mod
+    import tau2.domains.restaurante_joaquin_cachay.tools as tools_mod
+
+    db = RestauranteJoaquinCachayDB.load(RESTAURANTE_JOAQUIN_CACHAY_DB_PATH)
+    temp_dir = Path("data/test_cache_env_args_restaurante_replay")
+
+    try:
+        rmtree(temp_dir, ignore_errors=True)
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(env_mod, "_POLICY_CACHE_DIR", temp_dir)
+
+        tools_mod.RestauranteJoaquinCachayTools._POLICY_RESULT_CACHE.clear()
+        tools_mod.RestauranteJoaquinCachayTools._POLICY_RESULT_CACHE_FILES_LOADED.clear()
+
+        replay_env = get_environment(
+            db=db,
+            user_db=RestaurantUserDB(),
+            use_rag=False,
+        )
+        policy_text = replay_env.tools._policy_text
+        assert policy_text is not None
+        policy_digest = hashlib.sha1(policy_text.encode("utf-8")).hexdigest()
+        query = (
+            "Existen reglas especiales o excepciones para clientes Gold VIP "
+            "en pedidos o disponibilidad?"
+        )
+        expected_content = "## Cuando Rechazar\n\n- el item solicitado esta no disponible"
+        cache_path = temp_dir / f"policy_results_fixed_200_{policy_digest}.json"
+        payload = {
+            f"fixed_200:{policy_digest}||3||{query}": expected_content,
+        }
+        cache_path.write_text(
+            json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            encoding="utf-8",
+        )
+
+        tool_call = ToolCall(
+            id="call-fixed-200",
+            name="retrieve_policy",
+            arguments={"query": query},
+            requestor="assistant",
+        )
+        tool_message = ToolMessage(
+            id="call-fixed-200",
+            role="tool",
+            content=expected_content,
+            requestor="assistant",
+            error=False,
+        )
+
+        replay_env.set_state(
+            initialization_data=None,
+            initialization_actions=None,
+            message_history=[
+                AssistantMessage(role="assistant", content=None, tool_calls=[tool_call]),
+                tool_message,
+            ],
+        )
+
+        assert replay_env.tools._chunking_strategy == "fixed_200"
+        assert replay_env.tools.retrieve_policy(query) == expected_content
+    finally:
+        tools_mod.RestauranteJoaquinCachayTools._POLICY_RESULT_CACHE.clear()
+        tools_mod.RestauranteJoaquinCachayTools._POLICY_RESULT_CACHE_FILES_LOADED.clear()
+        rmtree(temp_dir, ignore_errors=True)
+
+
+
+
+def test_get_environment_reuses_cached_policy_index(monkeypatch) -> None:
+    import tau2.domains.restaurante_joaquin_cachay.environment as env_mod
+
+    db = RestauranteJoaquinCachayDB.load(RESTAURANTE_JOAQUIN_CACHAY_DB_PATH)
+    created = []
+    original_cls = env_mod.ChromaPolicyIndex
+    env_mod._POLICY_INDEX_CACHE.clear()
+
+    class FakeIndex(original_cls):
+        def __init__(self, policy_text, strategy="headers", _embed_fn=None):
+            created.append((strategy, len(policy_text)))
+            super().__init__(policy_text, strategy=strategy, _embed_fn=_fake_embed)
+
+    monkeypatch.setattr(env_mod, "ChromaPolicyIndex", FakeIndex)
+
+    env_one = get_environment(
+        db=db,
+        user_db=RestaurantUserDB(),
+        use_rag=True,
+        chunking_strategy="headers",
+    )
+    env_two = get_environment(
+        db=RestauranteJoaquinCachayDB.load(RESTAURANTE_JOAQUIN_CACHAY_DB_PATH),
+        user_db=RestaurantUserDB(),
+        use_rag=True,
+        chunking_strategy="headers",
+    )
+
+    assert env_one.tools.policy_index is env_two.tools.policy_index
+    assert created == [("headers", len(env_one.tools._policy_text))]
+
+
+def test_get_environment_reuses_persisted_policy_chunk_embeddings(monkeypatch) -> None:
+    import tau2.domains.restaurante_joaquin_cachay.environment as env_mod
+
+    db = RestauranteJoaquinCachayDB.load(RESTAURANTE_JOAQUIN_CACHAY_DB_PATH)
+    embed_calls = []
+    env_mod._POLICY_INDEX_CACHE.clear()
+
+    def fake_make_embed_fn():
+        def embed(texts):
+            embed_calls.append(list(texts))
+            return _fake_embed(texts)
+
+        return embed
+
+    temp_dir = Path("data/test_cache_env_args_restaurante")
+    try:
+        rmtree(temp_dir, ignore_errors=True)
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(env_mod, "_POLICY_CACHE_DIR", temp_dir)
+        monkeypatch.setattr(env_mod, "_make_gemini_embed_fn", fake_make_embed_fn)
+
+        get_environment(
+            db=db,
+            user_db=RestaurantUserDB(),
+            use_rag=True,
+            chunking_strategy="fixed_200",
+        )
+
+        assert len(embed_calls) == 1
+        env_mod._POLICY_INDEX_CACHE.clear()
+        get_environment(
+            db=RestauranteJoaquinCachayDB.load(RESTAURANTE_JOAQUIN_CACHAY_DB_PATH),
+            user_db=RestaurantUserDB(),
+            use_rag=True,
+            chunking_strategy="fixed_200",
+        )
+
+        assert len(embed_calls) == 1
+    finally:
+        rmtree(temp_dir, ignore_errors=True)

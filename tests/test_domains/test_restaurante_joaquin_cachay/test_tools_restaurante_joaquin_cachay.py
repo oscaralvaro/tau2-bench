@@ -1,5 +1,7 @@
 import math
 import random
+from pathlib import Path
+from shutil import rmtree
 
 import pytest
 
@@ -302,6 +304,30 @@ def test_retrieve_policy_returns_text() -> None:
     assert len(result) > 0
 
 
+def test_retrieve_policy_caches_repeated_queries() -> None:
+    class FakeIndex:
+        def __init__(self):
+            self.calls = 0
+
+        def search(self, query: str, k: int = 3) -> str:
+            self.calls += 1
+            return f"{query}::{k}"
+
+    index = FakeIndex()
+    tools = RestauranteJoaquinCachayTools(
+        db=None,
+        policy_index=index,
+        policy_cache_key="test-policy",
+        retrieval_k=3,
+    )
+
+    first = tools.retrieve_policy(query="consulta repetida")
+    second = tools.retrieve_policy(query="consulta repetida")
+
+    assert first == second
+    assert index.calls == 1
+
+
 def test_toolkit_has_think_tool() -> None:
     tools = RestauranteJoaquinCachayTools(db=None)
 
@@ -518,3 +544,56 @@ def test_user_tools_sms_inbox_syncs_from_environment() -> None:
     assert len(inbox) == 1
     assert inbox[0].code == "482911"
     assert inbox[0].purpose == "cancel_reservation"
+
+
+def test_retrieve_policy_persists_results_across_instances() -> None:
+    db = RestauranteJoaquinCachayDB.load(RESTAURANTE_JOAQUIN_CACHAY_DB_PATH)
+    query = "Como debo manejar una cancelacion con SMS?"
+    result_text = "Usa SMS con role=user y luego verifica el codigo."
+
+    class FakeIndex:
+        def __init__(self):
+            self.calls = 0
+
+        def search(self, query: str, k: int = 3) -> str:
+            self.calls += 1
+            return result_text
+
+    temp_dir = Path("data/test_cache_tools_restaurante")
+    try:
+        rmtree(temp_dir, ignore_errors=True)
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        cache_path = temp_dir / "policy_results.json"
+
+        RestauranteJoaquinCachayTools._POLICY_RESULT_CACHE.clear()
+        RestauranteJoaquinCachayTools._POLICY_RESULT_CACHE_FILES_LOADED.clear()
+
+        first_index = FakeIndex()
+        first_tools = RestauranteJoaquinCachayTools(
+            db,
+            policy_index=first_index,
+            policy_cache_key="headers:test-policy",
+            retrieval_k=3,
+            policy_result_cache_path=str(cache_path),
+        )
+
+        assert first_tools.retrieve_policy(query) == result_text
+        assert first_index.calls == 1
+        assert cache_path.exists()
+
+        RestauranteJoaquinCachayTools._POLICY_RESULT_CACHE.clear()
+        RestauranteJoaquinCachayTools._POLICY_RESULT_CACHE_FILES_LOADED.clear()
+
+        second_index = FakeIndex()
+        second_tools = RestauranteJoaquinCachayTools(
+            db,
+            policy_index=second_index,
+            policy_cache_key="headers:test-policy",
+            retrieval_k=3,
+            policy_result_cache_path=str(cache_path),
+        )
+
+        assert second_tools.retrieve_policy(query) == result_text
+        assert second_index.calls == 0
+    finally:
+        rmtree(temp_dir, ignore_errors=True)

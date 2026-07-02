@@ -57,7 +57,8 @@ Se dejo implementada la infraestructura para RAG:
 - `policy_rag.md` como prompt reducido
 - `ChromaPolicyIndex` configurable por `env-args`
 - soporte para `use_think`
-- pruebas locales pasando (`41 passed`)
+- pruebas locales pasando (`48 passed`)
+- replay endurecido para que `retrieve_policy` recupere el cache correcto durante evaluacion aun cuando el framework reconstruye el entorno sin reenviar `env-args`
 
 Archivos operativos de E4:
 
@@ -69,8 +70,10 @@ Archivos operativos de E4:
 Estado practico de E4:
 
 - A ya esta derivado desde E3
-- B existe, pero quedo parcial por agotamiento de cuota
-- C y D siguen pendientes por disponibilidad del proveedor
+- B ya quedo completo y su resultado fue peor que el baseline (`0.0200` vs `0.2000`)
+- C quedo parcial con `10/50` simulaciones guardadas y `average reward = 0.0000`
+- D quedo parcial con `35/50` simulaciones guardadas y `average reward = 0.0000`
+- el cierre experimental de C y D quedo bloqueado por cuota diaria / cuelgues del proveedor, no por codigo faltante del dominio
 
 ## Lectura global del proyecto
 
@@ -105,17 +108,24 @@ Lo mas fragil:
 4. Reducir contexto tambien fue una mejora tecnica real.
    - las descripciones cortas de tools y la restriccion de user tools bajan ruido y ayudan a estabilizar corridas largas
 
-## Siguiente cierre practico
+## Estado final de cierre
 
-Para dejar E4 cerrado de forma completa, faltan solo estas corridas:
+Lo que si quedo cerrado:
 
-1. `run_e4_B_headers_k3.ps1`
-2. `run_e4_C_fixed_k3.ps1`
-3. comparar B vs C
-4. ajustar `run_e4_D_best_think.ps1` si gana `fixed_200`
-5. correr D y completar `reporte_e4.md` con metricas reales
+1. la implementacion de E4
+2. los tests relevantes del dominio
+3. la corrida A
+4. la corrida B
+5. el analisis honesto A vs B
 
-Nota de estado:
+Lo que no quedo cerrado por factores externos:
 
-- la implementacion de E4 ya esta hecha
-- lo pendiente es completar la matriz experimental con cuota disponible del proveedor
+1. completar `run_e4_C_fixed_k3.ps1`
+2. completar `run_e4_D_best_think.ps1`
+3. obtener una comparacion experimental final C vs D con cuota suficiente
+
+Lectura final:
+
+- el repositorio si queda listo para entrega desde el lado de implementacion y evidencia parcial
+- la limitacion restante esta en la estabilidad/cuota de Gemini free tier
+- por eso la conclusion correcta no es "faltaba codigo", sino "faltaba presupuesto operativo para cerrar todas las corridas"

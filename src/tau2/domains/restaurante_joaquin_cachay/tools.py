@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+import json
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from tau2.domains.restaurante_joaquin_cachay.data_model import (
@@ -32,24 +34,93 @@ class RestauranteJoaquinCachayTools(RAGToolKit):
     """Operational tools for the restaurant domain."""
 
     db: RestauranteJoaquinCachayDB
+    _POLICY_RESULT_CACHE: Dict[tuple[str, int, str], str] = {}
+    _POLICY_RESULT_CACHE_FILES_LOADED: set[str] = set()
 
     def __init__(
         self,
         db: RestauranteJoaquinCachayDB,
         policy_index=None,
         policy_text: Optional[str] = None,
+        policy_cache_key: Optional[str] = None,
         chunking_strategy: str = "headers",
         retrieval_k: int = 3,
         expose_policy_tools: bool = True,
         expose_think_tool: bool = True,
+        policy_result_cache_path: Optional[str] = None,
     ) -> None:
         super().__init__(db, policy_index=policy_index, retrieval_k=retrieval_k)
         self._policy_text = policy_text
+        self._policy_cache_key = policy_cache_key or ""
         self._chunking_strategy = chunking_strategy
         self._expose_policy_tools = expose_policy_tools
         self._expose_think_tool = expose_think_tool
+        self._policy_result_cache_path = Path(policy_result_cache_path) if policy_result_cache_path else None
         self._clock_tick = 0
         self._sms_challenges: Dict[str, SMSVerificationChallenge] = {}
+
+    def configure_policy_replay_context(
+        self,
+        *,
+        policy_cache_key: str,
+        retrieval_k: int,
+        policy_result_cache_path: Path,
+    ) -> None:
+        """Align retrieve_policy state to the cache/config used by a prior run.
+
+        tau2 replays tool calls during evaluation using a fresh environment
+        constructor that does not pass the original env_args back into the
+        domain. For RAG conditions, that can recreate the wrong chunking
+        strategy and make retrieve_policy return a different set of chunks.
+
+        This helper lets the domain environment retarget the toolkit to the
+        exact cache file and effective retrieval settings that produced the
+        stored ToolMessage, making replay deterministic again without touching
+        framework code.
+        """
+        self._policy_cache_key = policy_cache_key
+        self.retrieval_k = retrieval_k
+        self._policy_result_cache_path = policy_result_cache_path
+        strategy, _, _ = policy_cache_key.partition(":")
+        if strategy:
+            self._chunking_strategy = strategy
+        self.policy_index = None
+
+    def find_policy_replay_context(
+        self,
+        *,
+        query: str,
+        expected_content: str,
+        cache_dir: Path,
+        policy_digest: str,
+    ) -> Optional[tuple[str, int, Path]]:
+        """Find the cache/config tuple that produced a known retrieve_policy result."""
+        if not cache_dir.exists():
+            return None
+
+        pattern = f"policy_results_*_{policy_digest}.json"
+        for cache_path in sorted(cache_dir.glob(pattern)):
+            try:
+                payload = json.loads(cache_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            for cache_key, value in payload.items():
+                if not isinstance(cache_key, str) or not isinstance(value, str):
+                    continue
+                parts = cache_key.split("||", 2)
+                if len(parts) != 3:
+                    continue
+                policy_cache_key, retrieval_k_str, cached_query = parts
+                if cached_query != query or value != expected_content:
+                    continue
+                try:
+                    retrieval_k = int(retrieval_k_str)
+                except ValueError:
+                    continue
+                return policy_cache_key, retrieval_k, cache_path
+        return None
 
     def get_tools(self) -> dict[str, Tool]:
         """Expose compact tool descriptions to keep simulation prompts stable.
@@ -74,6 +145,57 @@ class RestauranteJoaquinCachayTools(RAGToolKit):
             )
         return self.policy_index
 
+    def _load_persistent_policy_result_cache(self) -> None:
+        if self._policy_result_cache_path is None:
+            return
+
+        cache_path_key = str(self._policy_result_cache_path)
+        if cache_path_key in self._POLICY_RESULT_CACHE_FILES_LOADED:
+            return
+
+        if self._policy_result_cache_path.exists():
+            try:
+                payload = json.loads(
+                    self._policy_result_cache_path.read_text(encoding="utf-8")
+                )
+                if isinstance(payload, dict):
+                    for cache_key, value in payload.items():
+                        if not isinstance(cache_key, str) or not isinstance(value, str):
+                            continue
+                        parts = cache_key.split("||", 2)
+                        if len(parts) != 3:
+                            continue
+                        policy_cache_key, retrieval_k_str, query = parts
+                        try:
+                            retrieval_k = int(retrieval_k_str)
+                        except ValueError:
+                            continue
+                        self._POLICY_RESULT_CACHE[
+                            (policy_cache_key, retrieval_k, query)
+                        ] = value
+            except (OSError, json.JSONDecodeError):
+                pass
+
+        self._POLICY_RESULT_CACHE_FILES_LOADED.add(cache_path_key)
+
+    def _persist_policy_result_cache(self) -> None:
+        if self._policy_result_cache_path is None:
+            return
+
+        self._policy_result_cache_path.parent.mkdir(parents=True, exist_ok=True)
+        persisted_payload = {
+            f"{policy_cache_key}||{retrieval_k}||{query}": value
+            for (policy_cache_key, retrieval_k, query), value in self._POLICY_RESULT_CACHE.items()
+            if policy_cache_key == self._policy_cache_key
+        }
+        try:
+            self._policy_result_cache_path.write_text(
+                json.dumps(persisted_payload, ensure_ascii=False, sort_keys=True),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+
     @is_tool(ToolType.READ)
     def retrieve_policy(self, query: str) -> str:
         """
@@ -88,10 +210,18 @@ class RestauranteJoaquinCachayTools(RAGToolKit):
         Returns:
             The most relevant sections of the policy for this situation.
         """
+        self._load_persistent_policy_result_cache()
+        cache_key = (self._policy_cache_key, self.retrieval_k, query.strip())
+        cached = self._POLICY_RESULT_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
         policy_index = self._ensure_policy_index()
         if policy_index is None:
             return "Policy index not available."
-        return policy_index.search(query, k=self.retrieval_k)
+        result = policy_index.search(query, k=self.retrieval_k)
+        self._POLICY_RESULT_CACHE[cache_key] = result
+        self._persist_policy_result_cache()
+        return result
 
     def _now(self) -> str:
         base_time = datetime(2026, 4, 1, 12, 0, 0)

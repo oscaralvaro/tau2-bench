@@ -1,7 +1,16 @@
+import hashlib
+import json
 from pathlib import Path
 from typing import Optional
 
-from tau2.data_model.tasks import Task
+from tau2.data_model.message import (
+    AssistantMessage,
+    Message,
+    ToolCall,
+    ToolMessage,
+    UserMessage,
+)
+from tau2.data_model.tasks import InitializationData, Task
 from tau2.domains.restaurante_joaquin_cachay.data_model import (
     Address,
     RestaurantInfo,
@@ -31,7 +40,12 @@ from tau2.domains.restaurante_joaquin_cachay.utils import (
     RESTAURANTE_JOAQUIN_CACHAY_USER_DB_PATH,
 )
 from tau2.environment.environment import Environment
-from tau2.environment.rag import THINK_INSTRUCTION, ChromaPolicyIndex
+from tau2.environment.rag import (
+    THINK_INSTRUCTION,
+    ChromaPolicyIndex,
+    _make_gemini_embed_fn,
+    get_chunks,
+)
 from tau2.utils import load_file
 
 
@@ -298,6 +312,75 @@ class RestauranteJoaquinCachayEnvironment(Environment):
         self._sync_tracked_state()
         self._sync_sms_state()
 
+    def _iter_tool_action_pairs(
+        self, message_history: list[Message]
+    ) -> list[tuple[ToolCall, ToolMessage]]:
+        actions: list[tuple[ToolCall, ToolMessage]] = []
+        messages = list(message_history)
+        idx = 0
+        while idx < len(messages):
+            message = messages[idx]
+            if isinstance(message, (AssistantMessage, UserMessage)) and message.is_tool_call():
+                for tool_call in message.tool_calls:
+                    idx += 1
+                    if idx >= len(messages) or not isinstance(messages[idx], ToolMessage):
+                        return actions
+                    tool_message = messages[idx]
+                    if tool_call.id == tool_message.id:
+                        actions.append((tool_call, tool_message))
+            idx += 1
+        return actions
+
+    def _align_policy_replay_context(self, message_history: list[Message]) -> None:
+        if not isinstance(self.tools, RestauranteJoaquinCachayTools):
+            return
+        if not self.tools._policy_text:
+            return
+
+        policy_digest = hashlib.sha1(
+            self.tools._policy_text.encode("utf-8")
+        ).hexdigest()
+        cache_dir = (
+            self.tools._policy_result_cache_path.parent
+            if self.tools._policy_result_cache_path is not None
+            else _POLICY_CACHE_DIR
+        )
+
+        for tool_call, tool_message in self._iter_tool_action_pairs(message_history):
+            if tool_call.name != "retrieve_policy":
+                continue
+            query = tool_call.arguments.get("query")
+            if not isinstance(query, str):
+                continue
+            replay_context = self.tools.find_policy_replay_context(
+                query=query.strip(),
+                expected_content=tool_message.content,
+                cache_dir=cache_dir,
+                policy_digest=policy_digest,
+            )
+            if replay_context is None:
+                continue
+            policy_cache_key, retrieval_k, cache_path = replay_context
+            self.tools.configure_policy_replay_context(
+                policy_cache_key=policy_cache_key,
+                retrieval_k=retrieval_k,
+                policy_result_cache_path=cache_path,
+            )
+            return
+
+    def set_state(
+        self,
+        initialization_data: Optional[InitializationData],
+        initialization_actions,
+        message_history: list[Message],
+    ):
+        self._align_policy_replay_context(message_history)
+        super().set_state(
+            initialization_data=initialization_data,
+            initialization_actions=initialization_actions,
+            message_history=message_history,
+        )
+
 
 def _load_text_or_default(path: Path, default_text: str) -> str:
     if path.exists():
@@ -340,6 +423,90 @@ def _default_db() -> RestauranteJoaquinCachayDB:
     )
 
 
+_POLICY_INDEX_CACHE: dict[tuple[str, str], ChromaPolicyIndex] = {}
+_POLICY_CACHE_DIR = Path(RESTAURANTE_JOAQUIN_CACHAY_POLICY_PATH).parent / "cache"
+
+
+def _make_policy_cache_key(policy_text: str, chunking_strategy: str) -> str:
+    digest = hashlib.sha1(policy_text.encode("utf-8")).hexdigest()
+    return f"{chunking_strategy}:{digest}"
+
+
+def _get_policy_chunk_cache_path(policy_text: str, chunking_strategy: str) -> Path:
+    digest = hashlib.sha1(policy_text.encode("utf-8")).hexdigest()
+    return _POLICY_CACHE_DIR / f"policy_chunks_{chunking_strategy}_{digest}.json"
+
+
+def _get_policy_result_cache_path(policy_text: str, chunking_strategy: str) -> Path:
+    digest = hashlib.sha1(policy_text.encode("utf-8")).hexdigest()
+    return _POLICY_CACHE_DIR / f"policy_results_{chunking_strategy}_{digest}.json"
+
+
+def _make_persisted_embed_fn(policy_text: str, chunking_strategy: str):
+    chunks = get_chunks(policy_text, chunking_strategy)
+    cache_path = _get_policy_chunk_cache_path(policy_text, chunking_strategy)
+    base_embed_fn = _make_gemini_embed_fn()
+    cached_embeddings: Optional[list[list[float]]] = None
+
+    def embed_fn(texts: list[str]) -> list[list[float]]:
+        nonlocal cached_embeddings
+
+        if texts == chunks:
+            if cached_embeddings is None and cache_path.exists():
+                try:
+                    payload = json.loads(cache_path.read_text(encoding="utf-8"))
+                    if payload.get("chunks") == chunks:
+                        embeddings = payload.get("embeddings")
+                        if isinstance(embeddings, list) and len(embeddings) == len(chunks):
+                            cached_embeddings = embeddings
+                except (OSError, json.JSONDecodeError):
+                    cached_embeddings = None
+
+            if cached_embeddings is not None:
+                return cached_embeddings
+
+            embeddings = base_embed_fn(texts)
+            try:
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                cache_path.write_text(
+                    json.dumps(
+                        {
+                            "strategy": chunking_strategy,
+                            "policy_hash": hashlib.sha1(
+                                policy_text.encode("utf-8")
+                            ).hexdigest(),
+                            "chunks": chunks,
+                            "embeddings": embeddings,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+            except OSError:
+                pass
+            cached_embeddings = embeddings
+            return embeddings
+
+        return base_embed_fn(texts)
+
+    return embed_fn
+
+
+def _get_cached_policy_index(
+    policy_text: str,
+    chunking_strategy: str,
+) -> ChromaPolicyIndex:
+    cache_key = (chunking_strategy, hashlib.sha1(policy_text.encode("utf-8")).hexdigest())
+    policy_index = _POLICY_INDEX_CACHE.get(cache_key)
+    if policy_index is None:
+        policy_index = ChromaPolicyIndex(
+            policy_text,
+            strategy=chunking_strategy,
+            _embed_fn=_make_persisted_embed_fn(policy_text, chunking_strategy),
+        )
+        _POLICY_INDEX_CACHE[cache_key] = policy_index
+    return policy_index
+
+
 def get_environment(
     db: Optional[RestauranteJoaquinCachayDB] = None,
     user_db: Optional[RestaurantUserDB] = None,
@@ -370,20 +537,27 @@ def get_environment(
         policy_source_path,
         "You are the restaurant assistant. Help customers with menu questions, reservations, orders, and payments while keeping the restaurant database accurate.",
     )
+    policy_cache_key = _make_policy_cache_key(full_policy, chunking_strategy)
+    policy_result_cache_path = _get_policy_result_cache_path(
+        full_policy,
+        chunking_strategy,
+    )
     policy = full_policy
     if use_rag:
-        policy_index = ChromaPolicyIndex(
+        policy_index = _get_cached_policy_index(
             full_policy,
-            strategy=chunking_strategy,
+            chunking_strategy=chunking_strategy,
         )
         tools = RestauranteJoaquinCachayTools(
             db,
             policy_index=policy_index,
             policy_text=full_policy,
+            policy_cache_key=policy_cache_key,
             chunking_strategy=chunking_strategy,
             retrieval_k=retrieval_k,
             expose_policy_tools=True,
             expose_think_tool=use_think,
+            policy_result_cache_path=str(policy_result_cache_path),
         )
         if not solo_mode:
             policy = _load_text_or_default(
@@ -396,9 +570,11 @@ def get_environment(
         tools = RestauranteJoaquinCachayTools(
             db,
             policy_text=full_policy,
+            policy_cache_key=policy_cache_key,
             chunking_strategy=chunking_strategy,
             expose_policy_tools=False,
             expose_think_tool=False,
+            policy_result_cache_path=str(policy_result_cache_path),
         )
     user_tools = RestauranteJoaquinCachayUserTools(user_db)
     env = RestauranteJoaquinCachayEnvironment(
