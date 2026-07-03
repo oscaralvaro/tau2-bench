@@ -406,15 +406,6 @@ def _compute_backoff_seconds(
     return backoff
 
 
-def _should_count_completion_tokens_for_tpm(model: str) -> bool:
-    model_lower = model.lower()
-    # Google Gemma free-tier TPM is documented in terms of input tokens, so
-    # we only charge prompt tokens against the rolling TPM budget.
-    if "gemma" in model_lower:
-        return False
-    return True
-
-
 def _estimate_request_tokens(
     model: str,
     messages: list[dict],
@@ -498,18 +489,9 @@ def to_tau2_messages(
 
 
 def is_gemma_model(model: str) -> bool:
-    """Check if the model is any Gemma model."""
+    """Check if the model is a Gemma model."""
     model_lower = model.lower()
     return "gemma" in model_lower
-
-
-def is_gemma3_model(model: str) -> bool:
-    """Check if the model is a Gemma 3 model.
-
-    Gemma 3 uses text-based tool calling via ```tool_code``` blocks.
-    Gemma 4+ uses native function calling (standard OpenAI format).
-    """
-    return "gemma-3" in model.lower()
 
 
 def parse_gemma_tool_calls(content: str) -> Optional[list[ToolCall]]:
@@ -743,9 +725,8 @@ def generate(
     if model.startswith("claude") and not ALLOW_SONNET_THINKING:
         kwargs["thinking"] = {"type": "disabled"}
 
-    # Gemma 3 requires text-based tool calling (```tool_code``` blocks).
-    # Gemma 4+ supports native function calling and uses the standard path.
-    use_gemma_format = is_gemma3_model(model)
+    # Check if this is a Gemma model - needs special handling for tools
+    use_gemma_format = is_gemma_model(model)
     openai_tools = [tool.openai_schema for tool in tools] if tools else None
 
     # For Ollama models, ensure large enough context window to avoid truncation
@@ -869,9 +850,7 @@ def generate(
     if limiter is not None and limiter_entry is not None:
         total_tokens = None
         if usage is not None:
-            total_tokens = usage["prompt_tokens"]
-            if _should_count_completion_tokens_for_tpm(model):
-                total_tokens += usage["completion_tokens"]
+            total_tokens = usage["prompt_tokens"] + usage["completion_tokens"]
         limiter.finalize(limiter_entry, total_tokens)
     response = response.choices[0]
     try:
@@ -909,19 +888,6 @@ def generate(
             for tool_call in tool_calls
         ]
         tool_calls = tool_calls or None
-
-        # Gemma 4 (and other models with Gemini thinking) may return only
-        # reasoning tokens with no visible text or function calls. LiteLLM puts
-        # those in reasoning_content while leaving content=None. Surface the
-        # reasoning content so validate() doesn't see an empty message.
-        if content is None and tool_calls is None:
-            reasoning = getattr(response.message, "reasoning_content", None)
-            if reasoning:
-                logger.warning(
-                    f"Model {model} returned only reasoning tokens with no visible "
-                    "content or tool calls. Using reasoning_content as fallback."
-                )
-                content = reasoning
 
     message = AssistantMessage(
         role="assistant",
