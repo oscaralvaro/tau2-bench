@@ -1,3 +1,5 @@
+import json
+import re
 from typing import Optional, Tuple
 
 from loguru import logger
@@ -152,15 +154,35 @@ class UserSimulator(BaseUser):
             state.messages.extend(message.tool_messages)
         else:
             state.messages.append(message)
+
+        deterministic_response = self._handle_deterministic_user_action(message, state)
+        if deterministic_response is not None:
+            return deterministic_response
         messages = state.system_messages + state.flip_roles()
 
-        # Generate response
-        assistant_message = generate(
-            model=self.llm,
-            messages=messages,
-            tools=self.tools,
-            **self.llm_args,
-        )
+        # Generate response. Some providers occasionally return an empty message;
+        # retry a few times before failing the whole simulation.
+        assistant_message = None
+        last_error = None
+        for attempt in range(3):
+            assistant_message = generate(
+                model=self.llm,
+                messages=messages,
+                tools=self.tools,
+                **self.llm_args,
+            )
+            if assistant_message.has_text_content() or assistant_message.is_tool_call():
+                break
+            last_error = ValueError(
+                "User simulator model returned an empty response without tool calls."
+            )
+            logger.warning(
+                "Empty user simulator response on attempt {} for model {}.",
+                attempt + 1,
+                self.llm,
+            )
+        else:
+            raise last_error
 
         user_response = assistant_message.content
         logger.debug(f"Response: {user_response}")
@@ -189,6 +211,82 @@ class UserSimulator(BaseUser):
         # Updating state with response
         state.messages.append(user_message)
         return user_message, state
+
+    def _handle_deterministic_user_action(
+        self, message: ValidUserInputMessage, state: UserState
+    ) -> Optional[Tuple[UserMessage, UserState]]:
+        if isinstance(message, UserMessage):
+            return None
+
+        if self._should_fetch_sms_code(message):
+            user_message = UserMessage(
+                role="user",
+                content=None,
+                tool_calls=[
+                    ToolCall(
+                        id="user_receive_sms_code",
+                        name="receive_sms_code",
+                        arguments={"user_id": self._get_known_user_id()},
+                        requestor="user",
+                    )
+                ],
+            )
+            state.messages.append(user_message)
+            return user_message, state
+
+        sms_code = self._extract_sms_code_from_tool_message(message)
+        if sms_code is not None:
+            user_message = UserMessage(role="user", content=sms_code)
+            state.messages.append(user_message)
+            return user_message, state
+
+        return None
+
+    def _should_fetch_sms_code(self, message: ValidUserInputMessage) -> bool:
+        if self.tools is None or not any(tool.name == "receive_sms_code" for tool in self.tools):
+            return False
+        if not hasattr(message, "content") or message.content is None:
+            return False
+        content = message.content.lower()
+        has_sms = "sms" in content
+        has_code = "código" in content or "codigo" in content or "code" in content
+        asks_user = any(
+            phrase in content
+            for phrase in [
+                "proporcion",
+                "ingresa",
+                "indica",
+                "comparte",
+                "dime",
+                "enví",
+                "envi",
+            ]
+        )
+        return has_sms and has_code and asks_user
+
+    def _extract_sms_code_from_tool_message(
+        self, message: ValidUserInputMessage
+    ) -> Optional[str]:
+        if not hasattr(message, "requestor") or message.requestor != "user":
+            return None
+        if not hasattr(message, "content") or message.content is None:
+            return None
+        try:
+            payload = json.loads(message.content)
+        except (json.JSONDecodeError, TypeError):
+            return None
+        code = payload.get("code")
+        if not isinstance(code, str) or not code.strip():
+            return None
+        return code.strip()
+
+    def _get_known_user_id(self) -> str:
+        instructions = self.instructions
+        if hasattr(instructions, "known_info") and instructions.known_info is not None:
+            match = re.search(r"user_id:\s*([A-Za-z0-9_-]+)", instructions.known_info)
+            if match:
+                return match.group(1)
+        raise ValueError("Could not determine user_id for deterministic SMS flow.")
 
 
 class DummyUser(UserSimulator):
