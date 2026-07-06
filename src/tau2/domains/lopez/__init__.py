@@ -1,0 +1,1 @@
+"""GamerBit Store domain."""
