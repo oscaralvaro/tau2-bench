@@ -98,6 +98,7 @@ class EnvironmentEvaluator(EvaluatorBase):
                     requestor=action.requestor,
                     **action.arguments,
                 )
+                gold_environment.sync_tools()
             except Exception as e:
                 logger.warning(
                     f"Error in golden actions {action.name}({action.arguments}): {e}"

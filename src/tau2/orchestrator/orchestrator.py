@@ -35,6 +35,12 @@ DEFAULT_FIRST_AGENT_MESSAGE = AssistantMessage(
     role="assistant", content="Hi! How can I help you today?", cost=0.0
 )
 
+RIVERA_FIRST_AGENT_MESSAGE = AssistantMessage(
+    role="assistant",
+    content="Hola, bienvenido a Estacion de Servicio Rivera. En que puedo ayudarte hoy?",
+    cost=0.0,
+)
+
 
 class Orchestrator:
     """
@@ -131,6 +137,12 @@ class Orchestrator:
         self.from_role: Optional[Role] = None
         self.to_role: Optional[Role] = None
         self.message: Optional[Message] = None
+
+    def _get_first_agent_message(self) -> AssistantMessage:
+        domain = getattr(self.task.user_scenario.instructions, "domain", None)
+        if domain == "estaciondeservicio_Rivera":
+            return deepcopy(RIVERA_FIRST_AGENT_MESSAGE)
+        return deepcopy(DEFAULT_FIRST_AGENT_MESSAGE)
 
     def initialize(self):
         """
@@ -278,7 +290,7 @@ class Orchestrator:
         else:
             self.user_state = self.user.get_init_state()
             if not self.solo_mode:
-                first_message = deepcopy(DEFAULT_FIRST_AGENT_MESSAGE)
+                first_message = self._get_first_agent_message()
                 first_message.timestamp = get_now()
                 self.agent_state = self.agent.get_init_state(
                     message_history=[first_message]
