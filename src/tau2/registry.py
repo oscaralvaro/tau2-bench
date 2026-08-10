@@ -93,7 +93,11 @@ from tau2.domains.burger.environment import (
 
 
 # START DOMAIN IMPORT: Santiago Azur Núñez Arcaya
-
+from tau2.domains.divemotor_santiago.environment import (
+    get_environment as divemotor_santiago_get_environment,
+    get_tasks as divemotor_santiago_get_tasks,
+    get_tasks_split as divemotor_santiago_get_tasks_split,
+)
 # END DOMAIN IMPORT: Santiago Azur Núñez Arcaya
 
 
@@ -117,7 +121,13 @@ from tau2.domains.burger.environment import (
 
 
 # START DOMAIN IMPORT: Francesco Eduardo Gastelo Boulangger
-
+from tau2.domains.filtro_gastelo.environment import (
+    get_environment as filtro_gastelo_domain_get_environment,
+)
+from tau2.domains.filtro_gastelo.environment import get_tasks as filtro_gastelo_domain_get_tasks
+from tau2.domains.filtro_gastelo.environment import (
+    get_tasks_split as filtro_gastelo_domain_get_tasks_split,
+)
 # END DOMAIN IMPORT: Francesco Eduardo Gastelo Boulangger
 
 
@@ -163,6 +173,11 @@ from tau2.environment.environment import Environment
 from tau2.user.base import BaseUser
 from tau2.user.user_simulator import DummyUser, UserSimulator
 
+from tau2.domains.filtro_gastelo.environment import (
+    get_environment as filtro_gastelo_get_environment,
+    get_tasks as filtro_gastelo_get_tasks,
+    get_tasks_split as filtro_gastelo_get_tasks_split,
+)
 
 class RegistryInfo(BaseModel):
     """Options for the registry"""
@@ -409,7 +424,12 @@ try:
 
 
     # START DOMAIN REGISTRATION: Santiago Azur Núñez Arcaya
-
+    registry.register_domain(divemotor_santiago_get_environment, "divemotor_santiago")
+    registry.register_tasks(
+        divemotor_santiago_get_tasks,
+        "divemotor_santiago",
+        get_task_splits=divemotor_santiago_get_tasks_split,
+    )
     # END DOMAIN REGISTRATION: Santiago Azur Núñez Arcaya
 
 
@@ -433,7 +453,12 @@ try:
 
 
     # START DOMAIN REGISTRATION: Francesco Eduardo Gastelo Boulangger
-
+    registry.register_domain(filtro_gastelo_domain_get_environment, "filtro_gastelo")
+    registry.register_tasks(
+        filtro_gastelo_domain_get_tasks,
+        "filtro_gastelo",
+        get_task_splits=filtro_gastelo_domain_get_tasks_split,
+    )
     # END DOMAIN REGISTRATION: Francesco Eduardo Gastelo Boulangger
 
 
@@ -479,6 +504,12 @@ try:
         telecom_domain_get_tasks,
         "telecom-workflow",
         get_task_splits=telecom_domain_get_tasks_split,
+    )
+    registry.register_domain(filtro_gastelo_get_environment, "filtro_gastelo")
+    registry.register_tasks(
+        filtro_gastelo_get_tasks,
+        "filtro_gastelo",
+        get_task_splits=filtro_gastelo_get_tasks_split,
     )
 
     logger.debug(
