@@ -52,7 +52,11 @@ from tau2.domains.burger.environment import (
 
 
 # START DOMAIN IMPORT: Maricielo Nicolle Irigoin Cabrera
-
+from tau2.domains.sanita_irigoin.environment import (
+    get_environment as sanita_irigoin_get_environment,
+    get_tasks as sanita_irigoin_get_tasks,
+    get_tasks_split as sanita_irigoin_get_tasks_split,
+)
 # END DOMAIN IMPORT: Maricielo Nicolle Irigoin Cabrera
 
 
@@ -368,8 +372,14 @@ try:
 
 
     # START DOMAIN REGISTRATION: Maricielo Nicolle Irigoin Cabrera
-
-    # END DOMAIN REGISTRATION: Maricielo Nicolle Irigoin Cabrera
+    registry.register_domain(sanita_irigoin_get_environment, "sanita_irigoin")
+    registry.register_tasks(
+    sanita_irigoin_get_tasks,
+    "sanita_irigoin",
+    get_task_splits=sanita_irigoin_get_tasks_split,
+    )
+# END DOMAIN REGISTRATION: Sanita Irigoin
+   # END DOMAIN REGISTRATION: Maricielo Nicolle Irigoin Cabrera
 
 
 
