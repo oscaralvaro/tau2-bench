@@ -117,7 +117,15 @@ class NLAssertionsEvaluator:
             messages=messages,
             **DEFAULT_LLM_NL_ASSERTIONS_ARGS,
         )
-        result_data = json.loads(assistant_message.content)
+        try:
+            result_data = json.loads(
+                cls._extract_json_payload(assistant_message.content)
+            )
+        except (json.JSONDecodeError, TypeError):
+            return cls._fallback_failed_checks(
+                nl_assertions,
+                "Evaluator model returned a non-JSON or empty response.",
+            )
         return [
             NLAssertionCheck(
                 nl_assertion=result["expectedOutcome"],
@@ -125,4 +133,31 @@ class NLAssertionsEvaluator:
                 justification=result["reasoning"],
             )
             for result in result_data.get("results", [])
+        ]
+
+    @staticmethod
+    def _extract_json_payload(content: str | None) -> str | None:
+        if content is None:
+            return None
+        stripped = content.strip()
+        if stripped.startswith("```"):
+            lines = stripped.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            stripped = "\n".join(lines).strip()
+        return stripped
+
+    @staticmethod
+    def _fallback_failed_checks(
+        nl_assertions: list[str], justification: str
+    ) -> list[NLAssertionCheck]:
+        return [
+            NLAssertionCheck(
+                nl_assertion=assertion,
+                met=False,
+                justification=justification,
+            )
+            for assertion in nl_assertions
         ]
