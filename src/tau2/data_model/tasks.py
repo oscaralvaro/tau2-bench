@@ -29,6 +29,10 @@ class StructuredUserInstructions(BaseModel):
         Optional[str],
         Field(description="Unknown information about the user.", default=None),
     ]
+    evaluado_con_nota: Annotated[
+        Optional[bool],
+        Field(description="If the activity was evaluated with a grade.", default=None),
+    ]
     task_instructions: Annotated[str, Field(description="Instructions for the User.")]
 
     def __str__(self) -> str:
